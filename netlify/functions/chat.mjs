@@ -174,27 +174,93 @@ const GENERATE_TOOL = {
   },
 };
 
-// Netlify sync functions cap at ~10s; streaming responses can run much longer.
-// Both modes return NDJSON lines: {type:'delta'|'done'|'error', ...}. A heartbeat
-// keeps bytes flowing while the model works.
+// Netlify sync functions cap at ~10s; streaming responses can run much longer,
+// but not forever. If the platform kills the function mid-answer the socket just
+// closes and the client is left with no idea why — so every path here has to end
+// with a terminal line of our own, ahead of any external deadline.
+// Set PLANNER_BUDGET_MS to match whatever function timeout the site is on.
+const BUDGET_MS = Number(process.env.PLANNER_BUDGET_MS) || 25000;
+
+// Both modes return NDJSON lines: {type:'delta'|'building'|'done'|'error', ...}.
+// A heartbeat keeps bytes flowing while the model works.
 function streamResponse(run) {
   const enc = new TextEncoder();
   const body = new ReadableStream({
     async start(controller) {
-      const send = (obj) => controller.enqueue(enc.encode(JSON.stringify(obj) + '\n'));
+      let closed = false;
+      // enqueue throws once the stream is torn down. A failed send must never be
+      // the thing that takes down the error handler below — that turns a
+      // reportable failure into a silent truncated stream.
+      const send = (obj) => {
+        if (closed) return false;
+        try {
+          controller.enqueue(enc.encode(JSON.stringify(obj) + '\n'));
+          return true;
+        } catch {
+          closed = true;
+          return false;
+        }
+      };
       send({ type: 'start' });
-      const beat = setInterval(() => { try { send({ type: 'beat' }); } catch { /* closed */ } }, 4000);
+      const beat = setInterval(() => send({ type: 'beat' }), 4000);
       try {
         await run(send);
       } catch (err) {
-        send({ type: 'error', message: String(err?.message ?? err) });
+        send({ type: 'error', message: friendlyError(err) });
       } finally {
         clearInterval(beat);
-        controller.close();
+        closed = true;
+        try { controller.close(); } catch { /* already torn down */ }
       }
     },
   });
   return new Response(body, { headers: { 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-cache' } });
+}
+
+// Upstream failures arrive as raw status + JSON body. Riders get a sentence.
+function friendlyError(err) {
+  const status = err?.status;
+  if (status === 429) return 'The optimizer is rate limited right now — wait a minute and try again.';
+  if (status === 529 || status === 503) return 'The model service is busy right now. Try again in a moment.';
+  if (status === 401 || status === 403) return 'The Anthropic API key on this site was rejected — check it in the Netlify environment settings.';
+  if (status >= 500) return 'The model service errored out. Try again in a moment.';
+  return String(err?.message ?? err);
+}
+
+// Race the model against our own budget. Losing the race is a normal outcome we
+// can explain; being killed by the platform is not.
+function withDeadline(stream, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      try { stream.abort(); } catch { /* already finished */ }
+      const err = new Error('planner deadline exceeded');
+      err.code = 'deadline';
+      reject(err);
+    }, ms);
+    stream.finalMessage().then(
+      (msg) => { clearTimeout(timer); resolve(msg); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
+// Tool arguments stream as input_json_delta, which fires no 'text' event — a
+// large restructure is otherwise complete dead air on the wire and on screen.
+// Report progress so the caller can show work happening and tell a slow answer
+// apart from a dead one.
+function reportToolProgress(stream, send) {
+  const counter = { chars: 0 };
+  let lastPing = 0;
+  stream.on('streamEvent', (event) => {
+    if (event?.type !== 'content_block_delta') return;
+    if (event.delta?.type !== 'input_json_delta') return;
+    counter.chars += event.delta.partial_json?.length ?? 0;
+    if (counter.chars - lastPing >= 400) {
+      lastPing = counter.chars;
+      send({ type: 'building', chars: counter.chars });
+    }
+  });
+  return counter;
 }
 
 function handleGenerate(client, body) {
@@ -211,7 +277,18 @@ function handleGenerate(client, body) {
       tool_choice: { type: 'tool', name: 'generate_trip' },
       messages: [{ role: 'user', content: ask }],
     });
-    const response = await stream.finalMessage();
+    reportToolProgress(stream, send);
+    let response;
+    try {
+      response = await withDeadline(stream, BUDGET_MS);
+    } catch (err) {
+      if (err?.code !== 'deadline') throw err;
+      send({
+        type: 'error',
+        message: 'The builder ran out of time before the itinerary was complete. Try fewer days, or a shorter description.',
+      });
+      return;
+    }
     if (response.stop_reason === 'refusal') {
       send({ type: 'error', message: 'The builder declined that request — try rephrasing.' });
       return;
@@ -266,9 +343,32 @@ export default async (req) => {
       messages: apiMessages,
     });
     stream.on('text', (t) => send({ type: 'delta', text: t }));
-    const response = await stream.finalMessage();
+    const progress = reportToolProgress(stream, send);
+    let response;
+    try {
+      response = await withDeadline(stream, BUDGET_MS);
+    } catch (err) {
+      if (err?.code !== 'deadline') throw err;
+      // A half-written op list can't be applied, but the user should know the
+      // request was too big rather than that "something went wrong".
+      send({
+        type: 'error',
+        message: progress.chars > 0
+          ? 'The restructure was too large to finish in the time the server allows. Ask for one day, or one leg, at a time and apply them in sequence.'
+          : 'The optimizer ran out of time without answering — either the service is slow right now or the question is too big. Try again, or narrow it down.',
+      });
+      return;
+    }
     if (response.stop_reason === 'refusal') {
       send({ type: 'done', text: 'The optimizer declined that request. Try rephrasing it.', proposal: null });
+      return;
+    }
+    if (response.stop_reason === 'max_tokens') {
+      // The tool arguments are truncated JSON at this point — unusable.
+      send({
+        type: 'error',
+        message: 'The answer hit its length limit before it was complete. Ask for a smaller change set — one day at a time applies cleanly.',
+      });
       return;
     }
     let text = '';
