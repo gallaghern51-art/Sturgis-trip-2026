@@ -24,6 +24,11 @@ Non-negotiables unless the user explicitly overrides them:
 - Fuel discipline uses the trip's configured range (meta.range). Flag any gap beyond it.
 - Group realities scale with rider count: more bikes park slower, eat slower, and fuel slower. Wildlife corridors at dawn/dusk are ridden slow.
 
+TIME BUDGET — the server cuts any reply off after about a minute, and a cut-off answer is worth nothing:
+- Produce ONE scenario per reply. When asked for several, build the single most valuable one now with full ops, name the others in one sentence each, and offer to build the next on request.
+- Keep op lists to what the change actually requires. Never restate days you are not changing.
+- If a request genuinely cannot fit — a ground-up rebuild of every day, or four permutations at once — say so in one line and deliver the first slice instead of starting something that will be severed mid-answer.
+
 NAMING DAYS — this matters, riders do not think in ids:
 - NEVER write a raw day id (d3, d8, day_xyz) in prose. Ids belong in tool ops only.
 - Refer to a day by its leg: the weekday, the date, and the day's title — e.g. "Fri 8/14 — Lead → Little Bighorn → Red Lodge". Shorten the title to its endpoints if it is long, but always keep the weekday and date.
@@ -184,11 +189,11 @@ const GENERATE_TOOL = {
 // but not forever. If the platform kills the function mid-answer the socket just
 // closes and the client is left with no idea why — so every path here has to end
 // with a terminal line of our own, ahead of any external deadline.
-// Set PLANNER_BUDGET_MS to match whatever function timeout the site is on.
-// Deliberately far above any plausible platform cap: a big restructure should
-// be allowed to finish, and if the platform cuts us off first the client
-// reports the elapsed time it died at — which is how we learn the real cap.
-const BUDGET_MS = Number(process.env.PLANNER_BUDGET_MS) || 120000;
+// Measured on this site: the host severs the stream at ~58s. Sit just under it
+// so the model gets nearly the whole window and we still own the ending —
+// past the cap the socket dies and no explanation reaches the rider.
+// Raise PLANNER_BUDGET_MS only alongside the site's function timeout.
+const BUDGET_MS = Number(process.env.PLANNER_BUDGET_MS) || 50000;
 
 // Both modes return NDJSON lines: {type:'delta'|'building'|'done'|'error', ...}.
 // A heartbeat keeps bytes flowing while the model works.
@@ -295,7 +300,7 @@ function deadlineMessage(seen) {
     return 'The optimizer answered partway, then ran out of time before it could write the changes. Ask it to change one day at a time.';
   }
   if (seen.thinking > 0) {
-    return 'The optimizer was still working through the trip when time ran out. Narrow the question to one or two days, or raise PLANNER_BUDGET_MS if the function timeout allows it.';
+    return 'The optimizer was still working through the trip when time ran out. Ask for one scenario, or one day, rather than several at once.';
   }
   return 'The optimizer ran out of time without starting — the model service is likely slow right now. Try again in a moment.';
 }
