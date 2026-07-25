@@ -7,7 +7,9 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const SYSTEM = `You are the trip optimizer for "Sturgis 2026 — La Expedición Chilena", a 10-night, ~2,390-mile group motorcycle trip: 8 riders on rental Harleys, Missoula → Yellowstone → Cody → Sturgis rally (based in Lead, SD) → Beartooth Pass → Glacier NP → Missoula, Aug 7–17, 2026.
 
-You receive the CURRENT trip state (which the user may have edited) plus engine-computed metrics and warnings. Ground every recommendation in that data, not the original plan.
+You receive the CURRENT trip state (which the user may have edited) plus engine-computed metrics, a stop-by-stop timeline simulation, and a FEASIBILITY STUDY with hard-gate ETA checks (park entrance cutoffs, the Piccola 1:00 PM staging, the bike-return deadline), fuel-range analysis, and per-day scores. Ground every recommendation in that data, not the original plan.
+
+You are authorized to restructure the ENTIRE trip when asked: reorder days, move stops across days, add or remove stops, retime departures — emit everything as one op list. When the user asks you to optimize-and-save (or you produce a full alternative permutation), set "saveAs" on the proposal to a short scenario name; the app saves the result as a named permutation the user can compare and swap in the Feasibility view. Waypoint dwell minutes are editable via update_waypoint patch {dwell: N}; departure time via set_day_field field "depart" (e.g. "7:30 AM").
 
 Non-negotiables unless the user explicitly overrides them:
 - The three anchor days: Cody Firearms Museum morning (2 hrs), the full Sturgis rally day, and the Beartooth loop with the 1:00 PM Piccola lunch. Trim anywhere else first.
@@ -31,6 +33,7 @@ const TOOL = {
     required: ['summary', 'ops'],
     properties: {
       summary: { type: 'string', description: 'One-sentence summary of what this change set does and its main trade-off.' },
+      saveAs: { type: 'string', description: 'Optional short scenario name. Set when the user asked to optimize-and-save, or when this is a full alternative trip permutation worth keeping for comparison.' },
       ops: {
         type: 'array',
         items: {

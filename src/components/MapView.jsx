@@ -2,7 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
-import { haversineMiles } from '../engine/tripEngine.js';
+import { haversineMiles, bestInsertIndex } from '../engine/tripEngine.js';
+import { dayTimeline, fmtTime, fmtDur } from '../engine/timeline.js';
 
 const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark';
 const STYLE_FALLBACK = 'https://tiles.openfreemap.org/styles/liberty';
@@ -29,12 +30,15 @@ const BASEMAPS = {
 const LIGHT_SAFE = { return: '#a8873a', prep: '#6b675e' };
 
 export default function MapView() {
-  const { state, dispatch, routes } = useTrip();
+  const { state, dispatch, routes, routedLegsByDay } = useTrip();
   const { trip, selectedDayId } = state;
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const readyRef = useRef(false);
+  const hoverPopupRef = useRef(null);
+  const routedRef = useRef(routedLegsByDay);
+  routedRef.current = routedLegsByDay;
   const [basemap, setBasemap] = React.useState('dark');
   const basemapRef = useRef('dark');
   basemapRef.current = basemap;
@@ -82,11 +86,17 @@ export default function MapView() {
     map.on('styledata', () => {
       if (readyRef.current) scheduleDraw();
     });
+    hoverPopupRef.current = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12, maxWidth: '280px' });
     // click empty map = add waypoint to the selected day
     map.on('click', (e) => {
       const { selectedDayId: dayId } = stateRef.current;
       if (!dayId) return;
       if (e.originalEvent._wpHandled) return;
+      // clicking a route line opens the leg modal, not the add-stop prompt
+      const lineIds = stateRef.current.trip.days
+        .map((d) => `route-${d.id}-line`)
+        .filter((id) => map.getLayer(id));
+      if (map.queryRenderedFeatures(e.point, { layers: lineIds }).length) return;
       const name = window.prompt('Add a stop here — name it:');
       if (!name) return;
       const day = stateRef.current.trip.days.find((d) => d.id === dayId);
@@ -151,6 +161,7 @@ export default function MapView() {
           paint: { 'line-color': color, 'line-width': 3, 'line-opacity': 0.9 },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         });
+        wireLegEvents(map, day.id, `${srcId}-line`);
       }
       const lineOpacity = active ? 0.95 : 0.25;
       map.setPaintProperty(`${srcId}-line`, 'line-color', color);
@@ -161,6 +172,55 @@ export default function MapView() {
     }
     // prune sources for deleted days
     drawMarkers();
+  }
+
+  // Which leg of a day is nearest to a clicked/hovered point.
+  function nearestLegIndex(day, pt) {
+    let best = 0;
+    let bestCost = Infinity;
+    for (let i = 0; i < day.waypoints.length - 1; i++) {
+      const a = day.waypoints[i];
+      const b = day.waypoints[i + 1];
+      const cost = haversineMiles(a, pt) + haversineMiles(pt, b) - haversineMiles(a, b);
+      if (cost < bestCost) { bestCost = cost; best = i; }
+    }
+    return best;
+  }
+
+  const wiredLayers = useRef(new Set());
+  function wireLegEvents(map, dayId, layerId) {
+    if (wiredLayers.current.has(layerId)) return;
+    wiredLayers.current.add(layerId);
+    map.on('mousemove', layerId, (e) => {
+      map.getCanvas().style.cursor = 'pointer';
+      const day = stateRef.current.trip.days.find((d) => d.id === dayId);
+      if (!day) return;
+      const pt = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+      const li = nearestLegIndex(day, pt);
+      const tl = dayTimeline(day, routedRef.current?.[dayId]);
+      const from = day.waypoints[li];
+      const to = day.waypoints[li + 1];
+      const seg = tl.stops[li + 1];
+      hoverPopupRef.current
+        .setLngLat(e.lngLat)
+        .setHTML(`
+          <div class="pp-name">${esc(day.dow)} · ${esc(shortLeg(from?.name))} → ${esc(shortLeg(to?.name))}</div>
+          <div class="pp-note">${seg ? `${Math.round(seg.legMiles)} mi · ${fmtDur(seg.legMin)} · ETA ${fmtTime(seg.arrive)}` : ''}</div>
+          <div class="pp-note">Click for leg details</div>`)
+        .addTo(map);
+    });
+    map.on('mouseleave', layerId, () => {
+      map.getCanvas().style.cursor = '';
+      hoverPopupRef.current?.remove();
+    });
+    map.on('click', layerId, (e) => {
+      e.originalEvent._wpHandled = true;
+      const day = stateRef.current.trip.days.find((d) => d.id === dayId);
+      if (!day) return;
+      const li = nearestLegIndex(day, { lat: e.lngLat.lat, lng: e.lngLat.lng });
+      hoverPopupRef.current?.remove();
+      dispatch({ type: 'open_modal', modal: { type: 'leg', dayId, legIndex: li } });
+    });
   }
 
   function drawMarkers() {
@@ -180,28 +240,30 @@ export default function MapView() {
         el.className = `wp-marker${w.fuel ? ' fuel' : ''}${w.kind === 'photo' ? ' photo' : ''}`;
         el.style.background = w.fuel ? '#e8622c' : w.kind === 'photo' ? '#f0e3c8' : color;
         if (isEnd) { el.style.width = '16px'; el.style.height = '16px'; }
-        el.addEventListener('click', (ev) => { ev.stopPropagation(); ev._wpHandled = true; });
-
         const marker = new maplibregl.Marker({ element: el, draggable: showAll })
           .setLngLat([w.lng, w.lat])
           .addTo(map);
 
-        const popupEl = document.createElement('div');
-        popupEl.innerHTML = `
-          <div class="pp-name">${esc(w.name)}</div>
-          ${w.mile != null ? `<div class="pp-note">Mile ${w.mile}${w.fuel ? ' · FUEL' : ''}</div>` : ''}
-          ${w.note ? `<div class="pp-note">${esc(w.note)}</div>` : ''}
-        `;
-        if (showAll) {
-          const actions = document.createElement('div');
-          actions.className = 'pp-actions';
-          const rm = document.createElement('button');
-          rm.textContent = 'Remove stop';
-          rm.onclick = () => dispatch({ type: 'apply_ops', ops: [{ op: 'remove_waypoint', dayId: day.id, waypointId: w.id }] });
-          actions.appendChild(rm);
-          popupEl.appendChild(actions);
-        }
-        marker.setPopup(new maplibregl.Popup({ offset: 14, closeButton: true }).setDOMContent(popupEl));
+        // hover: quick detail tooltip with ETA · click: full stop modal
+        el.addEventListener('mouseenter', () => {
+          const tl = dayTimeline(day, routedRef.current?.[day.id]);
+          const s = tl.stops.find((x) => x.id === w.id);
+          hoverPopupRef.current
+            .setLngLat([w.lng, w.lat])
+            .setHTML(`
+              <div class="pp-name">${esc(w.name)}</div>
+              <div class="pp-note">${day.dow} · ${s ? `ETA ${fmtTime(s.arrive)}` : ''}${w.fuel ? ' · FUEL' : ''}${w.kind === 'photo' ? ' · PHOTO' : ''}</div>
+              ${w.note ? `<div class="pp-note">${esc(w.note)}</div>` : ''}
+              <div class="pp-note">Click for details</div>`)
+            .addTo(map);
+        });
+        el.addEventListener('mouseleave', () => hoverPopupRef.current?.remove());
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          ev._wpHandled = true;
+          hoverPopupRef.current?.remove();
+          dispatch({ type: 'open_modal', modal: { type: 'stop', dayId: day.id, waypointId: w.id } });
+        });
 
         if (showAll) {
           marker.on('dragend', () => {
@@ -223,8 +285,8 @@ export default function MapView() {
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       <div className="map-hint">
         {selectedDay
-          ? <>Editing <b>{selectedDay.dow} {selectedDay.date.slice(5)}</b> — click map to add a stop · drag markers to move · click a marker to remove</>
-          : <>Whole-trip view — pick a day in the ribbon to edit its route</>}
+          ? <>Editing <b>{selectedDay.dow} {selectedDay.date.slice(5)}</b> — click map to add a stop · drag markers · click stops & legs for details</>
+          : <>Whole-trip view — hover a route for leg info, click for details, pick a day to edit</>}
       </div>
       <div className="basemap-switch">
         {Object.entries(BASEMAPS).map(([key, b]) => (
@@ -246,20 +308,11 @@ export default function MapView() {
   );
 }
 
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function shortLeg(name) {
+  if (!name) return '?';
+  return name.length > 22 ? name.slice(0, 21) + '…' : name;
 }
 
-// Cheapest place to splice a new point into an existing waypoint sequence.
-function bestInsertIndex(waypoints, pt) {
-  if (waypoints.length < 2) return waypoints.length;
-  let best = 1;
-  let bestCost = Infinity;
-  for (let i = 0; i < waypoints.length - 1; i++) {
-    const a = waypoints[i];
-    const b = waypoints[i + 1];
-    const cost = haversineMiles(a, pt) + haversineMiles(pt, b) - haversineMiles(a, b);
-    if (cost < bestCost) { bestCost = cost; best = i + 1; }
-  }
-  return best;
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }

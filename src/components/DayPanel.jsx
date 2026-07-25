@@ -5,6 +5,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
 import { fuelGaps } from '../engine/tripEngine.js';
+import { dayTimeline, fmtTime, fmtDur } from '../engine/timeline.js';
+import PlaceSearch from './PlaceSearch.jsx';
 
 export default function DayPanel({ day }) {
   const { state, dispatch, summary, routedLegsByDay } = useTrip();
@@ -13,6 +15,7 @@ export default function DayPanel({ day }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const gaps = fuelGaps(day, routedLegsByDay[day.id]);
   const longestGap = gaps.reduce((m, g) => Math.max(m, g.miles), 0);
+  const timeline = dayTimeline(day, routedLegsByDay[day.id]);
 
   const onDragEnd = (e) => {
     const { active, over } = e;
@@ -30,7 +33,15 @@ export default function DayPanel({ day }) {
         <div className="datebar">
           <span className="chip phase" style={{ background: phase?.color }}>{phase?.label}</span>
           {day.anchor && <span className="chip anchor">★ Anchor day — trim elsewhere first</span>}
-          <span className="chip">Depart {day.depart}</span>
+          <label className="chip depart-edit">Depart
+            <input
+              defaultValue={day.depart}
+              key={day.id + day.depart}
+              onBlur={(e) => { if (e.target.value !== day.depart) dispatch({ type: 'apply_ops', ops: [{ op: 'set_day_field', dayId: day.id, field: 'depart', value: e.target.value }] }); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+            />
+          </label>
+          <span className="chip">End ~{fmtTime(timeline.endMin)}</span>
         </div>
       </div>
 
@@ -55,14 +66,15 @@ export default function DayPanel({ day }) {
       )}
 
       <div className="section">
-        <h3>Route & stops <span className="cnt">{day.waypoints.length} · drag to reorder</span></h3>
+        <h3>Route & stops <span className="cnt">{day.waypoints.length} · drag to reorder · click for details</span></h3>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={day.waypoints.map((w) => w.id)} strategy={verticalListSortingStrategy}>
-            {day.waypoints.map((w) => (
-              <SortableWaypoint key={w.id} w={w} dayId={day.id} dispatch={dispatch} />
+            {day.waypoints.map((w, i) => (
+              <SortableWaypoint key={w.id} w={w} dayId={day.id} dispatch={dispatch} sched={timeline.stops[i]} first={i === 0} />
             ))}
           </SortableContext>
         </DndContext>
+        <PlaceSearch day={day} />
       </div>
 
       {day.modules?.length > 0 && (
@@ -141,17 +153,24 @@ export default function DayPanel({ day }) {
   );
 }
 
-function SortableWaypoint({ w, dayId, dispatch }) {
+function SortableWaypoint({ w, dayId, dispatch, sched, first }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: w.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   return (
     <div ref={setNodeRef} style={style} className={`wp-row${isDragging ? ' dragging' : ''}`}>
       <span className="grip" {...attributes} {...listeners}>⠿</span>
-      <span className="mile">{w.mile != null ? w.mile : '·'}</span>
-      <span className="nm">
+      <span className="eta">
+        {sched ? fmtTime(first ? sched.depart : sched.arrive) : '·'}
+        {!first && sched && sched.legMin > 0 && <span className="leg-t">+{fmtDur(sched.legMin)}</span>}
+      </span>
+      <span
+        className="nm clickable"
+        onClick={() => dispatch({ type: 'open_modal', modal: { type: 'stop', dayId, waypointId: w.id } })}
+      >
         {w.name}
         {w.fuel && <span className="tag fuel">FUEL</span>}
         {w.kind === 'photo' && <span className="tag photo">PHOTO</span>}
+        {sched && sched.dwell > 0 && <span className="tag dwell">{fmtDur(sched.dwell)}</span>}
       </span>
       <button
         className="rm"

@@ -94,6 +94,17 @@ function applyOp(t, op) {
       const m = (d.modules ?? []).find((x) => x.id === op.moduleId);
       if (!m) throw new Error(`unknown module ${op.moduleId}`);
       m.enabled = op.enabled ?? !m.enabled;
+      // Modules with real-world locations populate the map when switched on.
+      if (m.waypoints?.length) {
+        const ids = m.waypoints.map((_, i) => `${m.id}-wp${i}`);
+        d.waypoints = d.waypoints.filter((w) => !ids.includes(w.id));
+        if (m.enabled) {
+          // splice before the day's final waypoint so the route runs out and back
+          const at = Math.max(1, d.waypoints.length - 1);
+          const added = m.waypoints.map((mw, i) => ({ id: ids[i], kind: 'via', mile: null, note: '', ...mw }));
+          d.waypoints.splice(at, 0, ...added);
+        }
+      }
       return t;
     }
     case 'set_reservation_done': {

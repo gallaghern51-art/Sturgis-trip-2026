@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTrip } from '../engine/store.js';
 import { tripDigest } from '../engine/tripEngine.js';
+import { feasibilityDigest } from '../engine/timeline.js';
 import { describeOps } from '../engine/ops.js';
 
 const SUGGESTIONS = [
-  'Which days are overpacked, and what are the levers?',
+  'Run a full feasibility read — where does this plan break?',
+  'Rebuild the trip to fix every failed gate and save it as "Fixed gates"',
+  'Give me a lower-mileage permutation of the whole trip, save as "Relaxed"',
   'Fit the Badlands in — show me the honest trade-off',
-  'Rodeo night: worth it against the 5:45 AM sunrise?',
-  'Check my fuel gaps against the 180-mile rule',
 ];
 
 export default function ChatPanel({ onClose }) {
@@ -36,7 +37,7 @@ export default function ChatPanel({ onClose }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: next,
-          tripDigest: tripDigest(state.trip, routedLegsByDay),
+          tripDigest: `${tripDigest(state.trip, routedLegsByDay)}\n\n${feasibilityDigest(state.trip, routedLegsByDay)}`,
           tripJson: state.trip,
         }),
       });
@@ -59,9 +60,16 @@ export default function ChatPanel({ onClose }) {
   };
 
   const applyProposal = () => {
-    dispatch({ type: 'apply_ops', ops: state.pendingProposal.ops });
+    const { ops, saveAs } = state.pendingProposal;
+    dispatch({ type: 'apply_ops', ops });
+    if (saveAs) dispatch({ type: 'save_scenario', name: saveAs });
     dispatch({ type: 'clear_proposal' });
-    setMessages((m) => [...m, { role: 'assistant', content: 'Applied. The map, metrics, and warnings have recomputed — Undo reverses it if it reads wrong.' }]);
+    setMessages((m) => [...m, {
+      role: 'assistant',
+      content: saveAs
+        ? `Applied and saved as “${saveAs}” — compare permutations in the Feasibility view, Undo reverses the working plan.`
+        : 'Applied. The map, timeline, and feasibility have recomputed — Undo reverses it if it reads wrong.',
+    }]);
   };
 
   const proposal = state.pendingProposal;
@@ -86,7 +94,7 @@ export default function ChatPanel({ onClose }) {
 
       {proposal && (
         <div className="proposal">
-          <div className="p-title">Proposed changes</div>
+          <div className="p-title">Proposed changes{proposal.saveAs ? ` → saves as “${proposal.saveAs}”` : ''}</div>
           <div style={{ fontSize: 13, color: 'var(--ink)', marginTop: 4 }}>{proposal.summary}</div>
           <ul>
             {describeOps(state.trip, proposal.ops).map((d, i) => <li key={i}>{d}</li>)}

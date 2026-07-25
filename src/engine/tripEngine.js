@@ -53,6 +53,20 @@ export function legKey(a, b) {
   return `${a.lat.toFixed(4)},${a.lng.toFixed(4)}|${b.lat.toFixed(4)},${b.lng.toFixed(4)}`;
 }
 
+// Cheapest place to splice a new point into an existing waypoint sequence.
+export function bestInsertIndex(waypoints, pt) {
+  if (waypoints.length < 2) return waypoints.length;
+  let best = 1;
+  let bestCost = Infinity;
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const a = waypoints[i];
+    const b = waypoints[i + 1];
+    const cost = haversineMiles(a, pt) + haversineMiles(pt, b) - haversineMiles(a, b);
+    if (cost < bestCost) { bestCost = cost; best = i + 1; }
+  }
+  return best;
+}
+
 // Fuel analysis: walk the waypoints, measure gaps between fuel stops.
 export function fuelGaps(day, routedLegs) {
   const wps = day.waypoints;
