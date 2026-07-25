@@ -362,6 +362,11 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .msg.user { align-self: flex-end; background: var(--asphalt-3); border: 1px solid var(--line); }
 .msg.ai { align-self: flex-start; background: var(--asphalt-1); border: 1px solid var(--line); color: var(--ink); }
 .msg.ai .thinking { color: var(--ink-faint); font-family: var(--mono); font-size: 11px; }
+.msg .cut {
+  display: block; margin-top: 6px; padding-top: 5px; border-top: 1px dashed var(--line);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--danger);
+}
 .chat-suggest { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 8px; }
 .chat-suggest button {
   font-family: var(--mono); font-size: 10.5px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink-dim);
