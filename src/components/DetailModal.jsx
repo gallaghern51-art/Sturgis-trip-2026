@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useTrip } from '../engine/store.js';
 import { dayTimeline, fmtTime, fmtDur, dwellFor } from '../engine/timeline.js';
 import { PHASES } from '../data/seedTrip.js';
+import { geocode } from '../engine/geocode.js';
 
 export default function DetailModal() {
   const { state, dispatch, routedLegsByDay } = useTrip();
@@ -24,21 +25,38 @@ export default function DetailModal() {
 
 function StopDetail({ day, waypointId, trip, dispatch, routedLegsByDay, close }) {
   const w = day.waypoints.find((x) => x.id === waypointId);
-  const [form, setForm] = useState(w ? { name: w.name, note: w.note ?? '', dwell: dwellFor(w), fuel: !!w.fuel } : null);
+  const [form, setForm] = useState(w ? { name: w.name, note: w.note ?? '', dwell: dwellFor(w), fuel: !!w.fuel, lat: w.lat, lng: w.lng } : null);
+  const [places, setPlaces] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [moved, setMoved] = useState(false);
+  const timer = useRef(null);
   if (!w || !form) return <div className="modal-body">This stop no longer exists.</div>;
+
+  // Google-Maps-style: typing a place name geocodes live; picking a match
+  // rewrites the stop's coordinates and moves it on the map.
+  const onName = (text) => {
+    setForm((f) => ({ ...f, name: text }));
+    clearTimeout(timer.current);
+    if (text.trim().length < 3) { setPlaces([]); return; }
+    timer.current = setTimeout(async () => {
+      setSearching(true);
+      try { setPlaces(await geocode(text)); } catch { setPlaces([]); } finally { setSearching(false); }
+    }, 400);
+  };
+  const pickPlace = (p) => {
+    setForm((f) => ({ ...f, name: p.name, lat: p.lat, lng: p.lng }));
+    setMoved(true);
+    setPlaces([]);
+  };
   const tl = dayTimeline(day, routedLegsByDay[day.id]);
   const idx = day.waypoints.indexOf(w);
   const s = tl.stops[idx];
   const phase = PHASES[day.phase];
 
   const save = () => {
-    dispatch({
-      type: 'apply_ops',
-      ops: [{
-        op: 'update_waypoint', dayId: day.id, waypointId: w.id,
-        patch: { name: form.name, note: form.note, dwell: Number(form.dwell) || 0, fuel: form.fuel },
-      }],
-    });
+    const patch = { name: form.name, note: form.note, dwell: Number(form.dwell) || 0, fuel: form.fuel };
+    if (moved) { patch.lat = form.lat; patch.lng = form.lng; patch.mile = null; }
+    dispatch({ type: 'apply_ops', ops: [{ op: 'update_waypoint', dayId: day.id, waypointId: w.id, patch }] });
     close();
   };
   const moveTo = (toDayId) => {
@@ -67,7 +85,21 @@ function StopDetail({ day, waypointId, trip, dispatch, routedLegsByDay, close })
           <div className="ts-cell"><div className="n">{s ? fmtTime(s.depart) : '—'}</div><div className="l">Roll out</div></div>
           {idx > 0 && s && <div className="ts-cell"><div className="n">{Math.round(s.legMiles)} mi · {fmtDur(s.legMin)}</div><div className="l">Leg in</div></div>}
         </div>
-        <label className="fld">Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+        <label className="fld" style={{ position: 'relative' }}>Location / name
+          <input value={form.name} onChange={(e) => onName(e.target.value)} placeholder="Type any real place — e.g. Bozeman, MT" />
+          {searching && <div className="ps-status">searching…</div>}
+          {places.length > 0 && (
+            <div className="ps-results">
+              {places.map((p) => (
+                <button key={p.id} type="button" onClick={() => pickPlace(p)}>
+                  <span className="ps-name">{p.name}</span>
+                  <span className="ps-detail">{p.detail}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </label>
+        {moved && <div className="feas-ok">✓ Location updated → {form.lat.toFixed(4)}, {form.lng.toFixed(4)} — route re-snaps on save</div>}
         <label className="fld">Note<textarea rows={2} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label>
         <div className="fld-row">
           <label className="fld">Time here (min)<input type="number" min="0" step="5" value={form.dwell} onChange={(e) => setForm({ ...form, dwell: e.target.value })} /></label>
