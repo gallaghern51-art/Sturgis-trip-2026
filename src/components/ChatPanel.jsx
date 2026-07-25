@@ -39,6 +39,7 @@ export default function ChatPanel({ onClose }) {
           messages: next,
           tripDigest: `${tripDigest(state.trip, routedLegsByDay)}\n\n${feasibilityDigest(state.trip, routedLegsByDay)}`,
           tripJson: state.trip,
+          scenarios: state.scenarios.map((s) => ({ id: s.id, name: s.name, savedAt: s.savedAt })),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -60,15 +61,19 @@ export default function ChatPanel({ onClose }) {
   };
 
   const applyProposal = () => {
-    const { ops, saveAs } = state.pendingProposal;
+    const { ops, saveAs, overwriteScenarioId } = state.pendingProposal;
     dispatch({ type: 'apply_ops', ops });
-    if (saveAs) dispatch({ type: 'save_scenario', name: saveAs });
+    const target = state.scenarios.find((s) => s.id === overwriteScenarioId);
+    if (target) dispatch({ type: 'overwrite_scenario', id: target.id });
+    else if (saveAs) dispatch({ type: 'save_scenario', name: saveAs });
     dispatch({ type: 'clear_proposal' });
     setMessages((m) => [...m, {
       role: 'assistant',
-      content: saveAs
-        ? `Applied and saved as “${saveAs}” — compare permutations in the Feasibility view, Undo reverses the working plan.`
-        : 'Applied. The map, timeline, and feasibility have recomputed — Undo reverses it if it reads wrong.',
+      content: target
+        ? `Applied and updated scenario “${target.name}” — compare permutations in the Feasibility view.`
+        : saveAs
+          ? `Applied and saved as “${saveAs}” — compare permutations in the Feasibility view, Undo reverses the working plan.`
+          : 'Applied. The map, timeline, and feasibility have recomputed — Undo reverses it if it reads wrong.',
     }]);
   };
 

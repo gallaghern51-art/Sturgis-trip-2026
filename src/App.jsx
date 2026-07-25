@@ -9,12 +9,13 @@ import OverviewPanel from './components/OverviewPanel.jsx';
 import ChatPanel from './components/ChatPanel.jsx';
 import DetailModal from './components/DetailModal.jsx';
 import FeasibilityPanel from './components/FeasibilityPanel.jsx';
+import BudgetPanel from './components/BudgetPanel.jsx';
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [routes, setRoutes] = useState({}); // dayId -> {legs, geometry}
   const [chatOpen, setChatOpen] = useState(true);
-  const [feasOpen, setFeasOpen] = useState(false);
+  const [view, setView] = useState('plan'); // plan | feas | budget
   const fileRef = useRef(null);
 
   // Route every day whenever its waypoint sequence changes.
@@ -89,7 +90,8 @@ export default function App() {
               <option value="__save">＋ Save current as scenario</option>
               {state.scenarios.map((s) => <option key={s.id} value={s.id}>Load: {s.name}</option>)}
             </select>
-            <button className="btn" onClick={() => { setFeasOpen((v) => !v); dispatch({ type: 'select_day', dayId: null }); }}>{feasOpen ? 'Plan' : 'Feasibility'}</button>
+            <button className="btn" onClick={() => { setView(view === 'feas' ? 'plan' : 'feas'); dispatch({ type: 'select_day', dayId: null }); }}>{view === 'feas' ? 'Plan' : 'Feasibility'}</button>
+            <button className="btn" onClick={() => { setView(view === 'budget' ? 'plan' : 'budget'); dispatch({ type: 'select_day', dayId: null }); }}>{view === 'budget' ? 'Plan' : 'Budget'}</button>
             <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>Undo</button>
             <button className="btn" onClick={exportJson}>Export</button>
             <button className="btn" onClick={() => fileRef.current?.click()}>Import</button>
@@ -103,7 +105,7 @@ export default function App() {
           <MapView />
           <aside className="side">
             <div className="side-inner">
-              {selectedDay ? <DayPanel day={selectedDay} /> : feasOpen ? <FeasibilityPanel /> : <OverviewPanel />}
+              {selectedDay ? <DayPanel day={selectedDay} /> : view === 'feas' ? <FeasibilityPanel /> : view === 'budget' ? <BudgetPanel /> : <OverviewPanel routes={routes} />}
             </div>
           </aside>
           {chatOpen && <ChatPanel onClose={() => setChatOpen(false)} />}

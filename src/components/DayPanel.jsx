@@ -7,9 +7,11 @@ import { PHASES } from '../data/seedTrip.js';
 import { fuelGaps } from '../engine/tripEngine.js';
 import { dayTimeline, fmtTime, fmtDur } from '../engine/timeline.js';
 import PlaceSearch from './PlaceSearch.jsx';
+import ConditionsCard from './ConditionsCard.jsx';
+import { tripToGpx, downloadFile } from '../engine/exporters.js';
 
 export default function DayPanel({ day }) {
-  const { state, dispatch, summary, routedLegsByDay } = useTrip();
+  const { state, dispatch, summary, routedLegsByDay, routes } = useTrip();
   const per = summary.perDay.find((p) => p.id === day.id);
   const phase = PHASES[day.phase];
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -42,6 +44,11 @@ export default function DayPanel({ day }) {
             />
           </label>
           <span className="chip">End ~{fmtTime(timeline.endMin)}</span>
+          <button
+            className="chip gpx-btn"
+            title="Download this day as a GPX route for Garmin / phone nav"
+            onClick={() => downloadFile(`sturgis-${day.date}-${day.dow.toLowerCase()}.gpx`, tripToGpx(state.trip, routes, day.id), 'application/gpx+xml')}
+          >⬇ GPX</button>
         </div>
       </div>
 
@@ -76,6 +83,8 @@ export default function DayPanel({ day }) {
         </DndContext>
         <PlaceSearch day={day} />
       </div>
+
+      <ConditionsCard day={day} />
 
       {day.modules?.length > 0 && (
         <div className="section">

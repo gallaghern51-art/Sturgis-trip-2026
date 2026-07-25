@@ -4,9 +4,11 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities';
 import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
+import { tripToGpx, tripToIcs, downloadFile } from '../engine/exporters.js';
+import { ROAD_STATUS_LINKS } from '../engine/conditions.js';
 
 export default function OverviewPanel() {
-  const { state, dispatch, summary } = useTrip();
+  const { state, dispatch, summary, routes, routedLegsByDay } = useTrip();
   const { trip } = state;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -48,6 +50,27 @@ export default function OverviewPanel() {
             </div>
           </SortableContext>
         </DndContext>
+      </div>
+
+      <div className="section">
+        <h3>Ride pack</h3>
+        <div className="ridepack">
+          <button className="btn" onClick={() => downloadFile('sturgis-2026-full-trip.gpx', tripToGpx(trip, routes), 'application/gpx+xml')}>⬇ GPX — full trip</button>
+          <button className="btn" onClick={() => downloadFile('sturgis-2026.ics', tripToIcs(trip, routedLegsByDay), 'text/calendar')}>⬇ Calendar (.ics)</button>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--ink-dim)', marginTop: 6 }}>
+          GPX loads into Garmin, Rever, or any nav app (per-day GPX is on each day panel).
+          The calendar file drops all 11 days — departures, gates, dinners — into everyone's phone in Mountain Time.
+        </p>
+      </div>
+
+      <div className="section">
+        <h3>Road status & smoke <span className="cnt">check the week of</span></h3>
+        <ul className="road-links">
+          {ROAD_STATUS_LINKS.map((l) => (
+            <li key={l.url}><a href={l.url} target="_blank" rel="noreferrer">{l.name} ↗</a></li>
+          ))}
+        </ul>
       </div>
 
       <div className="section">

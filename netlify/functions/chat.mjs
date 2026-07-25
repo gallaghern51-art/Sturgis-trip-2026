@@ -9,7 +9,12 @@ const SYSTEM = `You are the trip optimizer for "Sturgis 2026 — La Expedición 
 
 You receive the CURRENT trip state (which the user may have edited) plus engine-computed metrics, a stop-by-stop timeline simulation, and a FEASIBILITY STUDY with hard-gate ETA checks (park entrance cutoffs, the Piccola 1:00 PM staging, the bike-return deadline), fuel-range analysis, and per-day scores. Ground every recommendation in that data, not the original plan.
 
-You are authorized to restructure the ENTIRE trip when asked: reorder days, move stops across days, add or remove stops, retime departures — emit everything as one op list. When the user asks you to optimize-and-save (or you produce a full alternative permutation), set "saveAs" on the proposal to a short scenario name; the app saves the result as a named permutation the user can compare and swap in the Feasibility view. Waypoint dwell minutes are editable via update_waypoint patch {dwell: N}; departure time via set_day_field field "depart" (e.g. "7:30 AM").
+You are authorized to restructure the ENTIRE trip when asked: reorder days, move stops across days, add or remove stops, retime departures — emit everything as one op list. Waypoint dwell minutes are editable via update_waypoint patch {dwell: N}; departure time via set_day_field field "depart" (e.g. "7:30 AM").
+
+SCENARIOS: the app stores named trip permutations. You receive the current scenario list (ids + names). Rules:
+- Whenever you produce a route optimization or any restructure bigger than a one-stop tweak, ALWAYS set "saveAs" to a short descriptive name (e.g. "Balanced Monday", "Badlands swap") so the result is saved as a new permutation automatically.
+- When the user refers to editing/updating an EXISTING scenario by name, set "overwriteScenarioId" to that scenario's id instead of saveAs. Ops always apply to the current working trip; the result is then written into that scenario.
+- Never reuse a name already in the list for saveAs — pick a distinct one.
 
 Non-negotiables unless the user explicitly overrides them:
 - The three anchor days: Cody Firearms Museum morning (2 hrs), the full Sturgis rally day, and the Beartooth loop with the 1:00 PM Piccola lunch. Trim anywhere else first.
@@ -33,7 +38,8 @@ const TOOL = {
     required: ['summary', 'ops'],
     properties: {
       summary: { type: 'string', description: 'One-sentence summary of what this change set does and its main trade-off.' },
-      saveAs: { type: 'string', description: 'Optional short scenario name. Set when the user asked to optimize-and-save, or when this is a full alternative trip permutation worth keeping for comparison.' },
+      saveAs: { type: 'string', description: 'Short scenario name. REQUIRED whenever this proposal is a route optimization or multi-day restructure — the app saves the applied result as a new named permutation. Omit only for trivial single-stop tweaks.' },
+      overwriteScenarioId: { type: 'string', description: 'Set instead of saveAs when the user asked to edit/update an existing scenario — the id from the provided scenario list. The applied result overwrites that scenario.' },
       ops: {
         type: 'array',
         items: {
@@ -92,7 +98,7 @@ export default async (req) => {
   } catch {
     return Response.json({ error: 'invalid JSON' }, { status: 400 });
   }
-  const { messages = [], tripDigest = '', tripJson = null } = body;
+  const { messages = [], tripDigest = '', tripJson = null, scenarios = [] } = body;
   if (!Array.isArray(messages) || !messages.length) {
     return Response.json({ error: 'messages required' }, { status: 400 });
   }
@@ -100,7 +106,7 @@ export default async (req) => {
   const client = new Anthropic();
 
   // Trip context rides in the first user turn so the conversation stays clean.
-  const contextBlock = `<trip_state_digest>\n${tripDigest}\n</trip_state_digest>\n\n<trip_json>\n${JSON.stringify(tripJson)}\n</trip_json>`;
+  const contextBlock = `<trip_state_digest>\n${tripDigest}\n</trip_state_digest>\n\n<saved_scenarios>\n${JSON.stringify(scenarios)}\n</saved_scenarios>\n\n<trip_json>\n${JSON.stringify(tripJson)}\n</trip_json>`;
   const apiMessages = messages.map((m, i) => {
     if (i === 0 && m.role === 'user') {
       return { role: 'user', content: `${contextBlock}\n\n${m.content}` };
