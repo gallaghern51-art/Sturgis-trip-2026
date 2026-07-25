@@ -45,6 +45,7 @@ export const initialState = () => ({
   pendingProposal: null, // { ops, summary, saveAs } awaiting apply/dismiss
   scenarios: loadScenarios(), // saved trip permutations
   modal: null, // { type: 'stop'|'leg', dayId, waypointId?, legIndex? }
+  chatAsk: null, // question queued for the optimizer (e.g. from a feasibility rec)
 });
 
 export function reducer(state, action) {
@@ -78,6 +79,10 @@ export function reducer(state, action) {
       return { ...state, selectedDayId: action.dayId };
     case 'open_modal':
       return { ...state, modal: action.modal };
+    case 'ask_optimizer':
+      return { ...state, chatAsk: action.text };
+    case 'clear_chat_ask':
+      return { ...state, chatAsk: null };
     case 'close_modal':
       return { ...state, modal: null };
     case 'save_scenario': {

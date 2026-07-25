@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTrip } from '../engine/store.js';
 import { tripDigest } from '../engine/tripEngine.js';
 import { feasibilityDigest } from '../engine/timeline.js';
+import { splitsDigest } from '../engine/splits.js';
 import { describeOps } from '../engine/ops.js';
 
 const SUGGESTIONS = [
   'Run a full feasibility read — where does this plan break?',
+  'Where should we break up the loops and the long days?',
   'Rebuild the trip to fix every failed gate and save it as "Fixed gates"',
   'Give me a lower-mileage permutation of the whole trip, save as "Relaxed"',
-  'Fit the Badlands in — show me the honest trade-off',
 ];
 
 export default function ChatPanel({ onClose }) {
@@ -22,6 +23,15 @@ export default function ChatPanel({ onClose }) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, busy, state.pendingProposal]);
+
+  // Questions queued from elsewhere in the app (feasibility break-up recs) auto-send.
+  useEffect(() => {
+    if (state.chatAsk && !busy) {
+      const text = state.chatAsk;
+      dispatch({ type: 'clear_chat_ask' });
+      send(text);
+    }
+  }, [state.chatAsk]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = async (text) => {
     const content = (text ?? input).trim();
@@ -37,7 +47,7 @@ export default function ChatPanel({ onClose }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: next,
-          tripDigest: `${tripDigest(state.trip, routedLegsByDay)}\n\n${feasibilityDigest(state.trip, routedLegsByDay)}`,
+          tripDigest: `${tripDigest(state.trip, routedLegsByDay)}\n\n${feasibilityDigest(state.trip, routedLegsByDay)}\n\n${splitsDigest(state.trip, routedLegsByDay)}`,
           tripJson: state.trip,
           scenarios: state.scenarios.map((s) => ({ id: s.id, name: s.name, savedAt: s.savedAt })),
         }),

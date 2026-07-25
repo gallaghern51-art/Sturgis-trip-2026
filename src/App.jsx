@@ -43,6 +43,11 @@ export default function App() {
   const summary = useMemo(() => tripSummary(state.trip, routedLegsByDay), [state.trip, routedLegsByDay]);
   const selectedDay = state.trip.days.find((d) => d.id === state.selectedDayId) ?? null;
 
+  // A queued optimizer question (from a feasibility recommendation) opens the chat.
+  useEffect(() => {
+    if (state.chatAsk) setChatOpen(true);
+  }, [state.chatAsk]);
+
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(state.trip, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');

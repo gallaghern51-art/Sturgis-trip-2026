@@ -420,6 +420,12 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .feas-head .fd-title { font-family: var(--display); font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .feas-head .fd-times { font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); white-space: nowrap; }
 .feas-ok { font-size: 12px; color: var(--ok); padding: 3px 10px 0; opacity: 0.85; }
+.split-rec {
+  margin: 7px 0 0; padding: 9px 11px; border: 1px dashed var(--rally); border-radius: 6px;
+  background: rgba(229, 168, 59, 0.05); font-size: 12.5px; color: var(--ink-dim);
+}
+.split-rec .sr-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rally); margin-bottom: 3px; }
+.split-rec .btn { margin-top: 7px; font-size: 12px; padding: 4px 10px; }
 
 .scen-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .scen-table th { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }

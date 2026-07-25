@@ -2,6 +2,7 @@ import React from 'react';
 import { useTrip } from '../engine/store.js';
 import { tripFeasibility, fmtTime, fmtDur, gradeFor } from '../engine/timeline.js';
 import { tripSummary } from '../engine/tripEngine.js';
+import { splitRecommendations } from '../engine/splits.js';
 import { PHASES } from '../data/seedTrip.js';
 
 export default function FeasibilityPanel() {
@@ -9,6 +10,7 @@ export default function FeasibilityPanel() {
   const { trip, scenarios } = state;
   const feas = tripFeasibility(trip, routedLegsByDay);
   const summary = tripSummary(trip, routedLegsByDay);
+  const splits = splitRecommendations(trip, routedLegsByDay);
 
   return (
     <div>
@@ -44,6 +46,19 @@ export default function FeasibilityPanel() {
               ))}
               {oks.map((i, k) => (
                 <div key={`ok${k}`} className="feas-ok">✓ {i.text}</div>
+              ))}
+              {splits.filter((r) => r.dayId === d.id).map((r, k) => (
+                <div key={`sp${k}`} className="split-rec">
+                  <div className="sr-label">{r.type === 'loop' ? '◎ How to break this loop' : '✂ Where to split this day'}</div>
+                  <div>{r.text}</div>
+                  <button
+                    className="btn"
+                    onClick={() => dispatch({
+                      type: 'ask_optimizer',
+                      text: `Restructure ${d.dow} (${d.title}) using this break point analysis: "${r.text}" Rework the trip so this day becomes feasible — move stops to neighboring days, retime departures, or trim — keep the anchor days intact, and save the result as a scenario.`,
+                    })}
+                  >Have the optimizer restructure it →</button>
+                </div>
               ))}
             </div>
           );
