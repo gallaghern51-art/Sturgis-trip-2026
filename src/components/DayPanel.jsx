@@ -48,7 +48,7 @@ export default function DayPanel({ day }) {
           <button
             className="chip gpx-btn"
             title="Download this day as a GPX route for Garmin / phone nav"
-            onClick={() => downloadFile(`trip-${day.date}-${day.dow.toLowerCase()}.gpx`, tripToGpx(state.trip, routes, day.id), 'application/gpx+xml')}
+            onClick={() => downloadFile(`trip-${day.date}-${day.dow.toLowerCase()}.gpx`, tripToGpx(state.trip, routes, routedLegsByDay, day.id), 'application/gpx+xml')}
           >⬇ GPX</button>
         </div>
       </div>

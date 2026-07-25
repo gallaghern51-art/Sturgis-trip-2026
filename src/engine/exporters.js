@@ -1,22 +1,31 @@
 // Rider export pack: GPX tracks for Garmin/phone nav, ICS calendar for everyone's phone.
 
-import { dayTimeline } from './timeline.js';
+import { dayTimeline, fmtTime, fmtDur } from './timeline.js';
 
 const xml = (s) => String(s ?? '').replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
 
-function gpxSegment(day, route) {
+// Waypoint names carry the planned ETA ("3. Bozeman — ETA 11:50 AM") so any nav
+// device shows schedule vs. your clock at every stop, timezone-proof.
+function gpxSegment(day, route, routedLegs) {
+  const tl = dayTimeline(day, routedLegs);
   const wpts = day.waypoints
-    .map((w) => `  <wpt lat="${w.lat}" lon="${w.lng}"><name>${xml(w.name)}</name>${w.note ? `<desc>${xml(w.note)}</desc>` : ''}<sym>${w.fuel ? 'Gas Station' : w.kind === 'photo' ? 'Scenic Area' : 'Flag, Blue'}</sym></wpt>`)
+    .map((w, i) => {
+      const s = tl.stops[i];
+      const eta = s ? ` — ETA ${fmtTime(i === 0 ? s.depart : s.arrive)}` : '';
+      const stay = s && s.dwell > 0 ? ` · stay ${fmtDur(s.dwell)}, roll ${fmtTime(s.depart)}` : '';
+      const desc = [`Plan: arrive ${s ? fmtTime(s.arrive) : '?'}${stay}`, w.note].filter(Boolean).join(' | ');
+      return `  <wpt lat="${w.lat}" lon="${w.lng}"><name>${xml(`${i + 1}. ${w.name}${eta}`)}</name><cmt>${xml(desc)}</cmt><desc>${xml(desc)}</desc><sym>${w.fuel ? 'Gas Station' : w.kind === 'photo' ? 'Scenic Area' : 'Flag, Blue'}</sym></wpt>`;
+    })
     .join('\n');
   const coords = route?.geometry ?? day.waypoints.map((w) => [w.lng, w.lat]);
   const trkpts = coords.map(([lng, lat]) => `      <trkpt lat="${lat}" lon="${lng}"/>`).join('\n');
-  const track = `  <trk><name>${xml(`${day.dow} ${day.date} — ${day.title}`)}</name><trkseg>\n${trkpts}\n  </trkseg></trk>`;
+  const track = `  <trk><name>${xml(`${day.dow} ${day.date} — ${day.title} (${fmtTime(tl.departMin)} → ${fmtTime(tl.endMin)})`)}</name><trkseg>\n${trkpts}\n  </trkseg></trk>`;
   return { wpts, track };
 }
 
-export function tripToGpx(trip, routes, onlyDayId = null) {
+export function tripToGpx(trip, routes, routedLegsByDay = null, onlyDayId = null) {
   const days = onlyDayId ? trip.days.filter((d) => d.id === onlyDayId) : trip.days;
-  const parts = days.map((d) => gpxSegment(d, routes?.[d.id]));
+  const parts = days.map((d) => gpxSegment(d, routes?.[d.id], routedLegsByDay?.[d.id]));
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Sturgis 2026 Trip Planner" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>${xml(onlyDayId ? days[0]?.title : trip.meta.title)}</name></metadata>

@@ -61,7 +61,7 @@ export default function OverviewPanel() {
       <div className="section">
         <h3>Ride pack</h3>
         <div className="ridepack">
-          <button className="btn" onClick={() => downloadFile('trip-full.gpx', tripToGpx(trip, routes), 'application/gpx+xml')}>⬇ GPX — full trip</button>
+          <button className="btn" onClick={() => downloadFile('trip-full.gpx', tripToGpx(trip, routes, routedLegsByDay), 'application/gpx+xml')}>⬇ GPX — full trip</button>
           <button className="btn" onClick={() => downloadFile('trip-calendar.ics', tripToIcs(trip, routedLegsByDay), 'text/calendar')}>⬇ Calendar (.ics)</button>
         </div>
         <p style={{ fontSize: 12, color: 'var(--ink-dim)', marginTop: 6 }}>
