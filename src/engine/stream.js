@@ -19,6 +19,7 @@ export async function readPlannerStream(res, onLine) {
   const dec = new TextDecoder();
   let buf = '';
   let done = null;
+  let sawWork = false; // any real output at all, vs. a stream that died cold
   for (;;) {
     const { value, done: eof } = await reader.read();
     if (eof) break;
@@ -32,9 +33,21 @@ export async function readPlannerStream(res, onLine) {
       try { obj = JSON.parse(line); } catch { continue; }
       if (obj.type === 'error') throw new Error(obj.message || 'planner error');
       if (obj.type === 'done') done = obj;
+      if (obj.type === 'delta' || obj.type === 'building') sawWork = true;
       onLine?.(obj);
     }
   }
-  if (!done) throw new Error('The planner stream ended without a result — try again.');
+  if (!done) {
+    // The server emits a terminal line on every path it controls, so reaching
+    // EOF without one means the connection itself was severed — almost always
+    // the function being killed on a long answer.
+    const err = new Error(
+      sawWork
+        ? 'The optimizer was cut off partway through its answer — the request ran longer than the server allows. Ask for one day, or one leg, at a time.'
+        : 'The connection to the optimizer dropped before it answered. Check your signal and try again.'
+    );
+    err.code = 'stream_truncated';
+    throw err;
+  }
   return done;
 }
