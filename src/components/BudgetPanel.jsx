@@ -63,20 +63,22 @@ export default function BudgetPanel() {
 
       <div className="section">
         <h3>Fuel by day <span className="cnt">{Math.round(summary.totalMiles)} routed mi · {b.mpg} mpg · ${b.gas.toFixed(2)}/gal</span></h3>
-        <table className="scen-table">
-          <thead><tr><th>Day</th><th>Miles</th><th>Gal/bike</th><th>$/rider</th><th>$ group</th></tr></thead>
-          <tbody>
-            {perDay.map(({ d, miles, gallons, fuelRider: fr, fuelGroup }) => (
-              <tr key={d.id}>
-                <td>{d.dow} {fmtDayDate(d.date)} <span className="scen-date">{d.title.slice(0, 30)}</span></td>
-                <td>{Math.round(miles)}</td>
-                <td>{gallons.toFixed(1)}</td>
-                <td>{$(fr)}</td>
-                <td>{$(fuelGroup)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-wrap">
+          <table className="scen-table">
+            <thead><tr><th>Day</th><th>Miles</th><th>Gal/bike</th><th>$/rider</th><th>$ group</th></tr></thead>
+            <tbody>
+              {perDay.map(({ d, miles, gallons, fuelRider: fr, fuelGroup }) => (
+                <tr key={d.id}>
+                  <td>{d.dow} {fmtDayDate(d.date)} <span className="scen-date">{d.title.slice(0, 30)}</span></td>
+                  <td>{Math.round(miles)}</td>
+                  <td>{gallons.toFixed(1)}</td>
+                  <td>{$(fr)}</td>
+                  <td>{$(fuelGroup)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="section">

@@ -28,6 +28,7 @@ const BASEMAPS = {
 };
 // The cream "return" phase disappears on a light basemap — swap it for a legible tan.
 const LIGHT_SAFE = { return: '#a8873a', prep: '#6b675e' };
+const isTouch = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
 export default function MapView() {
   const { state, dispatch, routes, routedLegsByDay } = useTrip();
@@ -71,7 +72,9 @@ export default function MapView() {
       attributionControl: { compact: true },
     });
     mapRef.current = map;
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    // On touch, pinch-zoom replaces the +/− control and the screen is too
+    // small to spend on it.
+    if (!isTouch()) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     let fellBack = false;
     map.on('error', (e) => {
       if (!fellBack && String(e?.error?.message || '').match(/style|404|403/i)) {
@@ -106,7 +109,13 @@ export default function MapView() {
         ops: [{ op: 'add_waypoint', dayId, index: bestInsertIndex(day.waypoints, pt), waypoint: { name, ...pt, kind: 'via' } }],
       });
     });
-    return () => map.remove();
+    // The map is a hidden tab on mobile; maplibre only watches the window, so
+    // watch the container and re-measure whenever it comes back on screen.
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0 && entry.contentRect.height > 0) map.resize();
+    });
+    ro.observe(containerRef.current);
+    return () => { ro.disconnect(); map.remove(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // redraw on data change
@@ -130,7 +139,9 @@ export default function MapView() {
     const pts = days.flatMap((d) => d.waypoints.map((w) => [w.lng, w.lat]));
     if (!pts.length) return;
     const b = pts.reduce((acc, p) => acc.extend(p), new maplibregl.LngLatBounds(pts[0], pts[0]));
-    map.fitBounds(b, { padding: 70, duration: 700, maxZoom: 10.5 });
+    // A phone-width map has no room for desk-sized gutters.
+    const padding = map.getContainer().clientWidth < 560 ? 28 : 70;
+    map.fitBounds(b, { padding, duration: 700, maxZoom: 10.5 });
   }, [selectedDayId, trip.days.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function drawAll() {
@@ -239,7 +250,11 @@ export default function MapView() {
         const el = document.createElement('div');
         el.className = `wp-marker${w.fuel ? ' fuel' : ''}${w.kind === 'photo' ? ' photo' : ''}`;
         el.style.background = w.fuel ? '#e8622c' : w.kind === 'photo' ? '#f0e3c8' : color;
-        if (isEnd) { el.style.width = '16px'; el.style.height = '16px'; }
+        if (isEnd) {
+          const size = isTouch() ? '20px' : '16px';
+          el.style.width = size;
+          el.style.height = size;
+        }
         const marker = new maplibregl.Marker({ element: el, draggable: showAll })
           .setLngLat([w.lng, w.lat])
           .addTo(map);
@@ -285,8 +300,8 @@ export default function MapView() {
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       <div className="map-hint">
         {selectedDay
-          ? <>Editing <b>{selectedDay.dow} {selectedDay.date.slice(5)}</b> — click map to add a stop · drag markers · click stops & legs for details</>
-          : <>Whole-trip view — hover a route for leg info, click for details, pick a day to edit</>}
+          ? <>Editing <b>{selectedDay.dow} {selectedDay.date.slice(5)}</b><span className="hint-more"> — click map to add a stop · drag markers · click stops & legs for details</span></>
+          : <>Whole-trip view<span className="hint-more"> — hover a route for leg info, click for details, pick a day to edit</span></>}
       </div>
       <div className="basemap-switch">
         {Object.entries(BASEMAPS).map(([key, b]) => (

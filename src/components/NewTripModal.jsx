@@ -155,7 +155,7 @@ export default function NewTripModal({ onClose }) {
           {err && <div className="warning danger">⚠ {err}</div>}
         </div>
         <div className="modal-foot">
-          <span style={{ flex: 1, fontSize: 11.5, color: 'var(--ink-faint)' }}>
+          <span className="foot-note">
             {tab === 'ai' ? (busy ? 'Building the itinerary — routing real places…' : 'The AI drafts days, waypoints with coordinates, fuel stops, and lodging notes.') : ''}
           </span>
           <button className="btn" onClick={onClose}>Cancel</button>

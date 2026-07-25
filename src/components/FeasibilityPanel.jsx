@@ -75,32 +75,34 @@ export default function FeasibilityPanel() {
           </p>
         )}
         {scenarios.length > 0 && (
-          <table className="scen-table">
-            <thead>
-              <tr><th>Plan</th><th>Miles</th><th>Feas.</th><th></th><th></th></tr>
-            </thead>
-            <tbody>
-              <tr className="current">
-                <td>Current working plan</td>
-                <td>{Math.round(summary.totalMiles)}</td>
-                <td><span className={`grade grade-${feas.grade}`}>{feas.grade} {feas.overall}</span></td>
-                <td colSpan={2} />
-              </tr>
-              {scenarios.map((s) => {
-                const sf = tripFeasibility(s.trip, routedLegsByDay);
-                const ss = tripSummary(s.trip, routedLegsByDay);
-                return (
-                  <tr key={s.id}>
-                    <td>{s.name}<div className="scen-date">{new Date(s.savedAt).toLocaleDateString()} {new Date(s.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></td>
-                    <td>{Math.round(ss.totalMiles)}</td>
-                    <td><span className={`grade grade-${sf.grade}`}>{sf.grade} {sf.overall}</span></td>
-                    <td><button className="btn" onClick={() => { if (confirm(`Load “${s.name}” as the working plan? Current plan goes on the undo stack.`)) dispatch({ type: 'load_scenario', id: s.id }); }}>Load</button></td>
-                    <td><button className="btn danger-ghost" onClick={() => { if (confirm(`Delete scenario “${s.name}”?`)) dispatch({ type: 'delete_scenario', id: s.id }); }}>✕</button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="table-wrap">
+            <table className="scen-table">
+              <thead>
+                <tr><th>Plan</th><th>Miles</th><th>Feas.</th><th></th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr className="current">
+                  <td>Current working plan</td>
+                  <td>{Math.round(summary.totalMiles)}</td>
+                  <td><span className={`grade grade-${feas.grade}`}>{feas.grade} {feas.overall}</span></td>
+                  <td colSpan={2} />
+                </tr>
+                {scenarios.map((s) => {
+                  const sf = tripFeasibility(s.trip, routedLegsByDay);
+                  const ss = tripSummary(s.trip, routedLegsByDay);
+                  return (
+                    <tr key={s.id}>
+                      <td>{s.name}<div className="scen-date">{new Date(s.savedAt).toLocaleDateString()} {new Date(s.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></td>
+                      <td>{Math.round(ss.totalMiles)}</td>
+                      <td><span className={`grade grade-${sf.grade}`}>{sf.grade} {sf.overall}</span></td>
+                      <td><button className="btn" onClick={() => { if (confirm(`Load “${s.name}” as the working plan? Current plan goes on the undo stack.`)) dispatch({ type: 'load_scenario', id: s.id }); }}>Load</button></td>
+                      <td><button className="btn danger-ghost" onClick={() => { if (confirm(`Delete scenario “${s.name}”?`)) dispatch({ type: 'delete_scenario', id: s.id }); }}>✕</button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

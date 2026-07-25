@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTrip } from '../engine/store.js';
@@ -15,7 +15,12 @@ export default function DayPanel({ day }) {
   const { state, dispatch, summary, routedLegsByDay, routes } = useTrip();
   const per = summary.perDay.find((p) => p.id === day.id);
   const phase = PHASES[day.phase];
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // Mouse drags start immediately; touch drags wait out a short press so a
+  // finger swipe over the list scrolls instead of reordering stops.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+  );
   const gaps = fuelGaps(day, routedLegsByDay[day.id]);
   const longestGap = gaps.reduce((m, g) => Math.max(m, g.miles), 0);
   const timeline = dayTimeline(day, routedLegsByDay[day.id]);
@@ -74,7 +79,7 @@ export default function DayPanel({ day }) {
       )}
 
       <div className="section">
-        <h3>Route & stops <span className="cnt">{day.waypoints.length} · drag to reorder · click for details</span></h3>
+        <h3>Route & stops <span className="cnt">{day.waypoints.length} · drag ⠿ to reorder · tap for details</span></h3>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={day.waypoints.map((w) => w.id)} strategy={verticalListSortingStrategy}>
             {day.waypoints.map((w, i) => (

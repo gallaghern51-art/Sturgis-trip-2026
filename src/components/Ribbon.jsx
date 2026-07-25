@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
 import { fmtDayDate } from '../engine/dates.js';
@@ -6,9 +6,17 @@ import { fmtDayDate } from '../engine/dates.js';
 export default function Ribbon() {
   const { state, dispatch, summary } = useTrip();
   const { trip, selectedDayId } = state;
+  const ref = useRef(null);
+
+  // The ribbon is the day switcher on a phone, where it always overflows —
+  // keep the selected day in view when the selection changes from elsewhere.
+  useEffect(() => {
+    const el = ref.current?.querySelector('.seg.active');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [selectedDayId]);
 
   return (
-    <nav className="ribbon" aria-label="Trip days">
+    <nav className="ribbon" aria-label="Trip days" ref={ref}>
       <button
         className={`seg overview-seg${selectedDayId === null ? ' active' : ''}`}
         onClick={() => dispatch({ type: 'select_day', dayId: null })}
