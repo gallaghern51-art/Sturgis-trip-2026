@@ -143,6 +143,33 @@ export function tripSummary(trip, routedLegsByDay) {
 }
 
 // Compact plain-text digest of the whole trip + engine analysis, for the AI optimizer.
+// How a day should be named anywhere a human will read it.
+export const dayLabel = (d) => `${d.dow} ${fmtShortDate(d.date)} · ${d.title}`;
+const fmtShortDate = (iso) => {
+  const [, m, day] = (iso ?? '').split('-');
+  return m ? `${Number(m)}/${Number(day)}` : (iso ?? '');
+};
+
+// What the optimizer actually needs to reason about and edit. Photo essays,
+// operations checklists, and field notes are read-only prose no op can touch —
+// they only slow the model down before it starts answering.
+export function compactTripForModel(trip) {
+  return {
+    meta: trip.meta,
+    days: trip.days.map((d) => ({
+      id: d.id, label: dayLabel(d),
+      dow: d.dow, date: d.date, title: d.title, phase: d.phase, anchor: d.anchor,
+      depart: d.depart, summary: d.summary,
+      constraints: d.constraints ?? [], gates: d.gates ?? [],
+      waypoints: d.waypoints,
+      meals: d.meals ?? [],
+      lodging: d.lodging,
+      modules: (d.modules ?? []).map((m) => ({ id: m.id, name: m.name, duration: m.duration, enabled: m.enabled })),
+    })),
+    reserveNow: (trip.reserveNow ?? []).map((r) => ({ id: r.id, name: r.name, when: r.when, done: r.done })),
+  };
+}
+
 export function tripDigest(trip, routedLegsByDay) {
   const lines = [];
   lines.push(`${trip.meta.title} — ${trip.meta.riders} riders, start ${trip.meta.startDate}. Fuel rule: ${trip.meta.fuelRule ?? 'fill at half tank on long stretches'}`);
@@ -151,7 +178,9 @@ export function tripDigest(trip, routedLegsByDay) {
     const rh = dayRideHours(d, routedLegsByDay?.[d.id]);
     const sh = estimatedStopHours(d);
     lines.push('');
-    lines.push(`## ${d.id} · ${d.dow} ${d.date} · ${d.title} [phase:${d.phase}]${d.anchor ? ' [ANCHOR DAY]' : ''}`);
+    // Leg name first, id last and labelled — the model quotes what it reads,
+    // and riders do not think in ids.
+    lines.push(`## ${dayLabel(d)} [phase:${d.phase}]${d.anchor ? ' [ANCHOR DAY]' : ''} (id for ops only: ${d.id})`);
     lines.push(`~${m} mi, ~${rh.toFixed(1)}h riding + ~${sh.toFixed(1)}h stopped. Depart ${d.depart}.`);
     if (d.constraints?.length) lines.push(`Constraints: ${d.constraints.join(' | ')}`);
     lines.push(`Waypoints: ${d.waypoints.map((w) => `${w.id}:${w.name}${w.fuel ? ' [FUEL]' : ''}`).join(' → ')}`);

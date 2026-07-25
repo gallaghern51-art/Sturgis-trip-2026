@@ -24,6 +24,12 @@ Non-negotiables unless the user explicitly overrides them:
 - Fuel discipline uses the trip's configured range (meta.range). Flag any gap beyond it.
 - Group realities scale with rider count: more bikes park slower, eat slower, and fuel slower. Wildlife corridors at dawn/dusk are ridden slow.
 
+NAMING DAYS — this matters, riders do not think in ids:
+- NEVER write a raw day id (d3, d8, day_xyz) in prose. Ids belong in tool ops only.
+- Refer to a day by its leg: the weekday, the date, and the day's title — e.g. "Fri 8/14 — Lead → Little Bighorn → Red Lodge". Shorten the title to its endpoints if it is long, but always keep the weekday and date.
+- On later mentions in the same paragraph a short form is fine ("the Beartooth day", "Friday"), as long as the full leg name appeared first.
+- The same applies to stops and modules: name them, never their ids.
+
 How to respond:
 - Be direct and honest about trade-offs, in the voice of the field guide: state the cost of every option ("this buys you X but costs you Y").
 - When the user asks you to rework, reorder, add, or remove something, USE the propose_trip_changes tool with concrete ops referencing real ids from the trip JSON. Keep the accompanying text short — the proposal card shows the ops.
@@ -244,23 +250,47 @@ function withDeadline(stream, ms) {
   });
 }
 
-// Tool arguments stream as input_json_delta, which fires no 'text' event — a
-// large restructure is otherwise complete dead air on the wire and on screen.
-// Report progress so the caller can show work happening and tell a slow answer
-// apart from a dead one.
+// Tool arguments stream as input_json_delta and reasoning as thinking_delta —
+// neither fires a 'text' event, so a big restructure is otherwise complete dead
+// air. Track all three phases: it drives the progress readout, and when the
+// budget runs out it tells us how far the model actually got.
 function reportToolProgress(stream, send) {
-  const counter = { chars: 0 };
+  const seen = { chars: 0, thinking: 0, text: 0 };
   let lastPing = 0;
   stream.on('streamEvent', (event) => {
     if (event?.type !== 'content_block_delta') return;
-    if (event.delta?.type !== 'input_json_delta') return;
-    counter.chars += event.delta.partial_json?.length ?? 0;
-    if (counter.chars - lastPing >= 400) {
-      lastPing = counter.chars;
-      send({ type: 'building', chars: counter.chars });
+    const delta = event.delta ?? {};
+    if (delta.type === 'thinking_delta') {
+      seen.thinking += delta.thinking?.length ?? 0;
+    } else if (delta.type === 'text_delta') {
+      seen.text += delta.text?.length ?? 0;
+      return; // already streamed to the client as a 'delta'
+    } else if (delta.type === 'input_json_delta') {
+      seen.chars += delta.partial_json?.length ?? 0;
+    } else {
+      return;
+    }
+    const total = seen.chars + seen.thinking;
+    if (total - lastPing >= 400) {
+      lastPing = total;
+      send({ type: 'building', chars: seen.chars, thinking: seen.thinking });
     }
   });
-  return counter;
+  return seen;
+}
+
+// What to tell the rider when the budget runs out, based on how far it got.
+function deadlineMessage(seen) {
+  if (seen.chars > 0) {
+    return 'The change set was too large to finish in the time the server allows. Ask for one day, or one leg, at a time and apply them in sequence.';
+  }
+  if (seen.text > 0) {
+    return 'The optimizer answered partway, then ran out of time before it could write the changes. Ask it to change one day at a time.';
+  }
+  if (seen.thinking > 0) {
+    return 'The optimizer was still working through the trip when time ran out. Narrow the question to one or two days, or raise PLANNER_BUDGET_MS if the function timeout allows it.';
+  }
+  return 'The optimizer ran out of time without starting — the model service is likely slow right now. Try again in a moment.';
 }
 
 function handleGenerate(client, body) {
@@ -349,14 +379,9 @@ export default async (req) => {
       response = await withDeadline(stream, BUDGET_MS);
     } catch (err) {
       if (err?.code !== 'deadline') throw err;
-      // A half-written op list can't be applied, but the user should know the
-      // request was too big rather than that "something went wrong".
-      send({
-        type: 'error',
-        message: progress.chars > 0
-          ? 'The restructure was too large to finish in the time the server allows. Ask for one day, or one leg, at a time and apply them in sequence.'
-          : 'The optimizer ran out of time without answering — either the service is slow right now or the question is too big. Try again, or narrow it down.',
-      });
+      // A half-written op list can't be applied, but the rider should know
+      // which phase ran long rather than that "something went wrong".
+      send({ type: 'error', message: deadlineMessage(progress) });
       return;
     }
     if (response.stop_reason === 'refusal') {

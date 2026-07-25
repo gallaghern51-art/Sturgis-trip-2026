@@ -177,7 +177,13 @@ function applyOp(t, op) {
 
 // Human-readable description of an op list, for the AI proposal preview.
 export function describeOps(trip, ops) {
-  const dayName = (id) => trip.days.find((d) => d.id === id)?.title?.split('·')[0]?.trim() ?? id;
+  // Name the leg the way the optimizer is told to name it — never a raw id.
+  const dayName = (id) => {
+    const d = trip.days.find((x) => x.id === id);
+    if (!d) return 'a removed day';
+    const title = d.title?.split('·')[0]?.trim() || 'untitled';
+    return `${d.dow} ${d.date?.slice(5).replace(/^0?(\d+)-0?(\d+)$/, '$1/$2')} — ${title}`;
+  };
   return ops.map((op) => {
     switch (op.op) {
       case 'reorder_days': return 'Reorder the day sequence';

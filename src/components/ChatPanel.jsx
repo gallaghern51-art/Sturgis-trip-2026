@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTrip } from '../engine/store.js';
-import { tripDigest } from '../engine/tripEngine.js';
+import { tripDigest, compactTripForModel } from '../engine/tripEngine.js';
 import { feasibilityDigest } from '../engine/timeline.js';
 import { splitsDigest } from '../engine/splits.js';
 import { describeOps } from '../engine/ops.js';
@@ -18,7 +18,7 @@ export default function ChatPanel({ onClose }) {
   const [messages, setMessages] = useState([]); // {role, content}
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
-  const [building, setBuilding] = useState(0); // chars of tool JSON streamed so far
+  const [building, setBuilding] = useState(null); // {chars, thinking} streamed so far
   const [setupNeeded, setSetupNeeded] = useState(false);
   const scrollRef = useRef(null);
 
@@ -42,7 +42,7 @@ export default function ChatPanel({ onClose }) {
     const next = [...messages, { role: 'user', content }];
     setMessages(next);
     setBusy(true);
-    setBuilding(0);
+    setBuilding(null);
     dispatch({ type: 'clear_proposal' });
     try {
       const res = await fetch('/.netlify/functions/chat', {
@@ -53,7 +53,9 @@ export default function ChatPanel({ onClose }) {
           // them just invites the model to retry whatever already failed.
           messages: next.filter((m) => !m.local),
           tripDigest: `${tripDigest(state.trip, routedLegsByDay)}\n\n${feasibilityDigest(state.trip, routedLegsByDay)}\n\n${splitsDigest(state.trip, routedLegsByDay)}`,
-          tripJson: state.trip,
+          // Trimmed: read-only prose (photo notes, ops checklists, field notes)
+          // is prefill the model pays for before it can start answering.
+          tripJson: compactTripForModel(state.trip),
           scenarios: state.scenarios.map((s) => ({ id: s.id, name: s.name, savedAt: s.savedAt })),
         }),
       });
@@ -61,7 +63,7 @@ export default function ChatPanel({ onClose }) {
       let live = '';
       let started = false;
       const data = await readPlannerStream(res, (obj) => {
-        if (obj.type === 'building') setBuilding(obj.chars);
+        if (obj.type === 'building') setBuilding({ chars: obj.chars ?? 0, thinking: obj.thinking ?? 0 });
         if (obj.type === 'delta') {
           live += obj.text;
           if (!started) {
@@ -86,16 +88,17 @@ export default function ChatPanel({ onClose }) {
         setMessages((m) => [...m, { role: 'assistant', local: true, content: 'The optimizer needs an Anthropic API key configured on Netlify before it can run — see the note below.' }]);
       } else {
         setMessages((m) => {
-          // Drop the half-streamed reply — partial text reads as an answer.
-          const rest = m[m.length - 1]?.streaming ? m.slice(0, -1) : m;
-          return [...rest, { role: 'assistant', local: true, content: err.message }];
+          // Keep whatever streamed — the analysis is usually the useful half —
+          // but mark it so it is never mistaken for a finished answer.
+          const kept = m.map((x) => (x.streaming ? { ...x, streaming: false, partial: true } : x));
+          return [...kept, { role: 'assistant', local: true, content: err.message }];
         });
         // Hand the question back rather than making them retype it.
         setInput((cur) => cur || content);
       }
     } finally {
       setBusy(false);
-      setBuilding(0);
+      setBuilding(null);
     }
   };
 
@@ -131,14 +134,19 @@ export default function ChatPanel({ onClose }) {
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={`msg ${m.role === 'user' ? 'user' : 'ai'}`}>{m.content}</div>
+          <div key={i} className={`msg ${m.role === 'user' ? 'user' : 'ai'}`}>
+            {m.content}
+            {m.partial && <span className="cut">⋯ cut off here</span>}
+          </div>
         ))}
         {busy && (
           <div className="msg ai">
             <span className="thinking">
-              {building > 0
-                ? `drafting changes… ${building.toLocaleString()} characters`
-                : 'analyzing the route…'}
+              {!building
+                ? 'analyzing the route…'
+                : building.chars > 0
+                  ? `drafting changes… ${building.chars.toLocaleString()} characters`
+                  : 'reading the trip…'}
             </span>
           </div>
         )}
