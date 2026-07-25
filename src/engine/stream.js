@@ -20,6 +20,7 @@ export async function readPlannerStream(res, onLine) {
   let buf = '';
   let done = null;
   let sawWork = false; // any real output at all, vs. a stream that died cold
+  let lastMs = 0; // server-stamped elapsed time on the last line we received
   for (;;) {
     const { value, done: eof } = await reader.read();
     if (eof) break;
@@ -31,6 +32,7 @@ export async function readPlannerStream(res, onLine) {
       if (!line) continue;
       let obj;
       try { obj = JSON.parse(line); } catch { continue; }
+      if (typeof obj.ms === 'number') lastMs = obj.ms;
       if (obj.type === 'error') throw new Error(obj.message || 'planner error');
       if (obj.type === 'done') done = obj;
       if (obj.type === 'delta' || obj.type === 'building') sawWork = true;
@@ -39,14 +41,21 @@ export async function readPlannerStream(res, onLine) {
   }
   if (!done) {
     // The server emits a terminal line on every path it controls, so reaching
-    // EOF without one means the connection itself was severed — almost always
-    // the function being killed on a long answer.
+    // EOF without one means the connection itself was severed — the hosting
+    // platform killing the function on duration. The last line's timestamp is
+    // therefore a direct measurement of that cap; report it, it is the number
+    // needed to configure around this.
+    const secs = lastMs ? Math.round(lastMs / 1000) : null;
+    const cap = secs
+      ? ` The host cut it off after about ${secs}s — that is the function timeout, and no request can run longer until it is raised.`
+      : '';
     const err = new Error(
-      sawWork
-        ? 'The optimizer was cut off partway through its answer — the request ran longer than the server allows. Ask for one day, or one leg, at a time.'
-        : 'The connection to the optimizer dropped before it answered. Check your signal and try again.'
+      (sawWork
+        ? 'The optimizer was cut off partway through its answer.'
+        : 'The connection to the optimizer dropped before it answered.') + cap
     );
     err.code = 'stream_truncated';
+    err.elapsedMs = lastMs || null;
     throw err;
   }
   return done;
