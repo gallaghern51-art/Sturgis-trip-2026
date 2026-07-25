@@ -1,5 +1,5 @@
 import React from 'react';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTrip } from '../engine/store.js';
@@ -9,9 +9,15 @@ import { tripToGpx, tripToIcs, downloadFile } from '../engine/exporters.js';
 import { ROAD_STATUS_LINKS } from '../engine/conditions.js';
 
 export default function OverviewPanel() {
-  const { state, dispatch, summary, routes, routedLegsByDay } = useTrip();
+  const { state, dispatch, summary, routes, routedLegsByDay, ui } = useTrip();
   const { trip } = state;
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // The whole day row is the drag handle, so on touch the drag has to wait out
+  // a press-and-hold — otherwise the list could never be scrolled.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
+  const reorderHint = ui?.isMobile ? 'press & hold to reorder' : 'drag to reorder';
 
   const onDragEnd = (e) => {
     const { active, over } = e;
@@ -41,11 +47,11 @@ export default function OverviewPanel() {
         {anchors.length > 0
           ? `★ marks the ${anchors.length} anchor day${anchors.length > 1 ? 's' : ''} everything else is built around — if a day has to be trimmed, trim anywhere else first. `
           : ''}
-        Drag days to restructure — dates stay pinned to the calendar; content moves.
+        {ui?.isMobile ? 'Press and hold a day to restructure' : 'Drag days to restructure'} — dates stay pinned to the calendar; content moves.
       </p>
 
       <div className="section">
-        <h3>Days <span className="cnt">drag to reorder</span></h3>
+        <h3>Days <span className="cnt">{reorderHint}</span></h3>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={trip.days.map((d) => d.id)} strategy={verticalListSortingStrategy}>
             <div className="ov-days">

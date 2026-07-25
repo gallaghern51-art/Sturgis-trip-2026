@@ -6,7 +6,7 @@ import { fmtDayDate } from '../engine/dates.js';
 import { geocode } from '../engine/geocode.js';
 
 export default function DetailModal() {
-  const { state, dispatch, routedLegsByDay } = useTrip();
+  const { state, dispatch, routedLegsByDay, ui } = useTrip();
   const { modal, trip } = state;
   if (!modal) return null;
   const day = trip.days.find((d) => d.id === modal.dayId);
@@ -15,10 +15,10 @@ export default function DetailModal() {
 
   return (
     <div className="modal-backdrop" onClick={close}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         {modal.type === 'stop'
           ? <StopDetail day={day} waypointId={modal.waypointId} trip={trip} dispatch={dispatch} routedLegsByDay={routedLegsByDay} close={close} />
-          : <LegDetail day={day} legIndex={modal.legIndex} routedLegsByDay={routedLegsByDay} dispatch={dispatch} close={close} />}
+          : <LegDetail day={day} legIndex={modal.legIndex} routedLegsByDay={routedLegsByDay} dispatch={dispatch} close={close} showPanel={ui?.showPanel} />}
       </div>
     </div>
   );
@@ -120,7 +120,7 @@ function StopDetail({ day, waypointId, trip, dispatch, routedLegsByDay, close })
       </div>
       <div className="modal-foot">
         <button className="btn danger-ghost" onClick={remove}>Remove stop</button>
-        <span style={{ flex: 1 }} />
+        <span className="foot-spacer" />
         <button className="btn" onClick={close}>Cancel</button>
         <button className="btn gold" onClick={save}>Save</button>
       </div>
@@ -128,7 +128,7 @@ function StopDetail({ day, waypointId, trip, dispatch, routedLegsByDay, close })
   );
 }
 
-function LegDetail({ day, legIndex, routedLegsByDay, dispatch, close }) {
+function LegDetail({ day, legIndex, routedLegsByDay, dispatch, close, showPanel }) {
   const from = day.waypoints[legIndex];
   const to = day.waypoints[legIndex + 1];
   if (!from || !to) return <div className="modal-body">This leg no longer exists.</div>;
@@ -157,8 +157,8 @@ function LegDetail({ day, legIndex, routedLegsByDay, dispatch, close }) {
         {to.note && <div className="pp-note">End: {to.note}</div>}
       </div>
       <div className="modal-foot">
-        <button className="btn" onClick={() => { dispatch({ type: 'select_day', dayId: day.id }); close(); }}>Open this day</button>
-        <span style={{ flex: 1 }} />
+        <button className="btn" onClick={() => { dispatch({ type: 'select_day', dayId: day.id }); showPanel?.(); close(); }}>Open this day</button>
+        <span className="foot-spacer" />
         <button className="btn gold" onClick={close}>Done</button>
       </div>
     </>
