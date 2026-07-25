@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
+import { fmtLongDate } from '../engine/dates.js';
 import { fuelGaps } from '../engine/tripEngine.js';
 import { dayTimeline, fmtTime, fmtDur } from '../engine/timeline.js';
 import PlaceSearch from './PlaceSearch.jsx';
@@ -30,7 +31,7 @@ export default function DayPanel({ day }) {
   return (
     <div>
       <div className="day-head">
-        <div className="eyebrow">{day.dow} · Aug {day.date.slice(8).replace(/^0/, '')} · Day {state.trip.days.indexOf(day) + 1} of {state.trip.days.length}</div>
+        <div className="eyebrow">{day.dow} · {fmtLongDate(day.date)} · Day {state.trip.days.indexOf(day) + 1} of {state.trip.days.length}</div>
         <h2>{day.title}</h2>
         <div className="datebar">
           <span className="chip phase" style={{ background: phase?.color }}>{phase?.label}</span>
@@ -47,7 +48,7 @@ export default function DayPanel({ day }) {
           <button
             className="chip gpx-btn"
             title="Download this day as a GPX route for Garmin / phone nav"
-            onClick={() => downloadFile(`sturgis-${day.date}-${day.dow.toLowerCase()}.gpx`, tripToGpx(state.trip, routes, day.id), 'application/gpx+xml')}
+            onClick={() => downloadFile(`trip-${day.date}-${day.dow.toLowerCase()}.gpx`, tripToGpx(state.trip, routes, day.id), 'application/gpx+xml')}
           >⬇ GPX</button>
         </div>
       </div>
@@ -108,20 +109,7 @@ export default function DayPanel({ day }) {
         </div>
       )}
 
-      {day.meals?.length > 0 && (
-        <div className="section">
-          <h3>Food</h3>
-          {day.meals.map((m, i) => (
-            <div key={i} className="meal">
-              <div className="m-kind">{m.meal}</div>
-              <div className="m-name">{m.name}</div>
-              {m.where && <div className="m-where">{m.where}</div>}
-              {m.note && <div className="m-note">{m.note}</div>}
-              {m.alt && <div className="m-alt">{m.alt}</div>}
-            </div>
-          ))}
-        </div>
-      )}
+      <MealsSection day={day} dispatch={dispatch} />
 
       {day.photos?.length > 0 && (
         <div className="section">
@@ -132,7 +120,7 @@ export default function DayPanel({ day }) {
               <div className="p-why">{p.why}</div>
               <div className="p-meta">
                 <div><b>Light</b> — {p.light}</div>
-                <div><b>8 bikes</b> — {p.parking}</div>
+                <div><b>Parking</b> — {p.parking}</div>
                 {p.notes && <div><b>Note</b> — {p.notes}</div>}
               </div>
             </div>
@@ -140,22 +128,139 @@ export default function DayPanel({ day }) {
         </div>
       )}
 
-      {day.lodging && day.lodging.status !== 'none' && (
-        <div className="section">
-          <h3>Tonight</h3>
-          <div className={`lodging ${day.lodging.status}`}>
-            <div className="l-status">{day.lodging.status === 'booked' ? '● Confirmed booking' : '▲ Not yet booked — reserve now'}</div>
-            <div className="l-name">{day.lodging.name}</div>
-            <div className="l-where">{day.lodging.where}</div>
-            {day.lodging.note && <div className="l-note">{day.lodging.note}</div>}
-          </div>
-        </div>
-      )}
+      <LodgingSection day={day} dispatch={dispatch} />
 
       {day.ops?.length > 0 && (
         <div className="section">
           <h3>Operations</h3>
           <ul className="ops-list">{day.ops.map((o, i) => <li key={i}>{o}</li>)}</ul>
+        </div>
+      )}
+
+      <div className="section" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+        <button
+          className="btn danger-ghost"
+          onClick={() => {
+            if (state.trip.days.length <= 1) return alert('A trip needs at least one day.');
+            if (confirm(`Remove ${day.dow} — “${day.title}” and all its stops? Later days shift earlier.`)) {
+              dispatch({ type: 'select_day', dayId: null });
+              dispatch({ type: 'apply_ops', ops: [{ op: 'remove_day', dayId: day.id }] });
+            }
+          }}
+        >Remove this day</button>
+      </div>
+    </div>
+  );
+}
+
+const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner'];
+
+function MealsSection({ day, dispatch }) {
+  const [editing, setEditing] = useState(null); // meal slot being edited
+  const [form, setForm] = useState({});
+  const meals = day.meals ?? [];
+  const missing = MEAL_SLOTS.filter((s) => !meals.some((m) => m.meal === s));
+
+  const startEdit = (slot) => {
+    const m = meals.find((x) => x.meal === slot) ?? { meal: slot, name: '', where: '', note: '', alt: '' };
+    setForm(m);
+    setEditing(slot);
+  };
+  const save = () => {
+    dispatch({ type: 'apply_ops', ops: [{ op: 'update_meal', dayId: day.id, meal: editing, patch: { name: form.name, where: form.where, note: form.note, alt: form.alt } }] });
+    setEditing(null);
+  };
+
+  return (
+    <div className="section">
+      <h3>Food <span className="cnt">click ✎ to edit</span></h3>
+      {meals.map((m) => (
+        <div key={m.meal} className="meal">
+          {editing === m.meal ? (
+            <MealForm form={form} setForm={setForm} save={save} cancel={() => setEditing(null)} />
+          ) : (
+            <>
+              <div className="m-kind">{m.meal}
+                <button className="mini-edit" onClick={() => startEdit(m.meal)}>✎</button>
+                <button className="mini-edit" title="Remove meal" onClick={() => dispatch({ type: 'apply_ops', ops: [{ op: 'remove_meal', dayId: day.id, meal: m.meal }] })}>✕</button>
+              </div>
+              <div className="m-name">{m.name || '—'}</div>
+              {m.where && <div className="m-where">{m.where}</div>}
+              {m.note && <div className="m-note">{m.note}</div>}
+              {m.alt && <div className="m-alt">{m.alt}</div>}
+            </>
+          )}
+        </div>
+      ))}
+      {editing && !meals.some((m) => m.meal === editing) && (
+        <div className="meal"><div className="m-kind">{editing}</div><MealForm form={form} setForm={setForm} save={save} cancel={() => setEditing(null)} /></div>
+      )}
+      {missing.length > 0 && !editing && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          {missing.map((s) => <button key={s} className="btn" style={{ fontSize: 11, padding: '3px 9px' }} onClick={() => startEdit(s)}>＋ {s}</button>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MealForm({ form, setForm, save, cancel }) {
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div className="fld-row">
+        <label className="fld">Spot<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+        <label className="fld">Where<input value={form.where} onChange={(e) => setForm({ ...form, where: e.target.value })} /></label>
+      </div>
+      <label className="fld">Note<input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn gold" onClick={save}>Save</button>
+        <button className="btn" onClick={cancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function LodgingSection({ day, dispatch }) {
+  const [editing, setEditing] = useState(false);
+  const lodging = day.lodging ?? { status: 'none', name: '', where: '', note: '' };
+  const [form, setForm] = useState(lodging);
+
+  const save = () => {
+    dispatch({ type: 'apply_ops', ops: [{ op: 'update_lodging', dayId: day.id, patch: form }] });
+    setEditing(false);
+  };
+
+  return (
+    <div className="section">
+      <h3>Tonight <span className="cnt">lodging</span></h3>
+      {!editing ? (
+        <div className={`lodging ${lodging.status}`}>
+          <div className="l-status">
+            {lodging.status === 'booked' ? '● Confirmed booking' : lodging.status === 'reserve' ? '▲ Not yet booked — reserve now' : '○ No lodging set'}
+            <button className="mini-edit" onClick={() => { setForm(lodging); setEditing(true); }}>✎ edit</button>
+          </div>
+          <div className="l-name">{lodging.name || 'Nothing planned yet'}</div>
+          {lodging.where && <div className="l-where">{lodging.where}</div>}
+          {lodging.note && <div className="l-note">{lodging.note}</div>}
+        </div>
+      ) : (
+        <div className="lodging">
+          <div className="fld-row">
+            <label className="fld">Property / plan<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+            <label className="fld">Status
+              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                <option value="none">none</option>
+                <option value="reserve">needs booking</option>
+                <option value="booked">booked</option>
+              </select>
+            </label>
+          </div>
+          <label className="fld">Address / town<input value={form.where} onChange={(e) => setForm({ ...form, where: e.target.value })} /></label>
+          <label className="fld">Note<input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn gold" onClick={save}>Save</button>
+            <button className="btn" onClick={() => setEditing(false)}>Cancel</button>
+          </div>
         </div>
       )}
     </div>

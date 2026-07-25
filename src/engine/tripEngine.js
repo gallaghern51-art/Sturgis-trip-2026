@@ -1,10 +1,11 @@
 // Trip engine: pure functions that recompute metrics and warnings from trip state.
 // This is the "logic engine" — every edit re-runs through here so the plan stays honest.
 
-const HARLEY_COMFORT_RANGE = 180; // miles between fuel stops before a warning
-const HARLEY_MAX_RANGE = 200;
+export const DEFAULT_RANGE = { comfort: 180, absolute: 200, mpg: 45 }; // typical loaded cruiser
 const AVG_MOVING_MPH = 45; // blended two-lane / interstate / park-traffic average
 const LONG_DAY_HOURS = 12;
+
+export const tripRange = (trip) => ({ ...DEFAULT_RANGE, ...(trip?.meta?.range ?? {}) });
 
 export function haversineMiles(a, b) {
   const R = 3958.8;
@@ -89,14 +90,14 @@ export function fuelGaps(day, routedLegs) {
   return gaps;
 }
 
-export function dayWarnings(day, routedLegs) {
+export function dayWarnings(day, routedLegs, range = DEFAULT_RANGE) {
   const warnings = [];
   const gaps = fuelGaps(day, routedLegs);
   for (const g of gaps) {
-    if (g.miles > HARLEY_MAX_RANGE) {
-      warnings.push({ level: 'danger', text: `Fuel gap ${g.miles} mi (${g.from} → ${g.to}) exceeds the 200-mi absolute range.` });
-    } else if (g.miles > HARLEY_COMFORT_RANGE) {
-      warnings.push({ level: 'warn', text: `Fuel gap ${g.miles} mi (${g.from} → ${g.to}) is past the 180-mi comfort range.` });
+    if (g.miles > range.absolute) {
+      warnings.push({ level: 'danger', text: `Fuel gap ${g.miles} mi (${g.from} → ${g.to}) exceeds the ${range.absolute}-mi absolute range.` });
+    } else if (g.miles > range.comfort) {
+      warnings.push({ level: 'warn', text: `Fuel gap ${g.miles} mi (${g.from} → ${g.to}) is past the ${range.comfort}-mi comfort range.` });
     }
   }
   const rideH = dayRideHours(day, routedLegs);
@@ -124,6 +125,7 @@ export function estimatedStopHours(day) {
 
 export function tripSummary(trip, routedLegsByDay) {
   const days = trip.days;
+  const range = tripRange(trip);
   let miles = 0;
   const perDay = days.map((d) => {
     const m = dayMiles(d, routedLegsByDay?.[d.id]);
@@ -133,7 +135,7 @@ export function tripSummary(trip, routedLegsByDay) {
       miles: m,
       rideHours: dayRideHours(d, routedLegsByDay?.[d.id]),
       stopHours: estimatedStopHours(d),
-      warnings: dayWarnings(d, routedLegsByDay?.[d.id]),
+      warnings: dayWarnings(d, routedLegsByDay?.[d.id], range),
     };
   });
   const unbooked = days.filter((d) => d.lodging?.status === 'reserve').length;
@@ -143,7 +145,7 @@ export function tripSummary(trip, routedLegsByDay) {
 // Compact plain-text digest of the whole trip + engine analysis, for the AI optimizer.
 export function tripDigest(trip, routedLegsByDay) {
   const lines = [];
-  lines.push(`${trip.meta.title} — ${trip.meta.riders} riders, start ${trip.meta.startDate}. Fuel rule: ${trip.meta.fuelRule}`);
+  lines.push(`${trip.meta.title} — ${trip.meta.riders} riders, start ${trip.meta.startDate}. Fuel rule: ${trip.meta.fuelRule ?? 'fill at half tank on long stretches'}`);
   for (const d of trip.days) {
     const m = dayMiles(d, routedLegsByDay?.[d.id]);
     const rh = dayRideHours(d, routedLegsByDay?.[d.id]);
@@ -156,10 +158,11 @@ export function tripDigest(trip, routedLegsByDay) {
     if (d.meals?.length) lines.push(`Meals: ${d.meals.map((x) => `${x.meal}: ${x.name}`).join(' · ')}`);
     if (d.modules?.length) lines.push(`Modules: ${d.modules.map((x) => `${x.id}:${x.name} (${x.enabled ? 'ON' : 'off'})`).join(' · ')}`);
     if (d.lodging) lines.push(`Lodging: ${d.lodging.name} [${d.lodging.status}]`);
-    const warns = dayWarnings(d, routedLegsByDay?.[d.id]);
+    const warns = dayWarnings(d, routedLegsByDay?.[d.id], tripRange(trip));
     for (const w of warns) lines.push(`⚠ ${w.text}`);
   }
   lines.push('');
-  lines.push(`Unbooked reservations: ${trip.reserveNow.filter((r) => !r.done).map((r) => r.name).join('; ') || 'none'}`);
+  lines.push(`Bike range: comfort ${tripRange(trip).comfort} mi, absolute ${tripRange(trip).absolute} mi, ${tripRange(trip).mpg} mpg.`);
+  if (trip.reserveNow?.length) lines.push(`Unbooked reservations: ${trip.reserveNow.filter((r) => !r.done).map((r) => r.name).join('; ') || 'none'}`);
   return lines.join('\n');
 }

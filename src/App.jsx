@@ -8,6 +8,7 @@ import DayPanel from './components/DayPanel.jsx';
 import OverviewPanel from './components/OverviewPanel.jsx';
 import ChatPanel from './components/ChatPanel.jsx';
 import DetailModal from './components/DetailModal.jsx';
+import NewTripModal from './components/NewTripModal.jsx';
 import FeasibilityPanel from './components/FeasibilityPanel.jsx';
 import BudgetPanel from './components/BudgetPanel.jsx';
 
@@ -16,6 +17,7 @@ export default function App() {
   const [routes, setRoutes] = useState({}); // dayId -> {legs, geometry}
   const [chatOpen, setChatOpen] = useState(true);
   const [view, setView] = useState('plan'); // plan | feas | budget
+  const [newTripOpen, setNewTripOpen] = useState(false);
   const fileRef = useRef(null);
 
   // Route every day whenever its waypoint sequence changes.
@@ -69,14 +71,39 @@ export default function App() {
     e.target.value = '';
   };
 
+  const titleWords = (state.trip.meta.title || 'New trip').split(' ');
+  const titleTail = titleWords.length > 1 ? titleWords[titleWords.length - 1] : '';
+  const titleMain = titleTail ? titleWords.slice(0, -1).join(' ') : titleWords[0];
+
   return (
     <TripContext.Provider value={{ state, dispatch, routes, routedLegsByDay, summary }}>
       <div className="app">
         <header className="masthead">
-          <h1>STURGIS <span className="yr">2026</span></h1>
-          <span className="sub">La Expedición Chilena · {Math.round(summary.totalMiles)} mi · {state.trip.meta.riders} riders · Aug 7–17</span>
+          <h1>{titleMain} {titleTail && <span className="yr">{titleTail}</span>}</h1>
+          <span className="sub">{state.trip.meta.subtitle ? `${state.trip.meta.subtitle} · ` : ''}{Math.round(summary.totalMiles)} mi · {state.trip.meta.riders} riders · {state.trip.days.length} days from {state.trip.meta.startDate}</span>
           <span className="spacer" />
           <div className="actions">
+            <select
+              className="scen-select"
+              value=""
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '__new') setNewTripOpen(true);
+                else if (v === '__delete') {
+                  if (state.lib.trips.length > 1 && confirm(`Delete trip “${state.trip.meta.title}” and all its scenarios? This cannot be undone.`)) {
+                    dispatch({ type: 'delete_trip', id: state.lib.activeId });
+                  }
+                } else if (v) dispatch({ type: 'switch_trip', id: v });
+                e.target.value = '';
+              }}
+            >
+              <option value="">Trips ({state.lib.trips.length})…</option>
+              <option value="__new">＋ New trip</option>
+              {state.lib.trips.map((t) => (
+                <option key={t.id} value={t.id}>{t.id === state.lib.activeId ? '● ' : ''}{t.name}</option>
+              ))}
+              {state.lib.trips.length > 1 && <option value="__delete">🗑 Delete current trip</option>}
+            </select>
             <select
               className="scen-select"
               value=""
@@ -101,7 +128,7 @@ export default function App() {
             <button className="btn" onClick={exportJson}>Export</button>
             <button className="btn" onClick={() => fileRef.current?.click()}>Import</button>
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
-            <button className="btn danger-ghost" onClick={() => { if (confirm('Reset the whole trip to the original field guide?')) dispatch({ type: 'reset' }); }}>Reset</button>
+            <button className="btn danger-ghost" onClick={() => { if (confirm('Reset this trip to the original Sturgis field guide template?')) dispatch({ type: 'reset' }); }}>Reset</button>
             <button className="btn gold" onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide' : ''} Optimizer</button>
           </div>
         </header>
@@ -116,6 +143,7 @@ export default function App() {
           {chatOpen && <ChatPanel onClose={() => setChatOpen(false)} />}
         </div>
         <DetailModal />
+        {newTripOpen && <NewTripModal onClose={() => setNewTripOpen(false)} />}
       </div>
     </TripContext.Provider>
   );

@@ -1,8 +1,23 @@
 // Edit operations — the single mutation vocabulary shared by the UI and the AI optimizer.
 // Every change to the trip is an op; applyOps is pure (returns a new trip).
 
+import { cascadeDates } from './dates.js';
+
 let counter = 0;
 export const uid = (p) => `${p}${Date.now().toString(36)}${(counter++).toString(36)}`;
+
+export function blankDay(patch = {}) {
+  return {
+    id: uid('day'),
+    dow: '', date: '',
+    title: 'New day', phase: 'outbound',
+    miles: 0, hours: 0, depart: '9:00 AM', arrive: '', anchor: false,
+    summary: '', constraints: [], gates: [],
+    waypoints: [], meals: [], photos: [], modules: [], ops: [],
+    lodging: { status: 'none', name: '', where: '', note: '' },
+    ...patch,
+  };
+}
 
 export function applyOps(trip, ops) {
   let t = structuredClone(trip);
@@ -28,16 +43,44 @@ function applyOp(t, op) {
     case 'reorder_days': {
       const map = new Map(t.days.map((d) => [d.id, d]));
       if (op.dayIds.length !== t.days.length) throw new Error('dayIds must include every day');
-      const days = op.dayIds.map((id) => {
+      t.days = op.dayIds.map((id) => {
         const d = map.get(id);
         if (!d) throw new Error(`unknown day ${id}`);
         return d;
       });
-      // Dates and weekdays stay pinned to calendar slots; content moves.
-      const slots = t.days.map((d) => ({ date: d.date, dow: d.dow }));
-      days.forEach((d, i) => Object.assign(d, slots[i]));
-      t.days = days;
+      return cascadeDates(t);
+    }
+    case 'add_day': {
+      const day = blankDay(op.day ?? {});
+      const at = Math.min(Math.max(op.index ?? t.days.length, 0), t.days.length);
+      t.days.splice(at, 0, day);
+      return cascadeDates(t);
+    }
+    case 'remove_day': {
+      const idx = t.days.findIndex((d) => d.id === op.dayId);
+      if (idx < 0) throw new Error(`unknown day ${op.dayId}`);
+      if (t.days.length <= 1) throw new Error('a trip needs at least one day');
+      t.days.splice(idx, 1);
+      return cascadeDates(t);
+    }
+    case 'update_lodging': {
+      const d = findDay(t, op.dayId);
+      d.lodging = { status: 'none', name: '', where: '', note: '', ...d.lodging, ...op.patch };
       return t;
+    }
+    case 'remove_meal': {
+      const d = findDay(t, op.dayId);
+      d.meals = (d.meals ?? []).filter((m) => m.meal !== op.meal);
+      return t;
+    }
+    case 'set_meta': {
+      const allowed = ['title', 'subtitle', 'riders', 'startDate', 'fuelRule', 'range'];
+      for (const k of Object.keys(op.patch ?? {})) {
+        if (!allowed.includes(k)) throw new Error(`meta field ${k} not editable`);
+      }
+      const dateChanged = op.patch.startDate && op.patch.startDate !== t.meta.startDate;
+      Object.assign(t.meta, op.patch);
+      return dateChanged ? cascadeDates(t) : t;
     }
     case 'reorder_waypoints': {
       const d = findDay(t, op.dayId);
@@ -108,7 +151,7 @@ function applyOp(t, op) {
       return t;
     }
     case 'set_reservation_done': {
-      const r = t.reserveNow.find((x) => x.id === op.reservationId);
+      const r = (t.reserveNow ?? []).find((x) => x.id === op.reservationId);
       if (!r) throw new Error(`unknown reservation ${op.reservationId}`);
       r.done = op.done ?? !r.done;
       // Mirror onto lodging status when they correspond
@@ -121,6 +164,7 @@ function applyOp(t, op) {
     }
     case 'update_meal': {
       const d = findDay(t, op.dayId);
+      d.meals = d.meals ?? [];
       const m = d.meals.find((x) => x.meal === op.meal);
       if (m) Object.assign(m, op.patch);
       else d.meals.push({ meal: op.meal, name: '', where: '', note: '', alt: '', ...op.patch });
@@ -146,6 +190,11 @@ export function describeOps(trip, ops) {
       case 'toggle_module': return `Turn ${op.enabled ? 'ON' : 'OFF'} a module on ${dayName(op.dayId)}`;
       case 'set_reservation_done': return 'Update the booking checklist';
       case 'update_meal': return `Change ${op.meal} on ${dayName(op.dayId)}`;
+      case 'remove_meal': return `Remove ${op.meal} on ${dayName(op.dayId)}`;
+      case 'add_day': return `Add a day${op.day?.title ? ` — “${op.day.title}”` : ''}`;
+      case 'remove_day': return `Remove ${dayName(op.dayId)}`;
+      case 'update_lodging': return `Change lodging on ${dayName(op.dayId)}`;
+      case 'set_meta': return `Update trip settings (${Object.keys(op.patch ?? {}).join(', ')})`;
       default: return op.op;
     }
   });

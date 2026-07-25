@@ -4,6 +4,7 @@ import { tripFeasibility, fmtTime, fmtDur, gradeFor } from '../engine/timeline.j
 import { tripSummary } from '../engine/tripEngine.js';
 import { splitRecommendations } from '../engine/splits.js';
 import { PHASES } from '../data/seedTrip.js';
+import { fmtDayDate } from '../engine/dates.js';
 
 export default function FeasibilityPanel() {
   const { state, dispatch, routedLegsByDay } = useTrip();
@@ -36,7 +37,7 @@ export default function FeasibilityPanel() {
             <div key={d.id} className="feas-day">
               <button className="feas-head" onClick={() => dispatch({ type: 'select_day', dayId: d.id })}>
                 <span className="ph" style={{ background: PHASES[d.phase]?.color }} />
-                <span className="fd-date">{d.dow} 8/{d.date.slice(8).replace(/^0/, '')}</span>
+                <span className="fd-date">{d.dow} {fmtDayDate(d.date)}</span>
                 <span className="fd-title">{d.title}</span>
                 <span className="fd-times">{fmtTime(tl.departMin)} → {fmtTime(tl.endMin)} · {fmtDur(tl.durMin)}</span>
                 <span className={`grade grade-${gradeFor(p.score)}`}>{gradeFor(p.score)}</span>
@@ -105,9 +106,9 @@ export default function FeasibilityPanel() {
 
       <p style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 14 }}>
         Method: departure times from each day's plan, routed leg durations (OSRM, +15% group pace),
-        planned time-on-ground at every stop, checked against hard gates (park entrances, Piccola 1:00,
-        bike return), the 180/200-mi fuel range, daylight (~8:30 PM), and booking status. Scenario rows
-        use cached routing where available and field-guide mileage otherwise.
+        planned time-on-ground at every stop, checked against the trip's hard gates, its configured
+        fuel range, daylight (~8:30 PM), and booking status. Scenario rows use cached routing where
+        available and planned mileage otherwise.
       </p>
     </div>
   );

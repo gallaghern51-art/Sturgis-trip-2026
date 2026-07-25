@@ -478,6 +478,20 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .road-links a:hover { color: var(--rally); border-color: var(--rally); }
 .budget-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
 
+.mini-edit {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
+  margin-left: 8px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 3px;
+}
+.mini-edit:hover { color: var(--rally); border-color: var(--rally); }
+
+.tabbar { display: flex; gap: 0; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.tabbar button {
+  flex: 1; font-family: var(--display); font-size: 13px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 8px 10px; color: var(--ink-dim); border-right: 1px solid var(--line);
+}
+.tabbar button:last-child { border-right: none; }
+.tabbar button.active { background: var(--rally); color: #221a08; }
+
 .chip.depart-edit { display: inline-flex; align-items: center; gap: 6px; }
 .chip.depart-edit input {
   width: 72px; padding: 1px 5px; font-family: var(--mono); font-size: 10.5px;

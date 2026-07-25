@@ -2,7 +2,7 @@
 // Simulates each day minute-by-minute: departure → leg durations (routed) →
 // dwell at each stop → ETAs → hard-gate checks → feasibility score.
 
-import { legKey, haversineMiles, fuelGaps } from './tripEngine.js';
+import { legKey, haversineMiles, fuelGaps, DEFAULT_RANGE, tripRange } from './tripEngine.js';
 
 export const DWELL_DEFAULT = { start: 0, via: 5, fuel: 15, photo: 20, end: 0 };
 const AVG_MPH = 45;
@@ -68,7 +68,7 @@ export function dayTimeline(day, routedLegs) {
 }
 
 // Feasibility for one day: gate checks, fuel range, day length, darkness, lodging.
-export function dayFeasibility(day, routedLegs) {
+export function dayFeasibility(day, routedLegs, range = DEFAULT_RANGE) {
   const tl = dayTimeline(day, routedLegs);
   const issues = [];
   let score = 100;
@@ -90,19 +90,19 @@ export function dayFeasibility(day, routedLegs) {
   }
 
   for (const gap of fuelGaps(day, routedLegs)) {
-    if (gap.miles > 200) {
+    if (gap.miles > range.absolute) {
       score -= 15;
-      issues.push({ level: 'fail', text: `Fuel gap ${gap.miles} mi (${gap.from} → ${gap.to}) exceeds the 200-mi absolute range.` });
-    } else if (gap.miles > 180) {
+      issues.push({ level: 'fail', text: `Fuel gap ${gap.miles} mi (${gap.from} → ${gap.to}) exceeds the ${range.absolute}-mi absolute range.` });
+    } else if (gap.miles > range.comfort) {
       score -= 6;
-      issues.push({ level: 'warn', text: `Fuel gap ${gap.miles} mi (${gap.from} → ${gap.to}) past the 180-mi comfort range.` });
+      issues.push({ level: 'warn', text: `Fuel gap ${gap.miles} mi (${gap.from} → ${gap.to}) past the ${range.comfort}-mi comfort range.` });
     }
   }
 
   const durH = tl.durMin / 60;
   if (durH > 13) {
     score -= 12;
-    issues.push({ level: 'warn', text: `${durH.toFixed(1)}h door-to-door — brutal for a group of 8.` });
+    issues.push({ level: 'warn', text: `${durH.toFixed(1)}h door-to-door — brutal for a group ride.` });
   } else if (durH > 11) {
     score -= 6;
     issues.push({ level: 'warn', text: `${durH.toFixed(1)}h door-to-door — long day, protect the stops that matter.` });
@@ -130,7 +130,8 @@ export function gradeFor(score) {
 }
 
 export function tripFeasibility(trip, routedLegsByDay) {
-  const perDay = trip.days.map((d) => ({ id: d.id, ...dayFeasibility(d, routedLegsByDay?.[d.id]) }));
+  const range = tripRange(trip);
+  const perDay = trip.days.map((d) => ({ id: d.id, ...dayFeasibility(d, routedLegsByDay?.[d.id], range) }));
   const overall = Math.round(perDay.reduce((a, p) => a + p.score, 0) / Math.max(1, perDay.length));
   return { perDay, overall, grade: gradeFor(overall) };
 }

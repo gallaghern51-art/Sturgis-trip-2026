@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities';
 import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
+import { fmtDayDate, fmtLongDate } from '../engine/dates.js';
 import { tripToGpx, tripToIcs, downloadFile } from '../engine/exporters.js';
 import { ROAD_STATUS_LINKS } from '../engine/conditions.js';
 
@@ -20,7 +21,8 @@ export default function OverviewPanel() {
     dispatch({ type: 'apply_ops', ops: [{ op: 'reorder_days', dayIds: next }] });
   };
 
-  const openReservations = trip.reserveNow.filter((r) => !r.done);
+  const openReservations = (trip.reserveNow ?? []).filter((r) => !r.done);
+  const anchors = trip.days.filter((d) => d.anchor);
 
   return (
     <div>
@@ -28,7 +30,7 @@ export default function OverviewPanel() {
         <div className="eyebrow">{trip.meta.subtitle}</div>
         <h2>The whole trip at a glance</h2>
         <div className="datebar">
-          <span className="chip">Fri Aug 7 → Mon Aug 17</span>
+          <span className="chip">{trip.days[0]?.dow} {fmtLongDate(trip.days[0]?.date ?? trip.meta.startDate)} → {trip.days[trip.days.length - 1]?.dow} {fmtLongDate(trip.days[trip.days.length - 1]?.date ?? trip.meta.startDate)}</span>
           <span className="chip">{Math.round(summary.totalMiles)} mi</span>
           <span className="chip">{trip.meta.nights} nights</span>
           <span className="chip">{trip.meta.riders} riders</span>
@@ -36,9 +38,10 @@ export default function OverviewPanel() {
       </div>
 
       <p style={{ fontSize: 13, color: 'var(--ink-dim)', margin: '12px 0' }}>
-        ★ marks the three anchor days everything else is built around: the Cody Firearms Museum morning,
-        the full Sturgis rally day, and the Beartooth loop with Piccola lunch. If a day has to be trimmed,
-        trim anywhere else first. Drag days to restructure — dates stay pinned to the calendar; content moves.
+        {anchors.length > 0
+          ? `★ marks the ${anchors.length} anchor day${anchors.length > 1 ? 's' : ''} everything else is built around — if a day has to be trimmed, trim anywhere else first. `
+          : ''}
+        Drag days to restructure — dates stay pinned to the calendar; content moves.
       </p>
 
       <div className="section">
@@ -50,13 +53,16 @@ export default function OverviewPanel() {
             </div>
           </SortableContext>
         </DndContext>
+        <button className="btn" style={{ marginTop: 8 }} onClick={() => dispatch({ type: 'apply_ops', ops: [{ op: 'add_day' }] })}>＋ Add day</button>
       </div>
+
+      <TripSettings trip={trip} dispatch={dispatch} />
 
       <div className="section">
         <h3>Ride pack</h3>
         <div className="ridepack">
-          <button className="btn" onClick={() => downloadFile('sturgis-2026-full-trip.gpx', tripToGpx(trip, routes), 'application/gpx+xml')}>⬇ GPX — full trip</button>
-          <button className="btn" onClick={() => downloadFile('sturgis-2026.ics', tripToIcs(trip, routedLegsByDay), 'text/calendar')}>⬇ Calendar (.ics)</button>
+          <button className="btn" onClick={() => downloadFile('trip-full.gpx', tripToGpx(trip, routes), 'application/gpx+xml')}>⬇ GPX — full trip</button>
+          <button className="btn" onClick={() => downloadFile('trip-calendar.ics', tripToIcs(trip, routedLegsByDay), 'text/calendar')}>⬇ Calendar (.ics)</button>
         </div>
         <p style={{ fontSize: 12, color: 'var(--ink-dim)', marginTop: 6 }}>
           GPX loads into Garmin, Rever, or any nav app (per-day GPX is on each day panel).
@@ -73,7 +79,7 @@ export default function OverviewPanel() {
         </ul>
       </div>
 
-      <div className="section">
+      {(trip.reserveNow?.length ?? 0) > 0 && <div className="section">
         <h3>Reserve these now <span className="cnt">{openReservations.length} open</span></h3>
         {trip.reserveNow.map((r) => (
           <label key={r.id} className={`reserve-item${r.done ? ' done' : ''}`}>
@@ -90,9 +96,9 @@ export default function OverviewPanel() {
             </div>
           </label>
         ))}
-      </div>
+      </div>}
 
-      <div className="section fieldnotes">
+      {trip.fieldNotes && <div className="section fieldnotes">
         <h3>Field notes</h3>
         <h4>Fuel discipline</h4>
         <ul>{trip.fieldNotes.fuel.map((x, i) => <li key={i}>{x}</li>)}</ul>
@@ -104,7 +110,44 @@ export default function OverviewPanel() {
         <ul>{trip.fieldNotes.altitude.map((x, i) => <li key={i}>{x}</li>)}</ul>
         <h4>Emergency</h4>
         <ul>{trip.fieldNotes.emergency.map((x, i) => <li key={i}>{x}</li>)}</ul>
+      </div>}
+    </div>
+  );
+}
+
+function TripSettings({ trip, dispatch }) {
+  const set = (patch) => dispatch({ type: 'apply_ops', ops: [{ op: 'set_meta', patch }] });
+  const range = { comfort: 180, absolute: 200, mpg: 45, ...(trip.meta.range ?? {}) };
+  const setRange = (k, v) => set({ range: { ...range, [k]: Number(v) || 0 } });
+  return (
+    <div className="section">
+      <h3>Trip settings</h3>
+      <div className="budget-grid">
+        <label className="fld" style={{ gridColumn: 'span 2' }}>Trip name
+          <input defaultValue={trip.meta.title} key={trip.meta.title}
+            onBlur={(e) => { if (e.target.value.trim() && e.target.value !== trip.meta.title) set({ title: e.target.value.trim() }); }} />
+        </label>
+        <label className="fld">Start date
+          <input type="date" value={trip.meta.startDate}
+            onChange={(e) => { if (e.target.value) set({ startDate: e.target.value }); }} />
+        </label>
+        <label className="fld">Riders
+          <input type="number" min="1" value={trip.meta.riders}
+            onChange={(e) => set({ riders: Math.max(1, Number(e.target.value) || 1) })} />
+        </label>
+        <label className="fld">Range: comfort mi
+          <input type="number" min="40" value={range.comfort} onChange={(e) => setRange('comfort', e.target.value)} />
+        </label>
+        <label className="fld">Range: absolute mi
+          <input type="number" min="50" value={range.absolute} onChange={(e) => setRange('absolute', e.target.value)} />
+        </label>
+        <label className="fld">MPG
+          <input type="number" min="10" value={range.mpg} onChange={(e) => setRange('mpg', e.target.value)} />
+        </label>
       </div>
+      <p style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 4 }}>
+        Changing the start date re-pins every day to the new calendar. Fuel warnings and feasibility use the bike range set here.
+      </p>
     </div>
   );
 }
@@ -127,7 +170,7 @@ function SortableDay({ day, summary, dispatch }) {
       onKeyDown={(e) => { if (e.key === 'Enter') dispatch({ type: 'select_day', dayId: day.id }); }}
     >
       <div className="ph" style={{ background: PHASES[day.phase]?.color }} />
-      <div className="dt">{day.dow}<br />8/{day.date.slice(8).replace(/^0/, '')}{day.anchor ? ' ★' : ''}</div>
+      <div className="dt">{day.dow}<br />{fmtDayDate(day.date)}{day.anchor ? ' ★' : ''}</div>
       <div>
         <div className="t">{day.title}</div>
       </div>

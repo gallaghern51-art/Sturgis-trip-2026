@@ -4,6 +4,7 @@ import { tripDigest } from '../engine/tripEngine.js';
 import { feasibilityDigest } from '../engine/timeline.js';
 import { splitsDigest } from '../engine/splits.js';
 import { describeOps } from '../engine/ops.js';
+import { readPlannerStream } from '../engine/stream.js';
 
 const SUGGESTIONS = [
   'Run a full feasibility read — where does this plan break?',
@@ -52,19 +53,35 @@ export default function ChatPanel({ onClose }) {
           scenarios: state.scenarios.map((s) => ({ id: s.id, name: s.name, savedAt: s.savedAt })),
         }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (res.status === 503 && data.error === 'not_configured') {
-        setSetupNeeded(true);
-        setMessages((m) => [...m, { role: 'assistant', content: 'The optimizer needs an Anthropic API key configured on Netlify before it can run — see the note below.' }]);
-        return;
-      }
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-      setMessages((m) => [...m, { role: 'assistant', content: data.text || '(proposed changes below)' }]);
+      // streamed NDJSON: deltas render live, 'done' carries text + proposal
+      let live = '';
+      let started = false;
+      const data = await readPlannerStream(res, (obj) => {
+        if (obj.type === 'delta') {
+          live += obj.text;
+          if (!started) {
+            started = true;
+            setMessages((m) => [...m, { role: 'assistant', content: live, streaming: true }]);
+          } else {
+            setMessages((m) => m.map((x, i) => (i === m.length - 1 && x.streaming ? { ...x, content: live } : x)));
+          }
+        }
+      });
+      const finalText = data.text || '(proposed changes below)';
+      setMessages((m) => {
+        const rest = m[m.length - 1]?.streaming ? m.slice(0, -1) : m;
+        return [...rest, { role: 'assistant', content: finalText }];
+      });
       if (data.proposal?.ops?.length) {
         dispatch({ type: 'set_proposal', proposal: data.proposal });
       }
     } catch (err) {
-      setMessages((m) => [...m, { role: 'assistant', content: `Something went wrong: ${err.message}. Try again.` }]);
+      if (err.code === 'not_configured') {
+        setSetupNeeded(true);
+        setMessages((m) => [...m, { role: 'assistant', content: 'The optimizer needs an Anthropic API key configured on Netlify before it can run — see the note below.' }]);
+      } else {
+        setMessages((m) => [...m, { role: 'assistant', content: `Something went wrong: ${err.message}. Try again.` }]);
+      }
     } finally {
       setBusy(false);
     }

@@ -1,22 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useTrip } from '../engine/store.js';
 import { tripSummary } from '../engine/tripEngine.js';
+import { fmtDayDate } from '../engine/dates.js';
 
-const KEY = 'sturgis.budget.v1';
+const KEY = 'moto.budget.v1';
 const DEFAULTS = { gas: 3.6, mpg: 45, riders: 8, lodging: 95, food: 75, tickets: 150, misc: 200 };
 
 export default function BudgetPanel() {
   const { state, routedLegsByDay } = useTrip();
   const { trip } = state;
   const [b, setB] = useState(() => {
-    try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return DEFAULTS; }
+    const base = { ...DEFAULTS, riders: trip.meta.riders ?? DEFAULTS.riders, mpg: trip.meta.range?.mpg ?? DEFAULTS.mpg };
+    try { return { ...base, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return base; }
   });
   useEffect(() => {
     try { localStorage.setItem(KEY, JSON.stringify(b)); } catch { /* full */ }
   }, [b]);
 
   const summary = tripSummary(trip, routedLegsByDay);
-  const nights = trip.meta.nights ?? 10;
+  const nights = Math.max(0, trip.days.length - 1);
   const days = trip.days.length;
 
   const perDay = trip.days.map((d) => {
@@ -66,7 +68,7 @@ export default function BudgetPanel() {
           <tbody>
             {perDay.map(({ d, miles, gallons, fuelRider: fr, fuelGroup }) => (
               <tr key={d.id}>
-                <td>{d.dow} 8/{d.date.slice(8).replace(/^0/, '')} <span className="scen-date">{d.title.slice(0, 30)}</span></td>
+                <td>{d.dow} {fmtDayDate(d.date)} <span className="scen-date">{d.title.slice(0, 30)}</span></td>
                 <td>{Math.round(miles)}</td>
                 <td>{gallons.toFixed(1)}</td>
                 <td>{$(fr)}</td>
@@ -90,8 +92,8 @@ export default function BudgetPanel() {
           </tbody>
         </table>
         <p style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 10 }}>
-          Plus the field guide's cash rule: $200/rider in small bills for rally week, and the $80
-          America the Beautiful pass (covers Yellowstone, Glacier, Little Bighorn, Devils Tower).
+          Rule of thumb extras: cash in small bills for vendor-heavy events, and the $80 America the
+          Beautiful pass if the route touches multiple national parks — it usually pays for itself twice.
         </p>
       </div>
     </div>

@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { useTrip } from '../engine/store.js';
 import { dayTimeline, fmtTime, fmtDur, dwellFor } from '../engine/timeline.js';
 import { PHASES } from '../data/seedTrip.js';
+import { fmtDayDate } from '../engine/dates.js';
 import { geocode } from '../engine/geocode.js';
 
 export default function DetailModal() {
@@ -110,7 +111,7 @@ function StopDetail({ day, waypointId, trip, dispatch, routedLegsByDay, close })
             <select defaultValue="" onChange={(e) => moveTo(e.target.value)}>
               <option value="" disabled>Choose…</option>
               {trip.days.filter((d) => d.id !== day.id).map((d) => (
-                <option key={d.id} value={d.id}>{d.dow} 8/{d.date.slice(8).replace(/^0/, '')} — {d.title.slice(0, 34)}</option>
+                <option key={d.id} value={d.id}>{d.dow} {fmtDayDate(d.date)} — {d.title.slice(0, 34)}</option>
               ))}
             </select>
           </label>

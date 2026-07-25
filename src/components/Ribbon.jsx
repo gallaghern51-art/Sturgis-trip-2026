@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
+import { fmtDayDate } from '../engine/dates.js';
 
 export default function Ribbon() {
   const { state, dispatch, summary } = useTrip();
@@ -20,7 +21,7 @@ export default function Ribbon() {
           ? 'danger'
           : per?.warnings.length ? 'warn' : null;
         const color = PHASES[d.phase]?.color ?? '#888';
-        const dateNum = d.date.slice(8).replace(/^0/, '');
+        const dateNum = fmtDayDate(d.date);
         return (
           <button
             key={d.id}
@@ -30,7 +31,7 @@ export default function Ribbon() {
             title={d.title}
           >
             <span className="bar" />
-            <span className="dw">{d.dow} 8/{dateNum}{d.anchor ? ' ★' : ''}</span>
+            <span className="dw">{d.dow} {dateNum}{d.anchor ? ' ★' : ''}</span>
             <div className="ttl">{shortTitle(d)}</div>
             <div className="mi">{per ? `${per.miles} mi · ${(per.rideHours + per.stopHours).toFixed(0)}h` : `${d.miles} mi`}</div>
             {worst && <span className={`warn-dot${worst === 'warn' ? ' w' : ''}`} />}
