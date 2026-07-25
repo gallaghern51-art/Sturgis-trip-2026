@@ -63,7 +63,11 @@ export default function ChatPanel({ onClose }) {
       let live = '';
       let started = false;
       const data = await readPlannerStream(res, (obj) => {
-        if (obj.type === 'building') setBuilding({ chars: obj.chars ?? 0, thinking: obj.thinking ?? 0 });
+        // Every server line is stamped with elapsed ms — drive a live counter
+        // off it so a long restructure never looks like a hang.
+        if (typeof obj.ms === 'number') {
+          setBuilding((b) => ({ chars: obj.chars ?? b?.chars ?? 0, thinking: obj.thinking ?? b?.thinking ?? 0, ms: obj.ms }));
+        }
         if (obj.type === 'delta') {
           live += obj.text;
           if (!started) {
@@ -142,11 +146,13 @@ export default function ChatPanel({ onClose }) {
         {busy && (
           <div className="msg ai">
             <span className="thinking">
-              {!building
-                ? 'analyzing the route…'
-                : building.chars > 0
-                  ? `drafting changes… ${building.chars.toLocaleString()} characters`
-                  : 'reading the trip…'}
+              {(() => {
+                const secs = building?.ms ? ` · ${Math.round(building.ms / 1000)}s` : '';
+                if (!building) return 'analyzing the route…';
+                if (building.chars > 0) return `drafting changes… ${building.chars.toLocaleString()} characters${secs}`;
+                if (building.thinking > 0) return `working through the trip…${secs}`;
+                return `reading the trip…${secs}`;
+              })()}
             </span>
           </div>
         )}

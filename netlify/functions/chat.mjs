@@ -185,7 +185,10 @@ const GENERATE_TOOL = {
 // closes and the client is left with no idea why — so every path here has to end
 // with a terminal line of our own, ahead of any external deadline.
 // Set PLANNER_BUDGET_MS to match whatever function timeout the site is on.
-const BUDGET_MS = Number(process.env.PLANNER_BUDGET_MS) || 25000;
+// Deliberately far above any plausible platform cap: a big restructure should
+// be allowed to finish, and if the platform cuts us off first the client
+// reports the elapsed time it died at — which is how we learn the real cap.
+const BUDGET_MS = Number(process.env.PLANNER_BUDGET_MS) || 120000;
 
 // Both modes return NDJSON lines: {type:'delta'|'building'|'done'|'error', ...}.
 // A heartbeat keeps bytes flowing while the model works.
@@ -194,13 +197,17 @@ function streamResponse(run) {
   const body = new ReadableStream({
     async start(controller) {
       let closed = false;
+      const t0 = Date.now();
       // enqueue throws once the stream is torn down. A failed send must never be
       // the thing that takes down the error handler below — that turns a
       // reportable failure into a silent truncated stream.
+      // Every line carries elapsed ms. If the platform severs the stream, the
+      // last line the client received tells it how long the function survived —
+      // that number is the platform's real cap, which is otherwise invisible.
       const send = (obj) => {
         if (closed) return false;
         try {
-          controller.enqueue(enc.encode(JSON.stringify(obj) + '\n'));
+          controller.enqueue(enc.encode(JSON.stringify({ ...obj, ms: Date.now() - t0 }) + '\n'));
           return true;
         } catch {
           closed = true;
@@ -208,7 +215,7 @@ function streamResponse(run) {
         }
       };
       send({ type: 'start' });
-      const beat = setInterval(() => send({ type: 'beat' }), 4000);
+      const beat = setInterval(() => send({ type: 'beat' }), 2000);
       try {
         await run(send);
       } catch (err) {
@@ -343,7 +350,11 @@ export default async (req) => {
   } catch {
     return Response.json({ error: 'invalid JSON' }, { status: 400 });
   }
-  const client = new Anthropic();
+  // The SDK retries 429/529 silently, honouring retry-after — which on a rate
+  // limit can be tens of seconds of no stream events at all, indistinguishable
+  // from a slow model. Bound it so the real error surfaces instead of the
+  // budget expiring with nothing to show for it.
+  const client = new Anthropic({ maxRetries: 1 });
 
   if (body.mode === 'generate') {
     return handleGenerate(client, body);
