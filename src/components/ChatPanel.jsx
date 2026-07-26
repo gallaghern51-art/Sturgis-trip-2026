@@ -4,7 +4,7 @@ import { tripDigest, compactTripForModel } from '../engine/tripEngine.js';
 import { feasibilityDigest } from '../engine/timeline.js';
 import { splitsDigest } from '../engine/splits.js';
 import { describeOps } from '../engine/ops.js';
-import { readPlannerStream } from '../engine/stream.js';
+import { runPlanner } from '../engine/planner.js';
 
 const SUGGESTIONS = [
   'Run a full feasibility read — where does this plan break?',
@@ -45,24 +45,21 @@ export default function ChatPanel({ onClose }) {
     setBuilding(null);
     dispatch({ type: 'clear_proposal' });
     try {
-      const res = await fetch('/.netlify/functions/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // Local failure notices are UI artifacts, not conversation — replaying
-          // them just invites the model to retry whatever already failed.
-          messages: next.filter((m) => !m.local),
-          tripDigest: `${tripDigest(state.trip, routedLegsByDay)}\n\n${feasibilityDigest(state.trip, routedLegsByDay)}\n\n${splitsDigest(state.trip, routedLegsByDay)}`,
-          // Trimmed: read-only prose (photo notes, ops checklists, field notes)
-          // is prefill the model pays for before it can start answering.
-          tripJson: compactTripForModel(state.trip),
-          scenarios: state.scenarios.map((s) => ({ id: s.id, name: s.name, savedAt: s.savedAt })),
-        }),
-      });
-      // streamed NDJSON: deltas render live, 'done' carries text + proposal
+      const payload = {
+        // Local failure notices are UI artifacts, not conversation — replaying
+        // them just invites the model to retry whatever already failed.
+        messages: next.filter((m) => !m.local),
+        tripDigest: `${tripDigest(state.trip, routedLegsByDay)}\n\n${feasibilityDigest(state.trip, routedLegsByDay)}\n\n${splitsDigest(state.trip, routedLegsByDay)}`,
+        // Trimmed: read-only prose (photo notes, ops checklists, field notes)
+        // is prefill the model pays for before it can start answering.
+        tripJson: compactTripForModel(state.trip),
+        scenarios: state.scenarios.map((s) => ({ id: s.id, name: s.name, savedAt: s.savedAt })),
+      };
+      // Background transport when the deployment has it (15-minute ceiling),
+      // streaming otherwise. Both deliver the same events.
       let live = '';
       let started = false;
-      const data = await readPlannerStream(res, (obj) => {
+      const data = await runPlanner(payload, (obj) => {
         // Every server line is stamped with elapsed ms — drive a live counter
         // off it so a long restructure never looks like a hang.
         if (typeof obj.ms === 'number') {
