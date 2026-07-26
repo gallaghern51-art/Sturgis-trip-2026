@@ -46,6 +46,77 @@ export const BASEMAPS = {
   light: { label: 'Light', style: STYLE_LIGHT },
 };
 
+// ---- Google Map Tiles API (2D raster sessions) ----
+// Needs a client-side key (VITE_GOOGLE_MAPS_KEY at build time) and the
+// "Map Tiles API" enabled on the Google project. Everything degrades to the
+// free basemaps above when the key is absent or a session can't be created.
+
+export const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
+const GT_CACHE = 'moto.gtiles.v1';
+
+// mapType key → createSession body. hybrid = satellite imagery + road overlay.
+const G_SESSION_SPECS = {
+  hybrid: { mapType: 'satellite', layerTypes: ['layerRoadmap'] },
+  roadmap: { mapType: 'roadmap' },
+};
+
+function loadGtCache() {
+  try { return JSON.parse(localStorage.getItem(GT_CACHE) || '{}'); } catch { return {}; }
+}
+
+// Sessions last ~2 weeks; treat anything with <1 day left as expired.
+function freshSession(kind) {
+  const rec = loadGtCache()[kind];
+  return rec && rec.expiry * 1000 > Date.now() + 86_400_000 ? rec : null;
+}
+
+function styleFromSession(kind, rec) {
+  return {
+    version: 8,
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    sources: {
+      gtiles: {
+        type: 'raster',
+        tiles: [`https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=${rec.session}&key=${GOOGLE_KEY}`],
+        tileSize: 256,
+        maxzoom: 22,
+        attribution: '© Google',
+      },
+    },
+    layers: [{ id: 'gtiles', type: 'raster', source: 'gtiles' }],
+  };
+}
+
+// Sync path: style immediately if a session is already cached (map init).
+export function cachedGoogleStyle(kind) {
+  if (!GOOGLE_KEY) return null;
+  const rec = freshSession(kind);
+  return rec ? styleFromSession(kind, rec) : null;
+}
+
+// Async path: create/refresh the session, cache it, return the style.
+export async function googleStyle(kind) {
+  if (!GOOGLE_KEY) return null;
+  const hit = freshSession(kind);
+  if (hit) return styleFromSession(kind, hit);
+  const spec = G_SESSION_SPECS[kind];
+  if (!spec) return null;
+  const res = await fetch(`https://tile.googleapis.com/v1/createSession?key=${GOOGLE_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...spec, language: 'en-US', region: 'US' }),
+  });
+  if (!res.ok) throw new Error(`tiles session ${res.status}`);
+  const json = await res.json();
+  const rec = { session: json.session, expiry: Number(json.expiry) };
+  try {
+    const c = loadGtCache();
+    c[kind] = rec;
+    localStorage.setItem(GT_CACHE, JSON.stringify(c));
+  } catch { /* cache full — session still usable this page-load */ }
+  return styleFromSession(kind, rec);
+}
+
 // The cream "return" phase disappears on a light basemap — swap it for a legible tan.
 export const LIGHT_SAFE = { return: '#a8873a', prep: '#6b675e' };
 
@@ -62,10 +133,21 @@ const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{
 // the browser HTTP cache and MapLibre gets an instant hit when the camera
 // arrives. We warm the corridor the rider is about to ride through.
 
-const WARM_LAYERS = [
+const ESRI_WARM_LAYERS = [
   (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
   (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/${z}/${y}/${x}`,
 ];
+
+// Warm whichever source the nav map actually renders: Google hybrid when a
+// tile session is cached, the Esri pair otherwise.
+function navWarmLayers() {
+  const g = cachedGoogleStyle('hybrid');
+  if (g) {
+    const tpl = g.sources.gtiles.tiles[0];
+    return [(z, x, y) => tpl.replace('{z}', z).replace('{x}', x).replace('{y}', y)];
+  }
+  return ESRI_WARM_LAYERS;
+}
 let warmedTiles = new Set();
 
 function tileXY(lat, lng, z) {
@@ -81,18 +163,19 @@ function tileXY(lat, lng, z) {
 export function warmTilesAhead(chain, fromIdx, { miles = 12, zooms = [13, 14], cap = 60 } = {}) {
   if (!chain?.length) return 0;
   if (warmedTiles.size > 5000) warmedTiles = new Set();
+  const layers = navWarmLayers();
   const urls = [];
   let dist = 0;
   for (let i = Math.max(0, fromIdx); i < chain.length - 1 && dist < miles && urls.length < cap; i++) {
     dist += haversineMiles(chain[i], chain[i + 1]);
     for (const z of zooms) {
       const [x, y] = tileXY(chain[i].lat, chain[i].lng, z);
-      for (const mk of WARM_LAYERS) {
-        const key = `${z}/${x}/${y}/${mk === WARM_LAYERS[0] ? 'i' : 'r'}`;
-        if (warmedTiles.has(key)) continue;
+      layers.forEach((mk, li) => {
+        const key = `${z}/${x}/${y}/${li}`;
+        if (warmedTiles.has(key)) return;
         warmedTiles.add(key);
         urls.push(mk(z, x, y));
-      }
+      });
     }
   }
   for (const u of urls.slice(0, cap)) {

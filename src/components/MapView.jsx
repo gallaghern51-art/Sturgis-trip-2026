@@ -4,7 +4,21 @@ import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
 import { haversineMiles, bestInsertIndex } from '../engine/tripEngine.js';
 import { dayTimeline, fmtTime, fmtDur } from '../engine/timeline.js';
-import { BASEMAPS, STYLE_SATELLITE, STYLE_FALLBACK, LIGHT_SAFE, ensureTerrain } from '../engine/basemaps.js';
+import { BASEMAPS, STYLE_SATELLITE, STYLE_FALLBACK, LIGHT_SAFE, ensureTerrain, GOOGLE_KEY, cachedGoogleStyle, googleStyle } from '../engine/basemaps.js';
+
+// Basemap roster: Google tiles headline when a session exists, free styles otherwise.
+function buildBasemapList() {
+  const hyb = cachedGoogleStyle('hybrid');
+  const road = cachedGoogleStyle('roadmap');
+  if (!hyb) return { ...BASEMAPS };
+  return {
+    gsat: { label: 'Satellite', style: hyb },
+    ...(road ? { groad: { label: 'Road', style: road } } : {}),
+    streets: BASEMAPS.streets,
+    dark: BASEMAPS.dark,
+    light: BASEMAPS.light,
+  };
+}
 
 const isTouch = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
@@ -45,8 +59,9 @@ export default function MapView() {
   const hoverPopupRef = useRef(null);
   const routedRef = useRef(routedLegsByDay);
   routedRef.current = routedLegsByDay;
-  const [basemap, setBasemap] = React.useState('sat');
-  const basemapRef = useRef('sat');
+  const [maps, setMaps] = React.useState(buildBasemapList);
+  const [basemap, setBasemap] = React.useState(() => (cachedGoogleStyle('hybrid') ? 'gsat' : 'sat'));
+  const basemapRef = useRef(basemap);
   basemapRef.current = basemap;
   const [terrain3d, setTerrain3d] = React.useState(false);
   const terrainRef = useRef(false);
@@ -74,7 +89,7 @@ export default function MapView() {
   useEffect(() => {
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: STYLE_SATELLITE,
+      style: cachedGoogleStyle('hybrid') ?? STYLE_SATELLITE,
       center: [-108.5, 45.9],
       zoom: 5.4,
       attributionControl: { compact: true },
@@ -140,11 +155,33 @@ export default function MapView() {
     if (readyRef.current) drawAll();
   }, [trip, selectedDayId, routes]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Google tile sessions arrive async — swap the roster in and lead with Google
+  // satellite unless the user already picked something else.
+  useEffect(() => {
+    if (!GOOGLE_KEY) return;
+    let dead = false;
+    (async () => {
+      try {
+        const [hyb, road] = await Promise.all([googleStyle('hybrid'), googleStyle('roadmap')]);
+        if (dead || !hyb) return;
+        setMaps({
+          gsat: { label: 'Satellite', style: hyb },
+          ...(road ? { groad: { label: 'Road', style: road } } : {}),
+          streets: BASEMAPS.streets,
+          dark: BASEMAPS.dark,
+          light: BASEMAPS.light,
+        });
+        setBasemap((b) => (b === 'sat' ? 'gsat' : b));
+      } catch { /* Map Tiles API unavailable — free basemaps carry on */ }
+    })();
+    return () => { dead = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // basemap switch — setStyle wipes sources; redraw once the new style has loaded
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
-    map.setStyle(BASEMAPS[basemap].style);
+    map.setStyle(maps[basemap]?.style ?? STYLE_FALLBACK);
     map.once('idle', () => drawAllRef.current());
   }, [basemap]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -377,7 +414,7 @@ export default function MapView() {
           : <>Whole-trip view<span className="hint-more"> — hover a route for leg info, click for details, pick a day to edit</span></>}
       </div>
       <div className="basemap-switch">
-        {Object.entries(BASEMAPS).map(([key, b]) => (
+        {Object.entries(maps).map(([key, b]) => (
           <button
             key={key}
             className={basemap === key ? 'active' : ''}

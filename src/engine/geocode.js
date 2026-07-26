@@ -1,7 +1,33 @@
-// Live place lookup (OpenStreetMap Nominatim). Shared by the add-stop search
-// and the stop editor's Google-Maps-style location autocomplete.
+// Live place lookup. Google Places (via the google-places Netlify function —
+// key stays server-side) with OpenStreetMap Nominatim as the always-works
+// fallback. Shared by the add-stop search and the stop editor's autocomplete.
 
-export async function geocode(query) {
+const PLACES_FN = '/.netlify/functions/google-places';
+let gSkipUntil = 0; // one failed probe backs off instead of failing every keystroke
+
+async function googlePlaces(query, near) {
+  if (Date.now() < gSkipUntil) throw new Error('places backoff');
+  let res;
+  try {
+    res = await fetch(PLACES_FN, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, near }),
+    });
+  } catch (e) {
+    gSkipUntil = Date.now() + 5 * 60_000;
+    throw e;
+  }
+  if (!res.ok) {
+    gSkipUntil = Date.now() + (res.status === 501 || res.status === 404 ? 30 : 5) * 60_000;
+    throw new Error(`google-places ${res.status}`);
+  }
+  const json = await res.json();
+  if (!Array.isArray(json)) throw new Error('google-places bad shape');
+  return json;
+}
+
+async function nominatim(query) {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=us&q=${encodeURIComponent(query)}`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) return [];
@@ -14,4 +40,13 @@ export async function geocode(query) {
     lat: parseFloat(r.lat),
     lng: parseFloat(r.lon),
   }));
+}
+
+// `near` (optional {lat,lng}) biases results toward the day being edited.
+export async function geocode(query, near) {
+  try {
+    return await googlePlaces(query, near);
+  } catch {
+    return nominatim(query);
+  }
 }

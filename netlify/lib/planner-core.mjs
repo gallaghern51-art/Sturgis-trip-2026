@@ -5,6 +5,7 @@
 // Kept out of netlify/functions/ so Netlify does not publish it as an endpoint.
 
 import Anthropic from '@anthropic-ai/sdk';
+import { searchPlacesGoogle } from './places-core.mjs';
 
 export const SYSTEM = `You are the planning brain of a motorcycle trip planner — the tool riders use to plan multi-day trips end to end (routes, stops, fuel, lodging, meals, timing). The active trip's identity, dates, riders, bike range, and constraints all come from the provided trip state — read them there, never assume.
 
@@ -40,7 +41,56 @@ How to respond:
 - Be direct and honest about trade-offs, in the voice of the field guide: state the cost of every option ("this buys you X but costs you Y").
 - When the user asks you to rework, reorder, add, or remove something, USE the propose_trip_changes tool with concrete ops referencing real ids from the trip JSON. Keep the accompanying text short — the proposal card shows the ops.
 - When the user asks a question or for analysis, answer in text only. Do not propose changes nobody asked for.
-- Waypoints need lat/lng when added; use accurate coordinates for real places.`;
+- Waypoints need lat/lng when added; use accurate coordinates for real places.
+- The search_places tool returns verified names, addresses, and exact coordinates from the live places database. Use it whenever you add or move a stop whose coordinates you are not fully certain of (restaurants, gas stations, small attractions, lodging) — one focused query per place, then emit the ops using the returned lat/lng. Do not call propose_trip_changes and search_places in the same reply; search first, propose after the results come back. Skip searching for places you already know precisely (major cities, famous landmarks).`;
+
+// Live place lookup for the model — verified coordinates instead of recalled ones.
+export const PLACES_TOOL = {
+  name: 'search_places',
+  description: 'Search the live places database (Google) for real-world locations. Returns up to 6 matches with verified name, address, and exact lat/lng. Use before adding stops whose coordinates you are not certain of.',
+  input_schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['query'],
+    properties: {
+      query: { type: 'string', description: 'What to find, with locality for precision — e.g. "BBQ restaurant Spearfish SD" or "gas station Ten Sleep WY".' },
+      near: {
+        type: 'object',
+        description: 'Optional bias point (e.g. the day\'s route area).',
+        properties: { lat: { type: 'number' }, lng: { type: 'number' } },
+      },
+    },
+  },
+};
+
+// Answer every search_places call in a response; other tool calls in the same
+// (malformed) reply get a nudge so the API contract stays satisfied.
+async function answerToolCalls(response, emit) {
+  const results = [];
+  for (const block of response.content) {
+    if (block.type !== 'tool_use') continue;
+    if (block.name === 'search_places') {
+      emit({ type: 'beat', note: 'searching places' });
+      let content;
+      try {
+        const key = process.env.GOOGLE_MAPS_API_KEY;
+        if (!key) throw new Error('place search not configured on this site');
+        const places = await searchPlacesGoogle(key, block.input?.query ?? '', block.input?.near, { limit: 6 });
+        content = JSON.stringify(places.length ? places : { note: 'no matches — try a broader query' });
+      } catch (e) {
+        content = JSON.stringify({ error: String(e.message).slice(0, 200) });
+      }
+      results.push({ type: 'tool_result', tool_use_id: block.id, content });
+    } else {
+      results.push({
+        type: 'tool_result',
+        tool_use_id: block.id,
+        content: 'Not executed — finish your place searches first, then issue this proposal in your next reply.',
+      });
+    }
+  }
+  return results;
+}
 
 export const TOOL = {
   name: 'propose_trip_changes',
@@ -294,41 +344,68 @@ export function buildChatMessages({ messages, tripDigest, tripJson, scenarios })
 // so the client reads a streamed run and a polled run identically.
 export async function runChat({ client, body, emit, budgetMs = BUDGET_MS, background = false }) {
   const { messages = [], tripDigest = '', tripJson = null, scenarios = [] } = body;
-  const stream = client.messages.stream({
-    model: 'claude-sonnet-5',
-    max_tokens: 8000,
-    output_config: { effort: 'medium' },
-    system: SYSTEM,
-    tools: [TOOL],
-    messages: buildChatMessages({ messages, tripDigest, tripJson, scenarios }),
-  });
-  stream.on('text', (t) => emit({ type: 'delta', text: t }));
-  const progress = trackProgress(stream, emit);
+  const convo = buildChatMessages({ messages, tripDigest, tripJson, scenarios });
+  const t0 = Date.now();
+  let allText = '';
 
-  let response;
-  try {
-    response = await withDeadline(stream, budgetMs);
-  } catch (err) {
-    if (err?.code !== 'deadline') throw err;
-    emit({ type: 'error', message: deadlineMessage(progress, { background }) });
-    return;
+  // Agentic loop: the model may call search_places (answered server-side) any
+  // number of rounds before its final answer / proposal, within the budget.
+  for (let round = 0; round < 4; round++) {
+    const remaining = budgetMs - (Date.now() - t0);
+    if (remaining < 8000) {
+      emit({ type: 'error', message: 'Ran out of time while looking places up — ask again, or for a smaller change.' });
+      return;
+    }
+    const stream = client.messages.stream({
+      model: 'claude-sonnet-5',
+      max_tokens: 8000,
+      output_config: { effort: 'medium' },
+      system: SYSTEM,
+      tools: [TOOL, PLACES_TOOL],
+      messages: convo,
+    });
+    stream.on('text', (t) => emit({ type: 'delta', text: t }));
+    const progress = trackProgress(stream, emit);
+
+    let response;
+    try {
+      response = await withDeadline(stream, remaining);
+    } catch (err) {
+      if (err?.code !== 'deadline') throw err;
+      emit({ type: 'error', message: deadlineMessage(progress, { background }) });
+      return;
+    }
+    if (response.stop_reason === 'refusal') {
+      emit({ type: 'done', text: 'The optimizer declined that request. Try rephrasing it.', proposal: null });
+      return;
+    }
+    if (response.stop_reason === 'max_tokens') {
+      // Tool arguments are truncated JSON at this point — unusable.
+      emit({ type: 'error', message: 'The answer hit its length limit before it was complete. Ask for a smaller change set — one day at a time applies cleanly.' });
+      return;
+    }
+
+    let text = '';
+    let proposal = null;
+    let searched = false;
+    for (const block of response.content) {
+      if (block.type === 'text') text += block.text;
+      if (block.type === 'tool_use' && block.name === 'propose_trip_changes') proposal = block.input;
+      if (block.type === 'tool_use' && block.name === 'search_places') searched = true;
+    }
+    if (text.trim()) allText += (allText ? '\n\n' : '') + text.trim();
+
+    if (!searched) {
+      emit({ type: 'done', text: allText, proposal });
+      return;
+    }
+    // Answer the searches and go around again (a stray proposal in the same
+    // reply gets deferred by answerToolCalls).
+    const toolResults = await answerToolCalls(response, emit);
+    convo.push({ role: 'assistant', content: response.content });
+    convo.push({ role: 'user', content: toolResults });
   }
-  if (response.stop_reason === 'refusal') {
-    emit({ type: 'done', text: 'The optimizer declined that request. Try rephrasing it.', proposal: null });
-    return;
-  }
-  if (response.stop_reason === 'max_tokens') {
-    // Tool arguments are truncated JSON at this point — unusable.
-    emit({ type: 'error', message: 'The answer hit its length limit before it was complete. Ask for a smaller change set — one day at a time applies cleanly.' });
-    return;
-  }
-  let text = '';
-  let proposal = null;
-  for (const block of response.content) {
-    if (block.type === 'text') text += block.text;
-    if (block.type === 'tool_use' && block.name === 'propose_trip_changes') proposal = block.input;
-  }
-  emit({ type: 'done', text: text.trim(), proposal });
+  emit({ type: 'error', message: 'Too many place lookups in one request — ask for a smaller change.' });
 }
 
 // Square-zero trip generation.

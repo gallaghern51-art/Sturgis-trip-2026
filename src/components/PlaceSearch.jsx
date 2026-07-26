@@ -19,7 +19,9 @@ export default function PlaceSearch({ day }) {
     timer.current = setTimeout(async () => {
       setBusy(true);
       try {
-        setResults(await geocode(text));
+        // bias results toward the day being edited
+        const anchor = day.waypoints.find((w) => Number.isFinite(w.lat));
+        setResults(await geocode(text, anchor ? { lat: anchor.lat, lng: anchor.lng } : undefined));
       } catch {
         setResults([]);
       } finally {

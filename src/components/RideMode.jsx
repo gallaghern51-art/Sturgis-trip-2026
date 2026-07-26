@@ -4,7 +4,7 @@ import { useTrip } from '../engine/store.js';
 import { dayTimeline, fmtTime, fmtDur, parseTime } from '../engine/timeline.js';
 import { haversineMiles } from '../engine/tripEngine.js';
 import { routeDaySteps, routeFrom } from '../engine/routing.js';
-import { STYLE_SATELLITE, warmTilesAhead } from '../engine/basemaps.js';
+import { STYLE_SATELLITE, warmTilesAhead, cachedGoogleStyle, googleStyle, GOOGLE_KEY } from '../engine/basemaps.js';
 import { fmtDayDate } from '../engine/dates.js';
 
 // Ride Mode: a navigation HUD over a live map. Projects your GPS position onto
@@ -140,6 +140,7 @@ export default function RideMode({ onClose }) {
   const spokenRef = useRef('');
   const offCountRef = useRef(0);
   const warmAtRef = useRef(0);
+  const liveRouteAtRef = useRef(0);
   const lastRerouteAtRef = useRef(0);
   const reroutingRef = useRef(false);
   reroutingRef.current = rerouting;
@@ -159,9 +160,12 @@ export default function RideMode({ onClose }) {
   // ---- nav map with position puck ----
   useEffect(() => {
     const start = day.waypoints[0];
+    // Google hybrid when a tile session is cached; otherwise Esri now and warm
+    // a session in the background so the next ride opens on Google.
+    if (GOOGLE_KEY) googleStyle('hybrid').catch(() => {});
     const map = new maplibregl.Map({
       container: mapDivRef.current,
-      style: STYLE_SATELLITE,
+      style: cachedGoogleStyle('hybrid') ?? STYLE_SATELLITE,
       center: start ? [start.lng, start.lat] : [-108, 45],
       zoom: 12,
       attributionControl: { compact: true },
@@ -218,6 +222,7 @@ export default function RideMode({ onClose }) {
     setReroute(null);
     setRerouteFailed(false);
     offCountRef.current = 0;
+    liveRouteAtRef.current = 0;
     spokenRef.current = '';
     routeDaySteps(day).then((s) => { if (!dead) setSteps(s); }).catch(() => { if (!dead) setSteps([]); });
     return () => { dead = true; };
@@ -361,7 +366,7 @@ export default function RideMode({ onClose }) {
     speak('Off route. Recalculating.');
     routeFrom({ lat: fix.lat, lng: fix.lng }, remaining)
       .then((r) => {
-        setReroute(r);
+        setReroute({ ...r, byOffRoute: true });
         setRerouteFailed(false);
         offCountRef.current = 0;
         spokenRef.current = '';
@@ -371,13 +376,31 @@ export default function RideMode({ onClose }) {
       .finally(() => setRerouting(false));
   }, [fix]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // back on the original plan → drop the detour route
+  // back on the original plan → drop an off-route detour (traffic-anchored
+  // live routes stay — they refresh on their own cadence below)
   useEffect(() => {
-    if (!reroute || !fix) return;
+    if (!reroute?.byOffRoute || !fix) return;
     const coords = routes[day.id]?.geometry;
     if (!coords) return;
     const p = projectOnChain(coords.map(([lng, lat]) => ({ lat, lng })), fix);
     if (p && p.off < 0.08) { setReroute(null); setRerouteFailed(false); }
+  }, [fix]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- traffic anchor: navigate on a fresh traffic-aware route from the bike ----
+  // On the first good fix (and every 10 min after) fetch a live route from the
+  // current position through the day's remaining stops. Only adopted when it
+  // came from the traffic-aware provider — the OSRM fallback matches the
+  // planned line anyway, so swapping would add nothing.
+  useEffect(() => {
+    if (!fix || !goodFix || !proj || offRoute || reroutingRef.current) return;
+    const now = Date.now();
+    if (now - liveRouteAtRef.current < 10 * 60_000) return;
+    liveRouteAtRef.current = now;
+    const remaining = day.waypoints.slice(proj.i + 1);
+    if (!remaining.length) return;
+    routeFrom({ lat: fix.lat, lng: fix.lng }, remaining)
+      .then((r) => { if (r.traffic) setReroute({ ...r, byOffRoute: false }); })
+      .catch(() => { /* next cycle retries */ });
   }, [fix]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const nextWp = proj ? day.waypoints[proj.i + 1] : null;
