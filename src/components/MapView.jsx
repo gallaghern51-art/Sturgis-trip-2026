@@ -4,9 +4,36 @@ import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
 import { haversineMiles, bestInsertIndex } from '../engine/tripEngine.js';
 import { dayTimeline, fmtTime, fmtDur } from '../engine/timeline.js';
-import { BASEMAPS, STYLE_SATELLITE, STYLE_FALLBACK, LIGHT_SAFE } from '../engine/basemaps.js';
+import { BASEMAPS, STYLE_SATELLITE, STYLE_FALLBACK, LIGHT_SAFE, ensureTerrain } from '../engine/basemaps.js';
 
 const isTouch = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+
+// White chevron with a dark keyline — reads on any basemap and any phase color.
+// Points +x: symbol-placement:line rotates it along the route's direction.
+function arrowImage(size = 26) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  const chevron = () => {
+    g.beginPath();
+    g.moveTo(size * 0.32, size * 0.2);
+    g.lineTo(size * 0.72, size * 0.5);
+    g.lineTo(size * 0.32, size * 0.8);
+    g.stroke();
+  };
+  g.strokeStyle = 'rgba(10, 12, 16, 0.9)';
+  g.lineWidth = 7;
+  chevron();
+  g.strokeStyle = '#f5f2ea';
+  g.lineWidth = 3.2;
+  chevron();
+  return g.getImageData(0, 0, size, size);
+}
+
+// Route widths scale with zoom like Google's — thin at trip scale, bold when editing.
+const lineWidth = (base) => ['interpolate', ['linear'], ['zoom'], 5, base * 0.75, 9, base, 13, base * 1.9];
 
 export default function MapView() {
   const { state, dispatch, routes, routedLegsByDay } = useTrip();
@@ -21,6 +48,9 @@ export default function MapView() {
   const [basemap, setBasemap] = React.useState('sat');
   const basemapRef = useRef('sat');
   basemapRef.current = basemap;
+  const [terrain3d, setTerrain3d] = React.useState(false);
+  const terrainRef = useRef(false);
+  terrainRef.current = terrain3d;
   const stateRef = useRef({ trip, selectedDayId });
   stateRef.current = { trip, selectedDayId };
 
@@ -50,9 +80,18 @@ export default function MapView() {
       attributionControl: { compact: true },
     });
     mapRef.current = map;
+    if (import.meta.env.DEV) window.__map = map; // console access while developing
     // On touch, pinch-zoom replaces the +/− control and the screen is too
     // small to spend on it.
     if (!isTouch()) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    map.addControl(new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: true,
+    }), 'top-right');
+    map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-right');
+    // Direction chevrons live in the style's image store, which setStyle wipes.
+    const addArrow = () => { if (!map.hasImage('route-arrow')) map.addImage('route-arrow', arrowImage()); };
+    map.on('styleimagemissing', (e) => { if (e.id === 'route-arrow') addArrow(); });
     let fellBack = false;
     map.on('error', (e) => {
       if (!fellBack && String(e?.error?.message || '').match(/style|404|403/i)) {
@@ -109,6 +148,26 @@ export default function MapView() {
     map.once('idle', () => drawAllRef.current());
   }, [basemap]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 3D toggle — terrain + a tilted camera (drawAll re-asserts it after style switches)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    const apply = () => {
+      ensureTerrain(map, terrain3d);
+      map.easeTo({ pitch: terrain3d ? 55 : 0, duration: 800 });
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once('idle', apply);
+  }, [terrain3d]);
+
+  // fly to a stop the user tapped in the day panel
+  useEffect(() => {
+    const map = mapRef.current;
+    const f = state.focus;
+    if (!map || !f) return;
+    map.flyTo({ center: [f.lng, f.lat], zoom: Math.max(map.getZoom(), 13.8), duration: 900 });
+  }, [state.focus]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // fit bounds when selection changes
   useEffect(() => {
     const map = mapRef.current;
@@ -117,15 +176,26 @@ export default function MapView() {
     const pts = days.flatMap((d) => d.waypoints.map((w) => [w.lng, w.lat]));
     if (!pts.length) return;
     const b = pts.reduce((acc, p) => acc.extend(p), new maplibregl.LngLatBounds(pts[0], pts[0]));
-    // A phone-width map has no room for desk-sized gutters.
-    const padding = map.getContainer().clientWidth < 560 ? 28 : 70;
-    map.fitBounds(b, { padding, duration: 700, maxZoom: 10.5 });
+    const doFit = () => {
+      // A phone-width map has no room for desk-sized gutters.
+      const padding = map.getContainer().clientWidth < 560 ? 28 : 70;
+      map.fitBounds(b, { padding, duration: 700, maxZoom: 10.5 });
+    };
+    // At first paint the container can still be zero-sized — fitBounds refuses
+    // ("cannot fit within canvas"); retry once layout has settled.
+    if ((map.getContainer().clientWidth || 0) < 100) {
+      const t = setTimeout(doFit, 350);
+      return () => clearTimeout(t);
+    }
+    doFit();
   }, [selectedDayId, trip.days.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function drawAll() {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
     const { trip: t, selectedDayId: sel } = stateRef.current;
+    ensureTerrain(map, terrainRef.current);
+    if (!map.hasImage('route-arrow')) map.addImage('route-arrow', arrowImage());
 
     for (const day of t.days) {
       const geom = routes[day.id]?.geometry ?? day.waypoints.map((w) => [w.lng, w.lat]);
@@ -140,15 +210,30 @@ export default function MapView() {
         map.getSource(srcId).setData(data);
       } else {
         map.addSource(srcId, { type: 'geojson', data });
+        const round = { 'line-cap': 'round', 'line-join': 'round' };
         map.addLayer({
           id: `${srcId}-glow`, type: 'line', source: srcId,
-          paint: { 'line-color': color, 'line-width': 8, 'line-opacity': 0.18, 'line-blur': 4 },
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': color, 'line-width': lineWidth(8), 'line-opacity': 0.18, 'line-blur': 4 },
+          layout: round,
+        });
+        map.addLayer({
+          id: `${srcId}-casing`, type: 'line', source: srcId,
+          paint: { 'line-color': '#0c0f13', 'line-width': lineWidth(5.5), 'line-opacity': 0.7 },
+          layout: round,
         });
         map.addLayer({
           id: `${srcId}-line`, type: 'line', source: srcId,
-          paint: { 'line-color': color, 'line-width': 3, 'line-opacity': 0.9 },
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': color, 'line-width': lineWidth(3), 'line-opacity': 0.9 },
+          layout: round,
+        });
+        map.addLayer({
+          id: `${srcId}-arrows`, type: 'symbol', source: srcId,
+          layout: {
+            'symbol-placement': 'line', 'symbol-spacing': 130,
+            'icon-image': 'route-arrow', 'icon-size': 0.72,
+            'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+          },
+          paint: { 'icon-opacity': 0.9 },
         });
         wireLegEvents(map, day.id, `${srcId}-line`);
       }
@@ -156,8 +241,11 @@ export default function MapView() {
       map.setPaintProperty(`${srcId}-line`, 'line-color', color);
       map.setPaintProperty(`${srcId}-glow`, 'line-color', color);
       map.setPaintProperty(`${srcId}-line`, 'line-opacity', lineOpacity);
-      map.setPaintProperty(`${srcId}-line`, 'line-width', sel === day.id ? 4.5 : 3);
+      map.setPaintProperty(`${srcId}-line`, 'line-width', lineWidth(sel === day.id ? 4.5 : 3));
+      map.setPaintProperty(`${srcId}-casing`, 'line-width', lineWidth(sel === day.id ? 7 : 5.5));
+      map.setPaintProperty(`${srcId}-casing`, 'line-opacity', active ? 0.7 : 0.12);
       map.setPaintProperty(`${srcId}-glow`, 'line-opacity', active ? 0.2 : 0.05);
+      map.setPaintProperty(`${srcId}-arrows`, 'icon-opacity', active ? 0.9 : 0);
     }
     // prune sources for deleted days
     drawMarkers();
@@ -233,6 +321,13 @@ export default function MapView() {
           el.style.width = size;
           el.style.height = size;
         }
+        // Name labels while editing a day — the whole-trip view stays clean.
+        if (showAll) {
+          const lab = document.createElement('span');
+          lab.className = 'wp-label';
+          lab.textContent = w.name.length > 26 ? w.name.slice(0, 25) + '…' : w.name;
+          el.appendChild(lab);
+        }
         const marker = new maplibregl.Marker({ element: el, draggable: showAll })
           .setLngLat([w.lng, w.lat])
           .addTo(map);
@@ -289,6 +384,11 @@ export default function MapView() {
             onClick={() => setBasemap(key)}
           >{b.label}</button>
         ))}
+        <button
+          className={terrain3d ? 'active' : ''}
+          title="3D terrain"
+          onClick={() => setTerrain3d((v) => !v)}
+        >3D</button>
       </div>
       <div className="map-legend">
         {Object.entries(PHASES).map(([k, p]) => (

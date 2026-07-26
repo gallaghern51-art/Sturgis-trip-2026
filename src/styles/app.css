@@ -193,12 +193,18 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   background: rgba(20, 17, 13, 0.88);
   border: 1px solid var(--line); border-radius: 6px;
   padding: 6px 10px; font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim);
+  max-width: 36%; /* never run under the basemap switch on a narrow map column */
 }
 .map-hint b { color: var(--rally); font-weight: 500; }
 
 .wp-marker { width: 13px; height: 13px; border-radius: 50%; border: 2px solid #14110d; cursor: pointer; box-shadow: 0 0 0 1px rgba(240, 227, 200, 0.35); }
 .wp-marker.fuel { border-radius: 3px; }
 .wp-marker.photo { transform: rotate(45deg); border-radius: 3px; }
+.wp-label {
+  position: absolute; left: calc(100% + 7px); top: 50%; transform: translateY(-50%);
+  font-family: var(--mono); font-size: 11px; color: #fff; pointer-events: none;
+  white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, 0.75);
+}
 .maplibregl-popup-content {
   background: var(--asphalt-2) !important; color: var(--ink) !important;
   border: 1px solid var(--line); border-radius: 6px; font-family: var(--body); font-size: 13px;
@@ -258,7 +264,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .section > h3 .cnt { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
 
 .wp-row {
-  display: grid; grid-template-columns: 20px 76px 1fr auto; gap: 8px; align-items: baseline;
+  display: grid; grid-template-columns: 20px 76px 1fr auto auto; gap: 8px; align-items: baseline;
   padding: 7px 6px; border-radius: 5px; border: 1px solid transparent;
   background: var(--asphalt-1);
 }
@@ -275,10 +281,12 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .wp-row .nm .tag { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; padding: 1px 5px; border-radius: 3px; margin-left: 6px; vertical-align: 1px; }
 .wp-row .nm .tag.fuel { background: rgba(232, 98, 44, 0.18); color: var(--outbound); }
 .wp-row .nm .tag.photo { background: rgba(240, 227, 200, 0.12); color: var(--return); }
-.wp-row .note { grid-column: 3 / 5; font-size: 12px; color: var(--ink-dim); }
+.wp-row .note { grid-column: 3 / 6; font-size: 12px; color: var(--ink-dim); }
 .wp-row .rm { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); opacity: 0; }
 .wp-row:hover .rm { opacity: 1; }
 .wp-row .rm:hover { color: var(--danger); }
+.wp-row .rm.info { font-size: 13px; }
+.wp-row .rm.info:hover { color: var(--rally); }
 
 .meal { padding: 8px 0; border-bottom: 1px dashed var(--line); }
 .meal:last-child { border-bottom: none; }
@@ -561,6 +569,13 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .basemap-switch button { padding: 9px 12px; }
   .wp-marker { width: 16px; height: 16px; }
   .maplibregl-popup-close-button { padding: 4px 8px; font-size: 20px !important; }
+
+  /* three-block nav bottombar has to earn its width on a phone */
+  .rb-speed { min-width: 84px; padding: 8px 12px; }
+  .rb-speed .n { font-size: 44px; }
+  .rb-eta { min-width: 78px; padding: 8px 10px; }
+  .rb-eta .n { font-size: 24px; }
+  .rb-delta .n { font-size: 24px; }
 }
 
 /* ---------- phone: one pane at a time, driven by the bottom tab bar ----------
@@ -822,6 +837,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 }
 
 .recenter { align-self: center; box-shadow: 0 4px 18px rgba(0,0,0,0.5); }
+.ride-quick { display: flex; gap: 8px; justify-content: center; align-items: center; }
+.ride-quick .overview { background: rgba(20, 17, 13, 0.92); box-shadow: 0 4px 18px rgba(0,0,0,0.5); }
 
 .ride-bottombar { display: flex; gap: 10px; align-items: stretch; }
 .rb-speed {
@@ -840,6 +857,13 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .rb-delta.ahead { border-color: var(--ok); } .rb-delta.ahead .n { color: var(--ok); }
 .rb-delta.behind { border-color: var(--danger); } .rb-delta.behind .n { color: var(--danger); }
 .rb-delta.on-time { border-color: var(--rally); } .rb-delta.on-time .n { color: var(--rally); }
+.rb-eta {
+  background: rgba(20, 17, 13, 0.94); border: 1px solid var(--line); border-radius: 12px;
+  padding: 8px 14px; text-align: center; min-width: 96px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.rb-eta .n { font-family: var(--display); font-size: 28px; font-weight: 700; line-height: 1.05; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rb-eta .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--ink-faint); margin-top: 3px; white-space: nowrap; }
 
 .ride-mode .rp-bar { background: rgba(38, 33, 26, 0.9); }
 .ride-mode .rp-meta { text-shadow: 0 1px 3px #000; }

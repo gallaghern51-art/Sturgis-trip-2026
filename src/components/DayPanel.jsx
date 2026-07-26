@@ -79,7 +79,7 @@ export default function DayPanel({ day }) {
       )}
 
       <div className="section">
-        <h3>Route & stops <span className="cnt">{day.waypoints.length} · drag ⠿ to reorder · tap for details</span></h3>
+        <h3>Route & stops <span className="cnt">{day.waypoints.length} · drag ⠿ to reorder · tap to zoom the map · ⓘ for details</span></h3>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={day.waypoints.map((w) => w.id)} strategy={verticalListSortingStrategy}>
             {day.waypoints.map((w, i) => (
@@ -284,13 +284,21 @@ function SortableWaypoint({ w, dayId, dispatch, sched, first }) {
       </span>
       <span
         className="nm clickable"
-        onClick={() => dispatch({ type: 'open_modal', modal: { type: 'stop', dayId, waypointId: w.id } })}
+        title="Center the map on this stop"
+        onClick={() => {
+          if (Number.isFinite(w.lat) && Number.isFinite(w.lng)) dispatch({ type: 'focus_point', lat: w.lat, lng: w.lng });
+        }}
       >
         {w.name}
         {w.fuel && <span className="tag fuel">FUEL</span>}
         {w.kind === 'photo' && <span className="tag photo">PHOTO</span>}
         {sched && sched.dwell > 0 && <span className="tag dwell">{fmtDur(sched.dwell)}</span>}
       </span>
+      <button
+        className="rm info"
+        title="Stop details"
+        onClick={() => dispatch({ type: 'open_modal', modal: { type: 'stop', dayId, waypointId: w.id } })}
+      >ⓘ</button>
       <button
         className="rm"
         title="Remove stop"

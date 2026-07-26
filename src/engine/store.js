@@ -123,6 +123,9 @@ export function reducer(state, action) {
     // ---- UI ----
     case 'select_day':
       return { ...state, selectedDayId: action.dayId };
+    case 'focus_point':
+      // `at` makes re-clicking the same stop re-trigger the map effect.
+      return { ...state, focus: { lat: action.lat, lng: action.lng, at: Date.now() } };
     case 'open_modal':
       return { ...state, modal: action.modal };
     case 'close_modal':
