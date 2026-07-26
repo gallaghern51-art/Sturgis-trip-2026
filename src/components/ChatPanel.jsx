@@ -15,7 +15,7 @@ const SUGGESTIONS = [
 
 export default function ChatPanel({ onClose }) {
   const { state, dispatch, routedLegsByDay } = useTrip();
-  const [messages, setMessages] = useState([]); // {role, content}
+  const [messages, setMessages] = useState(state.chat ?? []); // {role, content} — hydrated from the trip record
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [building, setBuilding] = useState(null); // {chars, thinking} streamed so far
@@ -25,6 +25,14 @@ export default function ChatPanel({ onClose }) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, busy, state.pendingProposal]);
+
+  // Re-hydrate when the active trip changes; persist whenever the thread grows.
+  useEffect(() => {
+    setMessages(state.chat ?? []);
+  }, [state.lib.activeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (messages !== state.chat) dispatch({ type: 'save_chat', messages });
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Questions queued from elsewhere in the app (feasibility break-up recs) auto-send.
   useEffect(() => {
@@ -126,6 +134,13 @@ export default function ChatPanel({ onClose }) {
     <div className="chat-panel">
       <div className="chat-head">
         <span className="t">Trip <i>Optimizer</i></span>
+        {messages.length > 0 && (
+          <button
+            className="btn"
+            title="Clear this trip's chat history"
+            onClick={() => { if (confirm('Clear the optimizer conversation for this trip?')) { dispatch({ type: 'clear_chat' }); setMessages([]); } }}
+          >Clear</button>
+        )}
         <button className="btn" onClick={onClose}>✕</button>
       </div>
       <div className="chat-msgs" ref={scrollRef}>

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Multi-trip motorcycle trip planning platform (React SPA + Netlify Functions). Born as the Sturgis 2026 field-guide app; the Sturgis trip now lives on as seed data / template. Live at https://sturgis-2026-trip.netlify.app.
+**Roadbook** — multi-trip AI motorcycle trip planning platform (React SPA + Netlify Functions). Born as the Sturgis 2026 field-guide app; the Sturgis trip now lives on as seed data / template. Live at https://sturgis-2026-trip.netlify.app.
 
 ## Commands
 
@@ -47,5 +47,7 @@ Model: `claude-sonnet-5` (deliberate cost choice — don't upgrade without askin
 - `MapView` re-registers nothing on style switch: layers are re-added by `scheduleDraw` via `drawAllRef` (a ref to the latest closure — React StrictMode double-mounts the map, and init-time handlers would otherwise capture stale state). Keep new map event handlers going through refs.
 - Mobile: `src/hooks/useMediaQuery.js` drives a tabbed one-pane layout; the map lives in a hidden tab and relies on the ResizeObserver in MapView to `resize()` when shown.
 - Waypoints: `kind` ∈ start/via/fuel/photo/end, `fuel: true` drives fuel-gap math, `dwell` minutes override `DWELL_DEFAULT`. `mile` is legacy field-guide mileage — null it when coordinates change (`update_waypoint` from the location editor already does).
+- Chat history persists per trip on the library record (`rec.chat`, capped 60 messages) — ChatPanel hydrates on trip switch and dispatches `save_chat`.
+- `src/components/RideMode.jsx` — GPS HUD: projects `watchPosition` fixes onto the day's waypoint legs (`planPosition`), delta vs plan = clock − planned-minutes-at-position; wake-lock held while open. PWA manifest in `public/`.
 - localStorage keys: `moto.trips.v1` (library), `moto.budget.v1`, `sturgis.routeCache.v1` (OSRM), `sturgis.conditions.v1` (weather). Legacy `sturgis.trip.v2`/`sturgis.scenarios.v1` migrate on first load — don't remove the migration until well after Aug 2026.
 - The seed Sturgis trip (`src/data/seedTrip.js`) doubles as the "template" option in NewTripModal and the Reset target. Its documented mileage is known-low vs routed reality (e.g. Missoula→Bozeman is ~203 mi, not 110) — the engine's routed numbers are the truth.

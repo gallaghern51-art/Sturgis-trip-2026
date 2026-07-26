@@ -10,6 +10,7 @@ import OverviewPanel from './components/OverviewPanel.jsx';
 import ChatPanel from './components/ChatPanel.jsx';
 import DetailModal from './components/DetailModal.jsx';
 import NewTripModal from './components/NewTripModal.jsx';
+import RideMode from './components/RideMode.jsx';
 import FeasibilityPanel from './components/FeasibilityPanel.jsx';
 import BudgetPanel from './components/BudgetPanel.jsx';
 
@@ -19,6 +20,7 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(true);
   const [view, setView] = useState('plan'); // plan | feas | budget
   const [newTripOpen, setNewTripOpen] = useState(false);
+  const [rideOpen, setRideOpen] = useState(false);
   const isMobile = useIsMobile();
   const [mobileTab, setMobileTab] = useState('map'); // map | panel | chat
   const [menuOpen, setMenuOpen] = useState(false);
@@ -86,9 +88,9 @@ export default function App() {
     e.target.value = '';
   };
 
-  const titleWords = (state.trip.meta.title || 'New trip').split(' ');
-  const titleTail = titleWords.length > 1 ? titleWords[titleWords.length - 1] : '';
-  const titleMain = titleTail ? titleWords.slice(0, -1).join(' ') : titleWords[0];
+  useEffect(() => {
+    document.title = `${state.trip.meta.title} · Roadbook`;
+  }, [state.trip.meta.title]);
 
   const panelLabel = selectedDay ? selectedDay.dow : view === 'feas' ? 'Feasibility' : view === 'budget' ? 'Budget' : 'Trip';
 
@@ -97,8 +99,8 @@ export default function App() {
       <div className={`app${isMobile ? ' mobile' : ''}`}>
         <header className="masthead">
           <div className="mast-id">
-            <h1>{titleMain} {titleTail && <span className="yr">{titleTail}</span>}</h1>
-            <span className="sub">{state.trip.meta.subtitle ? `${state.trip.meta.subtitle} · ` : ''}{Math.round(summary.totalMiles)} mi · {state.trip.meta.riders} riders · {state.trip.days.length} days from {state.trip.meta.startDate}</span>
+            <h1 className="brand">ROAD<span className="yr">BOOK</span></h1>
+            <span className="sub">{state.trip.meta.title} · {Math.round(summary.totalMiles)} mi · {state.trip.meta.riders} riders · {state.trip.days.length} days</span>
           </div>
           <span className="spacer" />
           <button
@@ -159,8 +161,12 @@ export default function App() {
               <option value="__save">＋ Save current as scenario</option>
               {state.scenarios.map((s) => <option key={s.id} value={s.id}>Load: {s.name}</option>)}
             </select>
-            <button className="btn" onClick={() => { setView(view === 'feas' ? 'plan' : 'feas'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{view === 'feas' ? 'Plan' : 'Feasibility'}</button>
-            <button className="btn" onClick={() => { setView(view === 'budget' ? 'plan' : 'budget'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{view === 'budget' ? 'Plan' : 'Budget'}</button>
+            <div className="viewtabs">
+              {[['plan', 'Plan'], ['feas', 'Feasibility'], ['budget', 'Budget']].map(([v, label]) => (
+                <button key={v} className={view === v ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{label}</button>
+              ))}
+            </div>
+            <button className="btn primary" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>▶ Ride</button>
             <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>Undo</button>
             <button className="btn" onClick={exportJson}>Export</button>
             <button className="btn" onClick={() => fileRef.current?.click()}>Import</button>
@@ -189,6 +195,7 @@ export default function App() {
         )}
         <DetailModal />
         {newTripOpen && <NewTripModal onClose={() => setNewTripOpen(false)} />}
+        {rideOpen && <RideMode onClose={() => setRideOpen(false)} />}
       </div>
     </TripContext.Provider>
   );

@@ -1,0 +1,13 @@
+{
+  "name": "Roadbook — AI Motorcycle Trip Planner",
+  "short_name": "Roadbook",
+  "description": "Plan, optimize, and ride multi-day motorcycle trips: routed maps, timeline feasibility, AI restructuring, and a GPS ride HUD.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14110d",
+  "theme_color": "#14110d",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

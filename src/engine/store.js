@@ -15,6 +15,7 @@ function freshRecord(trip, name) {
     name: name ?? trip.meta?.title ?? 'Untitled trip',
     trip,
     scenarios: [],
+    chat: [],
     updatedAt: new Date().toISOString(),
   };
 }
@@ -64,6 +65,7 @@ export const initialState = () => {
     lib,
     trip: rec.trip,
     scenarios: rec.scenarios,
+    chat: rec.chat ?? [],
     history: [], // undo stack of previous trips (capped)
     selectedDayId: null, // null = whole-trip overview
     pendingProposal: null, // { ops, summary, saveAs, overwriteScenarioId }
@@ -101,13 +103,13 @@ export function reducer(state, action) {
       const rec = freshRecord(action.trip, action.name);
       const lib = { ...state.lib, trips: [...state.lib.trips, rec], activeId: rec.id };
       persistLibrary(lib);
-      return { ...state, lib, trip: rec.trip, scenarios: rec.scenarios, history: [], selectedDayId: null, pendingProposal: null, modal: null };
+      return { ...state, lib, trip: rec.trip, scenarios: rec.scenarios, chat: rec.chat ?? [], history: [], selectedDayId: null, pendingProposal: null, modal: null };
     }
     case 'switch_trip': {
       const lib = { ...state.lib, activeId: action.id };
       const rec = activeRecord(lib);
       persistLibrary(lib);
-      return { ...state, lib, trip: rec.trip, scenarios: rec.scenarios, history: [], selectedDayId: null, pendingProposal: null, modal: null };
+      return { ...state, lib, trip: rec.trip, scenarios: rec.scenarios, chat: rec.chat ?? [], history: [], selectedDayId: null, pendingProposal: null, modal: null };
     }
     case 'delete_trip': {
       if (state.lib.trips.length <= 1) return state;
@@ -115,7 +117,7 @@ export function reducer(state, action) {
       const lib = { trips, activeId: state.lib.activeId === action.id ? trips[0].id : state.lib.activeId };
       const rec = activeRecord(lib);
       persistLibrary(lib);
-      return { ...state, lib, trip: rec.trip, scenarios: rec.scenarios, history: [], selectedDayId: null };
+      return { ...state, lib, trip: rec.trip, scenarios: rec.scenarios, chat: rec.chat ?? [], history: [], selectedDayId: null };
     }
 
     // ---- UI ----
@@ -133,6 +135,20 @@ export function reducer(state, action) {
       return { ...state, pendingProposal: action.proposal };
     case 'clear_proposal':
       return { ...state, pendingProposal: null };
+
+    // Chat history persists per trip so the optimizer's memory survives reloads.
+    case 'save_chat': {
+      const rec = activeRecord(state.lib);
+      rec.chat = action.messages.slice(-60); // cap so localStorage stays sane
+      persistLibrary(state.lib);
+      return { ...state, chat: rec.chat };
+    }
+    case 'clear_chat': {
+      const rec = activeRecord(state.lib);
+      rec.chat = [];
+      persistLibrary(state.lib);
+      return { ...state, chat: [] };
+    }
 
     // ---- scenarios (scoped to the active trip) ----
     case 'save_scenario': {

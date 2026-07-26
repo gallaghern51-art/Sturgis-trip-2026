@@ -1,6 +1,6 @@
-# Roadbook
+# Moto Trip Planner
 
-AI motorcycle trip planning platform — born as the **Sturgis 2026 · La Expedición Chilena** field guide, grown into a zero-to-100 planner for any multi-day ride.
+Full motorcycle trip planning platform — born as the **Sturgis 2026 · La Expedición Chilena** field guide, grown into a zero-to-100 planner for any multi-day ride.
 
 **Live:** https://sturgis-2026-trip.netlify.app
 
@@ -12,8 +12,6 @@ AI motorcycle trip planning platform — born as the **Sturgis 2026 · La Expedi
 - **Feasibility studies** — A–F grades per day against hard time gates, fuel range (configurable bike range/MPG), day length, after-dark arrival, and booking status; plus split-point recommendations for loops and overpacked days.
 - **AI optimizer** — chat grounded in the live trip state + engine analysis. Proposes structured edits you preview and apply; whole-trip restructures auto-save as named scenarios you can compare and swap.
 - **Rider exports** — GPX per day / full trip with planned ETAs baked into waypoint names (on-road schedule checks on any nav device), and an .ics calendar of the whole trip.
-- **Ride Mode** — full-screen GPS HUD: live speed, position projected onto the day's route, ahead/behind-plan minutes, next-stop plan-vs-tracking ETAs, gate projections, day progress, screen wake-lock. Installable as a PWA.
-- **Persistent AI memory** — the optimizer conversation is stored per trip and survives reloads.
 - **Extras** — live weather per day (Open-Meteo), road-status links, budget & fuel module, scenario comparison, undo, JSON export/import.
 
 ## Stack

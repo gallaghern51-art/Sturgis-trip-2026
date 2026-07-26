@@ -749,3 +749,72 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- roadbook brand + view tabs ---------- */
+
+.masthead h1.brand { letter-spacing: 0.1em; }
+
+.viewtabs {
+  display: flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+}
+.viewtabs button {
+  font-family: var(--display); font-size: 13px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 6px 12px; color: var(--ink-dim); border-right: 1px solid var(--line);
+}
+.viewtabs button:last-child { border-right: none; }
+.viewtabs button:hover { color: var(--ink); }
+.viewtabs button.active { background: var(--rally); color: #221a08; }
+
+/* ---------- ride mode HUD ---------- */
+
+.ride-mode {
+  position: fixed; inset: 0; z-index: 80;
+  background: var(--asphalt-0);
+  display: flex; flex-direction: column;
+  padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  gap: 12px; overflow-y: auto;
+}
+.ride-top { display: flex; gap: 10px; align-items: center; }
+.ride-top select { flex: 1; font-family: var(--mono); font-size: 12px; min-height: 40px; }
+.ride-clock { font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--ink); }
+.ride-top .btn { min-height: 40px; }
+
+.ride-hud { display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap; }
+.ride-speed {
+  background: var(--asphalt-1); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px 22px; text-align: center; min-width: 150px;
+}
+.ride-speed .n { font-family: var(--display); font-size: 88px; font-weight: 700; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ride-speed .l { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; color: var(--ink-faint); }
+.ride-delta {
+  flex: 1; min-width: 220px; border-radius: 12px; border: 1px solid var(--line);
+  display: flex; flex-direction: column; justify-content: center; padding: 14px 20px;
+  background: var(--asphalt-1);
+}
+.ride-delta .n { font-family: var(--display); font-size: 44px; font-weight: 700; line-height: 1.05; }
+.ride-delta .l { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 6px; }
+.ride-delta.ahead { border-color: var(--ok); }
+.ride-delta.ahead .n { color: var(--ok); }
+.ride-delta.behind { border-color: var(--danger); }
+.ride-delta.behind .n { color: var(--danger); }
+.ride-delta.on-time { border-color: var(--rally); }
+.ride-delta.on-time .n { color: var(--rally); }
+
+.ride-next {
+  background: var(--asphalt-1); border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px;
+}
+.ride-next .rn-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; color: var(--outbound); }
+.ride-next .rn-name { font-family: var(--display); font-size: 30px; font-weight: 700; line-height: 1.1; }
+.ride-next .rn-meta { font-family: var(--mono); font-size: 13px; color: var(--ink-dim); margin-top: 4px; }
+
+.ride-progress { margin-top: 2px; }
+.rp-bar { height: 10px; border-radius: 5px; background: var(--asphalt-2); border: 1px solid var(--line); overflow: hidden; }
+.rp-fill { height: 100%; background: linear-gradient(90deg, var(--outbound), var(--rally)); transition: width 0.6s; }
+.rp-meta { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--ink-dim); margin-top: 5px; }
+
+.ride-gates { display: flex; flex-direction: column; gap: 6px; }
+.ride-gate { font-family: var(--mono); font-size: 13px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); }
+.ride-gate.ok { color: var(--ok); border-color: rgba(127, 176, 105, 0.4); }
+.ride-gate.miss { color: var(--danger); border-color: rgba(224, 82, 82, 0.5); }
+
+.ride-stats { display: flex; gap: 18px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: auto; }
