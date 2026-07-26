@@ -94,8 +94,8 @@ function locateOnSteps(steps, pos) {
   };
 }
 
-const NAV_AHEAD = '#ffb03a';
-const NAV_DONE = 'rgba(150, 155, 162, 0.72)';
+const NAV_AHEAD = '#ffab5c';
+const NAV_DONE = 'rgba(122, 122, 122, 0.65)';
 const SOLID_AHEAD = ['interpolate', ['linear'], ['line-progress'], 0, NAV_AHEAD, 1, NAV_AHEAD];
 const EMPTY_LINE = { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } };
 
@@ -106,10 +106,10 @@ function ensureNavLayers(map) {
   map.addSource('ride-route', { type: 'geojson', data: EMPTY_LINE, lineMetrics: true });
   map.addSource('ride-live', { type: 'geojson', data: EMPTY_LINE, lineMetrics: true });
   const round = { 'line-cap': 'round', 'line-join': 'round' };
-  map.addLayer({ id: 'ride-route-glow', type: 'line', source: 'ride-route', paint: { 'line-color': '#e8622c', 'line-width': 14, 'line-opacity': 0.3, 'line-blur': 4 }, layout: round });
-  map.addLayer({ id: 'ride-route-casing', type: 'line', source: 'ride-route', paint: { 'line-color': '#14100b', 'line-width': 9.5, 'line-opacity': 0.85 }, layout: round });
+  map.addLayer({ id: 'ride-route-glow', type: 'line', source: 'ride-route', paint: { 'line-color': '#f48322', 'line-width': 14, 'line-opacity': 0.3, 'line-blur': 4 }, layout: round });
+  map.addLayer({ id: 'ride-route-casing', type: 'line', source: 'ride-route', paint: { 'line-color': '#000000', 'line-width': 9.5, 'line-opacity': 0.85 }, layout: round });
   map.addLayer({ id: 'ride-route-line', type: 'line', source: 'ride-route', paint: { 'line-color': NAV_AHEAD, 'line-width': 5.5, 'line-opacity': 0.95 }, layout: round });
-  map.addLayer({ id: 'ride-live-casing', type: 'line', source: 'ride-live', paint: { 'line-color': '#14100b', 'line-width': 9.5, 'line-opacity': 0.85 }, layout: round });
+  map.addLayer({ id: 'ride-live-casing', type: 'line', source: 'ride-live', paint: { 'line-color': '#000000', 'line-width': 9.5, 'line-opacity': 0.85 }, layout: round });
   map.addLayer({ id: 'ride-live-line', type: 'line', source: 'ride-live', paint: { 'line-color': NAV_AHEAD, 'line-width': 5.5, 'line-opacity': 0.95 }, layout: round });
 }
 

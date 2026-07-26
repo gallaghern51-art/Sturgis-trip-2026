@@ -2,10 +2,10 @@
 // Coordinates are approximate (road-snapped by the routing engine at render time).
 
 export const PHASES = {
-  prep:     { label: 'Prep',     color: '#8f8a7e' },
-  outbound: { label: 'Outbound', color: '#e8622c' },
-  rally:    { label: 'Rally',    color: '#e5a83b' },
-  return:   { label: 'Return',   color: '#f0e3c8' },
+  prep:     { label: 'Prep',     color: '#7a7a7a' },
+  outbound: { label: 'Outbound', color: '#f48322' },
+  rally:    { label: 'Rally',    color: '#f53f1f' },
+  return:   { label: 'Return',   color: '#cecece' },
 };
 
 export const SEED_TRIP = {
