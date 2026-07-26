@@ -13,6 +13,76 @@ const WMO = {
   85: 'Snow showers', 86: 'Snow showers', 95: 'Thunderstorms', 96: 'T-storms w/ hail', 99: 'T-storms w/ hail',
 };
 
+// ---- Apple-Weather-style condition coding ----
+// The rest of the app runs on the Harley palette, but weather is the one panel
+// riders scan for trouble, so each condition carries its own hue instead of the
+// single accent. Colors are iOS system colors (dark-mode variants) — they stay
+// legible on the black base. `conditionKind` keys the icon set in ConditionsCard.
+
+const KIND_BY_CODE = {
+  0: 'clear', 1: 'mostlyClear', 2: 'partly', 3: 'overcast',
+  45: 'fog', 48: 'fog',
+  51: 'drizzle', 53: 'drizzle', 55: 'drizzle',
+  61: 'rain', 63: 'rain', 65: 'heavyRain',
+  66: 'sleet', 67: 'sleet',
+  71: 'snow', 73: 'snow', 75: 'snow', 77: 'snow',
+  80: 'showers', 81: 'showers', 82: 'heavyRain',
+  85: 'snow', 86: 'snow',
+  95: 'storm', 96: 'storm', 99: 'storm',
+};
+
+export const CONDITION_COLORS = {
+  clear: '#FFD60A',       // systemYellow
+  mostlyClear: '#FFC93C',
+  partly: '#9DC6F0',
+  overcast: '#8E8E93',    // systemGray
+  fog: '#AEAEB2',
+  drizzle: '#64D2FF',     // systemTeal
+  rain: '#0A84FF',        // systemBlue
+  heavyRain: '#0060DF',
+  showers: '#40A9FF',
+  sleet: '#64D2FF',
+  snow: '#C7ECFF',
+  storm: '#5E5CE6',       // systemIndigo
+  unknown: '#8E8E93',
+};
+
+export function conditionKind(code) {
+  return KIND_BY_CODE[code] ?? 'unknown';
+}
+
+export function conditionColor(code) {
+  return CONDITION_COLORS[conditionKind(code)];
+}
+
+// Apple's temperature ramp: cold blue → teal → green → yellow → orange → red.
+export function tempColor(f) {
+  if (f == null || Number.isNaN(f)) return CONDITION_COLORS.unknown;
+  if (f >= 95) return '#FF453A';
+  if (f >= 85) return '#FF9F0A';
+  if (f >= 72) return '#FFD60A';
+  if (f >= 58) return '#30D158';
+  if (f >= 42) return '#64D2FF';
+  return '#0A84FF';
+}
+
+// Rain chance reads blue and gains weight as it climbs.
+export function precipColor(pct) {
+  if (pct == null) return CONDITION_COLORS.unknown;
+  if (pct >= 60) return '#0A84FF';
+  if (pct >= 30) return '#64D2FF';
+  return CONDITION_COLORS.unknown;
+}
+
+// Wind is a real hazard on a bike, so it escalates like a warning instead of
+// staying neutral: 20+ mph is a fight, 30+ is a plan change.
+export function windColor(mph) {
+  if (mph == null) return CONDITION_COLORS.unknown;
+  if (mph >= 30) return '#FF453A';
+  if (mph >= 20) return '#FF9F0A';
+  return CONDITION_COLORS.unknown;
+}
+
 function cache() {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { return {}; }
 }
