@@ -4,30 +4,8 @@ import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
 import { haversineMiles, bestInsertIndex } from '../engine/tripEngine.js';
 import { dayTimeline, fmtTime, fmtDur } from '../engine/timeline.js';
+import { BASEMAPS, STYLE_SATELLITE, STYLE_FALLBACK, LIGHT_SAFE } from '../engine/basemaps.js';
 
-const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark';
-const STYLE_FALLBACK = 'https://tiles.openfreemap.org/styles/liberty';
-const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/positron';
-const STYLE_SATELLITE = {
-  version: 8,
-  sources: {
-    satellite: {
-      type: 'raster',
-      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-      tileSize: 256,
-      maxzoom: 18,
-      attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
-    },
-  },
-  layers: [{ id: 'satellite', type: 'raster', source: 'satellite' }],
-};
-const BASEMAPS = {
-  dark: { label: 'Dark', style: STYLE_DARK },
-  light: { label: 'Light', style: STYLE_LIGHT },
-  sat: { label: 'Satellite', style: STYLE_SATELLITE },
-};
-// The cream "return" phase disappears on a light basemap — swap it for a legible tan.
-const LIGHT_SAFE = { return: '#a8873a', prep: '#6b675e' };
 const isTouch = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
 export default function MapView() {
@@ -40,8 +18,8 @@ export default function MapView() {
   const hoverPopupRef = useRef(null);
   const routedRef = useRef(routedLegsByDay);
   routedRef.current = routedLegsByDay;
-  const [basemap, setBasemap] = React.useState('dark');
-  const basemapRef = useRef('dark');
+  const [basemap, setBasemap] = React.useState('sat');
+  const basemapRef = useRef('sat');
   basemapRef.current = basemap;
   const stateRef = useRef({ trip, selectedDayId });
   stateRef.current = { trip, selectedDayId };
@@ -66,7 +44,7 @@ export default function MapView() {
   useEffect(() => {
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: STYLE_DARK,
+      style: STYLE_SATELLITE,
       center: [-108.5, 45.9],
       zoom: 5.4,
       attributionControl: { compact: true },
