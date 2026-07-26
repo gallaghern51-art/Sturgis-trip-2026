@@ -41,6 +41,18 @@ Shared model logic lives in `netlify/lib/planner-core.mjs` (`runChat`, `runGener
 
 Model: `claude-sonnet-5` (deliberate cost choice — don't upgrade without asking). Chat mode returns text + a `propose_trip_changes` tool call (ops + `saveAs`/`overwriteScenarioId` for scenario writes); generate mode (`mode:'generate'`) returns a full trip via the `generate_trip` tool, which the client re-ids and date-cascades in `NewTripModal`. The client sends digests (`tripDigest` + `feasibilityDigest` + `splitsDigest`) plus full trip JSON and the scenario list — keep digests in sync with engine changes so the AI reasons from real numbers.
 
+## Current state (session notes — July 25, 2026)
+
+Where things stand so a fresh session can pick up without archaeology:
+
+- **Brand:** the app is **Roadbook** (masthead, PWA manifest + icon in `public/`, dynamic `document.title`). The Sturgis 2026 trip is only seed data / the template option / the Reset target.
+- **Default basemap is hybrid satellite** (Esri imagery + roads + place labels). All basemap styles live in `src/engine/basemaps.js`, shared by MapView and RideMode. MapView inits with `STYLE_SATELLITE`.
+- **Ride Mode** (`src/components/RideMode.jsx`) is a full nav app: own MapLibre map, course-up follow camera (padding keeps the puck low), blue heading puck (`.nav-puck`, `rotationAlignment: 'map'`), route line, OSRM turn-by-turn via `routeDaySteps()` in `routing.js` (cache `moto.stepsCache.v1`), voice guidance at 1 mi / ¼ mi / on-turn via speechSynthesis with mute, ahead/behind-plan delta (clock − plan-time-at-position), gate projections, wake-lock. Known limits: needs foregrounded tab (no background GPS), no offline tiles, no live rerouting when off-route (shows an off-route banner instead).
+- **AI chat persists per trip** on the library record; the deployed functions run the three-transport planner (see below) with `claude-sonnet-5`.
+- **Deploys are GitHub CI** — push to `main` auto-deploys. The Netlify env has `ANTHROPIC_API_KEY`.
+- Engine truth vs seed data: routed totals ~2,730 mi for the Sturgis trip; the field guide's own mile markers under-count (Missoula→Bozeman is ~203 mi, not 110).
+- Roadmap candidates discussed with the owner, not yet built: Supabase sync + shareable trips (owner already runs Supabase for another project), offline tile cache/service worker, ride track recording with actual-vs-plan replay, live rerouting in Ride Mode, native wrapper (Capacitor) for background GPS.
+
 ## Conventions & gotchas
 
 - Design system: dark "asphalt" field-guide aesthetic, CSS vars in `src/styles/app.css` (`--asphalt-*`, `--outbound/--rally/--return`, Barlow Condensed display / IBM Plex Mono data). Phase colors come from `PHASES` in `seedTrip.js`; on the light basemap MapView substitutes `LIGHT_SAFE` colors.
