@@ -3,7 +3,7 @@ import { useTrip } from '../engine/store.js';
 import { blankDay, uid } from '../engine/ops.js';
 import { cascadeDates } from '../engine/dates.js';
 import { geocode } from '../engine/geocode.js';
-import { readPlannerStream } from '../engine/stream.js';
+import { runPlanner } from '../engine/planner.js';
 import { SEED_TRIP } from '../data/seedTrip.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -63,16 +63,11 @@ export default function NewTripModal({ onClose }) {
     setBusy(true);
     setErr('');
     try {
-      const res = await fetch('/.netlify/functions/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'generate',
-          prompt: prompt.trim(),
-          basics: { name: name.trim(), startDate, numDays: Number(numDays), riders: Number(riders) },
-        }),
+      const data = await runPlanner({
+        mode: 'generate',
+        prompt: prompt.trim(),
+        basics: { name: name.trim(), startDate, numDays: Number(numDays), riders: Number(riders) },
       });
-      const data = await readPlannerStream(res);
       if (!data.trip?.days?.length) throw new Error('The builder returned an empty plan — try a more specific description.');
       // assign fresh ids + defaults, then pin dates
       const trip = {
