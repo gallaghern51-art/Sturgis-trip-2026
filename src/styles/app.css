@@ -79,7 +79,11 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   color: var(--ink);
   line-height: 1;
 }
-.masthead h1 .yr { color: var(--rally); }
+.masthead h1 button {
+  font: inherit; letter-spacing: inherit; color: inherit; padding: 0;
+}
+.masthead h1 button:hover .yr { color: var(--outbound); }
+.masthead h1 .yr { color: var(--rally); transition: color 0.15s; }
 .masthead .sub {
   font-family: var(--mono);
   font-size: 17px;
@@ -93,9 +97,14 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .masthead .spacer { flex: 1; }
 /* the title block only becomes its own column on small screens */
 .mast-id { display: contents; }
-.masthead .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.masthead .actions .sheet-head { display: none; }
-.menu-btn { display: none; }
+.masthead .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+/* Says where you are, since the tab row that used to say it is gone. Not a
+   control — the dashboard is the switcher. */
+.mast-where {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-faint);
+  max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .btn {
   font-family: var(--display);
@@ -690,41 +699,16 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .masthead .sub .mast-flags { margin-left: 0; display: flex; margin-top: 3px; }
   .masthead .sub .flag { height: 14px; }
   .masthead .sub .state-flags { margin-left: 4px; padding-left: 6px; }
-  .menu-btn { display: block; flex: none; }
 
-  .sheet-backdrop { position: fixed; inset: 0; z-index: 65; background: rgba(0, 0, 0, 0.6); }
+  /* No hamburger any more: what is left (Undo, where-you-are, Ride) fits the
+     row, and navigation is the dashboard's job. */
   .masthead .actions {
-    position: fixed; inset: auto 0 0 0; z-index: 70;
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-    align-content: start;
-    max-height: 84dvh; overflow-y: auto; overscroll-behavior: contain;
-    padding: 4px 14px calc(16px + env(safe-area-inset-bottom));
-    background: var(--asphalt-1);
-    border-top: 1px solid var(--line);
-    border-radius: 14px 14px 0 0;
-    box-shadow: 0 -16px 44px rgba(0, 0, 0, 0.55);
-    visibility: hidden;
-    transform: translateY(102%);
-    transition: transform 0.22s ease, visibility 0.22s;
+    flex: none; gap: 8px; justify-content: flex-end;
   }
-  .masthead .actions.open { visibility: visible; transform: none; }
-  .masthead .actions .sheet-head {
-    display: flex; align-items: center; gap: 8px; grid-column: 1 / -1;
-    position: sticky; top: 0; z-index: 1;
-    padding: 10px 0 8px; margin-bottom: 2px;
-    background: var(--asphalt-1); border-bottom: 1px solid var(--line);
-  }
-  .sheet-title {
-    flex: 1; font-family: var(--display); font-size: 15px; font-weight: 600;
-    letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .masthead .actions .btn { width: 100%; }
-  .masthead .actions .sheet-head .btn { width: auto; flex: none; }
-  .masthead .actions .scen-select { grid-column: 1 / -1; max-width: none; width: 100%; }
+  .mast-where { display: none; } /* the bottom tab already names the view */
+
   /* the optimizer is a tab in the bottom nav down here, so drop it from the
      header's view switcher rather than offering it twice */
-  .viewtabs .opt-tab { display: none; }
 
   /* ribbon is the day switcher — snap it, and lose the scrollbar */
   .ribbon {

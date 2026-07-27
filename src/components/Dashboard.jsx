@@ -116,9 +116,23 @@ export default function Dashboard({ onOpen }) {
       <div className="section">
         <h3>{t('Trip file')}</h3>
         <div className="dash-grid">
+          <Card label={t('New trip')} note={t('From scratch, a description, or the template')} onClick={() => onOpen('new')} />
+          <Card
+            label={t('Scenarios')}
+            meta={state.scenarios.length ? `${state.scenarios.length} ${t('saved')}` : undefined}
+            note={t('Save this plan as a named permutation')}
+            onClick={() => onOpen('save-scenario')}
+          />
+          {state.lib.trips.length > 1 && (
+            <Card
+              label={t('Switch trip')}
+              meta={`${state.lib.trips.length} ${t('in the library')}`}
+              note={t('Change which trip you are planning')}
+              onClick={() => onOpen('switch-trip')}
+            />
+          )}
           <Card label={t('Export')} note={t('Save this trip as JSON')} onClick={() => onOpen('export')} />
           <Card label={t('Import')} note={t('Load a trip from JSON')} onClick={() => onOpen('import')} />
-          <Card label={t('New trip')} note={t('From scratch, a description, or the template')} onClick={() => onOpen('new')} />
           <Card label={t('Reset')} note={t('Back to the bundled template')} accent="danger" onClick={() => onOpen('reset')} />
         </div>
       </div>

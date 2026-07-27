@@ -17,7 +17,7 @@ import PackingList from './components/PackingList.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import { useAutoTranslate } from './engine/autoTranslate.js';
-import { useT, useUnits } from './engine/settings.jsx';
+import { useT, useTT, useUnits } from './engine/settings.jsx';
 
 // Masthead flags: the crew (US ride, Chilean riders) plus the four states the
 // route crosses. Assets live in public/flags — the user supplied them.
@@ -57,10 +57,10 @@ export default function App() {
   const [packingOpen, setPackingOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const t = useT();
+  const tt = useTT();
   const u = useUnits();
   const isMobile = useIsMobile();
   const [mobileTab, setMobileTab] = useState('map'); // map | panel | chat
-  const [menuOpen, setMenuOpen] = useState(false);
   const fileRef = useRef(null);
 
   // Route every day whenever its waypoint sequence changes.
@@ -97,7 +97,6 @@ export default function App() {
   const showPanel = () => { if (isMobile) setMobileTab('panel'); };
   const ui = { isMobile, mobileTab, setMobileTab, showPanel };
 
-  useEffect(() => { if (!isMobile) setMenuOpen(false); }, [isMobile]);
 
   // A queued optimizer question (from a feasibility recommendation) opens the chat.
   useEffect(() => {
@@ -133,7 +132,6 @@ export default function App() {
   // Every dashboard card routes through here, so the hub stays declarative and
   // there is one list of what the app can be asked to do.
   const openTarget = (target) => {
-    setMenuOpen(false);
     switch (target) {
       case 'plan': case 'feas': case 'budget':
         setView(target); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
@@ -151,18 +149,45 @@ export default function App() {
       case 'reset':
         if (confirm('Reset this trip to the bundled Sturgis template? Your edits to this trip are discarded.')) dispatch({ type: 'reset' });
         break;
+      case 'save-scenario': {
+        const name = prompt('Name this trip permutation:');
+        if (name) dispatch({ type: 'save_scenario', name });
+        break;
+      }
+      case 'switch-trip': {
+        // A prompt is honest for a handful of trips; it becomes a picker when the
+        // library is big enough to need one.
+        const others = state.lib.trips.filter((x) => x.id !== state.lib.activeId);
+        if (!others.length) return;
+        const list = others.map((x, i) => `${i + 1}. ${x.name}`).join('\n');
+        const pick = prompt(`Switch to which trip?\n\n${list}`);
+        const idx = Number(pick) - 1;
+        if (others[idx]) dispatch({ type: 'switch_trip', id: others[idx].id });
+        break;
+      }
       default: break;
     }
   };
 
-  const panelLabel = selectedDay ? selectedDay.dow : view === 'dash' ? 'Dashboard' : view === 'feas' ? 'Feasibility' : view === 'budget' ? 'Budget' : 'Trip';
+  // One name for the current view, shown in the bar and on the mobile tab.
+  const viewLabel = selectedDay ? tt(selectedDay.title)
+    : view === 'dash' ? 'Dashboard'
+    : view === 'feas' ? 'Feasibility'
+    : view === 'budget' ? 'Budget'
+    : 'Planner';
+  const panelLabel = selectedDay ? selectedDay.dow : viewLabel;
 
   return (
     <TripContext.Provider value={{ state, dispatch, routes, routedLegsByDay, summary, ui }}>
       <div className={`app${isMobile ? ' mobile' : ''}`}>
         <header className="masthead">
           <div className="mast-id">
-            <h1 className="brand">ROAD<span className="yr">BOOK</span></h1>
+            <h1 className="brand">
+              <button
+                onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
+                title={t('Dashboard')}
+              >ROAD<span className="yr">BOOK</span></button>
+            </h1>
             <span className="sub">
               {/* title and stats are separate spans so a narrow screen breaks
                   between them rather than mid-phrase ("7 / RIDERS") */}
@@ -183,84 +208,22 @@ export default function App() {
             </span>
           </div>
           <span className="spacer" />
-          <button
-            className="btn menu-btn"
-            aria-expanded={menuOpen}
-            aria-controls="mast-actions"
-            onClick={() => setMenuOpen((v) => !v)}
-          >☰ {t('Menu')}</button>
-          <div
-            id="mast-actions"
-            className={`actions${menuOpen ? ' open' : ''}`}
-            onClick={(e) => { if (e.target.closest?.('button')) setMenuOpen(false); }}
-          >
-            <div className="sheet-head">
-              <span className="sheet-title">{t('Trip controls')}</span>
-              <button className="btn" aria-label="Close menu" onClick={() => setMenuOpen(false)}>✕</button>
-            </div>
-            <select
-              className="scen-select"
-              aria-label="Trips"
-              value=""
-              onChange={(e) => {
-                const v = e.target.value;
-                setMenuOpen(false);
-                if (v === '__new') setNewTripOpen(true);
-                else if (v === '__delete') {
-                  if (state.lib.trips.length > 1 && confirm(`Delete trip “${state.trip.meta.title}” and all its scenarios? This cannot be undone.`)) {
-                    dispatch({ type: 'delete_trip', id: state.lib.activeId });
-                  }
-                } else if (v) dispatch({ type: 'switch_trip', id: v });
-                e.target.value = '';
-              }}
-            >
-              <option value="">{t('Trips')} ({state.lib.trips.length})…</option>
-              <option value="__new">＋ {t('New trip')}</option>
-              {state.lib.trips.map((t) => (
-                <option key={t.id} value={t.id}>{t.id === state.lib.activeId ? '● ' : ''}{t.name}</option>
-              ))}
-              {state.lib.trips.length > 1 && <option value="__delete">{t('Delete current trip')}</option>}
-            </select>
-            <select
-              className="scen-select"
-              aria-label="Scenarios"
-              value=""
-              onChange={(e) => {
-                const v = e.target.value;
-                setMenuOpen(false);
-                if (v === '__save') {
-                  const name = prompt('Name this trip permutation:');
-                  if (name) dispatch({ type: 'save_scenario', name });
-                } else if (v) {
-                  if (confirm('Load this saved permutation as the working plan? Current plan goes on the undo stack.')) dispatch({ type: 'load_scenario', id: v });
-                }
-                e.target.value = '';
-              }}
-            >
-              <option value="">{t('Scenarios')} ({state.scenarios.length})…</option>
-              <option value="__save">＋ {t('Save current as scenario')}</option>
-              {state.scenarios.map((s) => <option key={s.id} value={s.id}>{t('Load')}: {s.name}</option>)}
-            </select>
-            {/* Optimizer belongs with the other panel switches — it is a view of
-                the trip, not a file action. */}
-            {/* Only view switches live up here now. Packing, Settings, Export,
-                Import, Reset and New trip moved onto the dashboard — eleven
-                same-weight buttons was the problem, not their labels. */}
-            <div className="viewtabs">
-              {[['dash', 'Dashboard'], ['plan', 'Planner'], ['feas', 'Feasibility'], ['budget', 'Budget']].map(([v, label]) => (
-                <button key={v} className={view === v && !selectedDay ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{t(label)}</button>
-              ))}
-              <button className={`opt-tab${chatOpen ? ' active' : ''}`} onClick={() => setChatOpen((v) => !v)}>{t('Optimizer')}</button>
-            </div>
+          {/* Navigation lives on the dashboard, not here. Five view tabs up top
+              duplicated five dashboard cards; the brand is the way home and the
+              hub is the switcher. What is left is contextual: Undo appears only
+              when there is something to undo, and Ride is the app's one action. */}
+          <div className="actions">
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
-            <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
-            <button className="btn primary ride-btn" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>
+            {state.history.length > 0 && (
+              <button className="btn" onClick={() => dispatch({ type: 'undo' })}>{t('Undo')}</button>
+            )}
+            <span className="mast-where">{t(viewLabel)}</span>
+            <button className="btn primary ride-btn" onClick={() => setRideOpen(true)}>
               <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
               {t('Ride')}
             </button>
           </div>
         </header>
-        {menuOpen && <div className="sheet-backdrop" onClick={() => setMenuOpen(false)} />}
         <Ribbon />
         <div className={`main${!isMobile && chatOpen ? ' chat-open' : ''}`} data-tab={mobileTab}>
           <MapView />

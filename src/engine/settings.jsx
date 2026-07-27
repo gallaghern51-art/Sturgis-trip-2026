@@ -329,6 +329,11 @@ const ES = {
   'Add': 'Agregar',
   'Restore removed items': 'Restaurar ítems eliminados',
   // dashboard
+  'Switch trip': 'Cambiar de viaje',
+  'in the library': 'en la biblioteca',
+  'saved': 'guardados',
+  'Save this plan as a named permutation': 'Guardar este plan como una permutación con nombre',
+  'Change which trip you are planning': 'Cambiar qué viaje estás planificando',
   'Dashboard': 'Panel',
   'Planner': 'Planificador',
   'Plan the trip': 'Planificar el viaje',
