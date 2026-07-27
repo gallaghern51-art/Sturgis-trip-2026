@@ -70,6 +70,7 @@ export default function MapView() {
   const t = useT();
   const tt = useTT();
   const u = useUnits();
+  const [zoomedOut, setZoomedOut] = React.useState(false);
   const scaleRef = useRef(null);
   const stateRef = useRef({ trip, selectedDayId });
   stateRef.current = { trip, selectedDayId };
@@ -111,6 +112,9 @@ export default function MapView() {
     const scale = new maplibregl.ScaleControl({ unit: 'imperial' });
     map.addControl(scale, 'bottom-right');
     scaleRef.current = scale;
+    // labels are DOM markers with no collision engine — hide them when the
+    // camera is too far out for a day's 15 names to be anything but noise
+    map.on('zoom', () => setZoomedOut(map.getZoom() < 8.5));
     // Direction chevrons live in the style's image store, which setStyle wipes.
     const addArrow = () => { if (!map.hasImage('route-arrow')) map.addImage('route-arrow', arrowImage()); };
     map.on('styleimagemissing', (e) => { if (e.id === 'route-arrow') addArrow(); });
@@ -420,7 +424,7 @@ export default function MapView() {
 
   const selectedDay = trip.days.find((d) => d.id === selectedDayId);
   return (
-    <div className="map-wrap">
+    <div className={`map-wrap${['streets', 'light', 'groad'].includes(basemap) ? ' labels-dark' : ''}${zoomedOut ? ' labels-hidden' : ''}`}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       <div className="map-hint">
         {selectedDay
