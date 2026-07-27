@@ -139,9 +139,8 @@ export const SEED_TRIP = {
       summary: 'A long anchor day. Sunrise at Buffalo Bill Reservoir (face WEST — alpenglow on the Absarokas, sun at your back), breakfast at Our Place in Cody, then Shell Canyon and Granite Pass over the Bighorns, then the interstate run to Lead.',
       constraints: [
         'Wapiti Valley at first light is prime elk/grizzly corridor — the single highest-risk 20 miles of the trip. Slow, staggered.',
-        'Museum 8:00–10:00, roll 10:20',
         'Gillette fuel is MANDATORY — last easy stop before SD',
-        'If behind at Greybull: skip Shell Falls walk (25 min) → shorten museum to 90 min (30 min) → accept arriving after dark',
+        'If behind at Greybull: skip Shell Falls walk (25 min) → accept arriving after dark',
       ],
       gates: [
         { waypointId: 'd3w4', by: '8:00 AM', label: 'Museum opening' },
