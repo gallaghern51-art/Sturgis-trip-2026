@@ -41,7 +41,6 @@ export default function OverviewPanel() {
   };
 
   const openReservations = (trip.reserveNow ?? []).filter((r) => !r.done);
-  const anchors = trip.days.filter((d) => d.anchor);
 
   return (
     <div>
@@ -56,15 +55,14 @@ export default function OverviewPanel() {
         </div>
       </div>
 
-      <p style={{ fontSize: 13, color: 'var(--ink-dim)', margin: '12px 0' }}>
-        {anchors.length > 0
-          ? `★ ${t('marks the')} ${anchors.length} ${anchors.length > 1 ? t('anchor days') : t('anchor day')} ${t('everything else is built around — if a day has to be trimmed, trim anywhere else first.')} `
-          : ''}
-        {ui?.isMobile ? t('Press and hold a day to restructure') : t('Drag days to restructure')} {t('— dates stay pinned to the calendar; content moves.')}
-      </p>
+      {/* The trip's own description, not instructions — the drag hint lives on
+          the Days header where the dragging actually happens. */}
+      {trip.meta.summary && (
+        <p className="trip-summary">{tt(trip.meta.summary)}</p>
+      )}
 
       <div className="section">
-        <h3>{t('Days')} <span className="cnt">{t(reorderHint)}</span></h3>
+        <h3>{t('Days')} <span className="cnt">{t(reorderHint)} · {t('dates stay pinned to the calendar')}</span></h3>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={trip.days.map((d) => d.id)} strategy={verticalListSortingStrategy}>
             <div className="ov-days">
@@ -80,8 +78,8 @@ export default function OverviewPanel() {
       <div className="section">
         <h3>{t('Ride pack')}</h3>
         <div className="ridepack">
-          <button className="btn" onClick={() => downloadFile('trip-full.gpx', tripToGpx(trip, routes, routedLegsByDay), 'application/gpx+xml')}>⬇ {t('GPX — full trip')}</button>
-          <button className="btn" onClick={() => downloadFile('trip-calendar.ics', tripToIcs(trip, routedLegsByDay), 'text/calendar')}>⬇ {t('Calendar (.ics)')}</button>
+          <button className="btn" onClick={() => downloadFile('trip-full.gpx', tripToGpx(trip, routes, routedLegsByDay), 'application/gpx+xml')}>↓ {t('GPX — full trip')}</button>
+          <button className="btn" onClick={() => downloadFile('trip-calendar.ics', tripToIcs(trip, routedLegsByDay), 'text/calendar')}>↓ {t('Calendar (.ics)')}</button>
         </div>
         <p style={{ fontSize: 12, color: 'var(--ink-dim)', marginTop: 6 }}>
           {t('GPX loads into Garmin, Rever, or any nav app (per-day GPX is on each day panel).')}{' '}
@@ -183,6 +181,10 @@ function TripSettings({ trip, dispatch }) {
         <label className="fld" style={{ gridColumn: 'span 2' }}>{t('Trip name')}
           <input defaultValue={trip.meta.title} key={trip.meta.title}
             onBlur={(e) => { if (e.target.value.trim() && e.target.value !== trip.meta.title) set({ title: e.target.value.trim() }); }} />
+        </label>
+        <label className="fld" style={{ gridColumn: '1 / -1' }}>{t('Trip summary')}
+          <textarea rows={3} defaultValue={trip.meta.summary ?? ''} key={trip.meta.summary}
+            onBlur={(e) => { if (e.target.value !== (trip.meta.summary ?? '')) set({ summary: e.target.value }); }} />
         </label>
         <label className="fld">{t('Start date')}
           <input type="date" value={trip.meta.startDate}

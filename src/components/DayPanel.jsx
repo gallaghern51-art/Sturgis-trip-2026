@@ -67,7 +67,7 @@ export default function DayPanel({ day }) {
             className="chip gpx-btn"
             title="Download this day as a GPX route for Garmin / phone nav"
             onClick={() => downloadFile(`trip-${day.date}-${day.dow.toLowerCase()}.gpx`, tripToGpx(state.trip, routes, routedLegsByDay, day.id), 'application/gpx+xml')}
-          >⬇ GPX</button>
+          >↓ GPX</button>
         </div>
         {(day.phase === 'rally' || parks.length > 0) && (
           <div className="day-badges">

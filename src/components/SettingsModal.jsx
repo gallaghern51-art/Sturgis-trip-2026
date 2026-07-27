@@ -44,7 +44,7 @@ export default function SettingsModal({ onClose }) {
               three choices. Anything in here can be pulled without ceremony. */}
           <div className="set-dev">
             <button className="set-dev-toggle" aria-expanded={devOpen} onClick={() => setDevOpen((v) => !v)}>
-              {devOpen ? '▾' : '▸'} {t('Developer')}
+              {devOpen ? '▾' : '▸'} {t('Developer tools')}
             </button>
             {devOpen && (
               <div className="set-dev-body">
@@ -56,6 +56,12 @@ export default function SettingsModal({ onClose }) {
                   </div>
                 </div>
                 <p className="set-note">{t('Route shields under each stop. Experimental — remove it if it reads as clutter.')}</p>
+                <div className="set-build">
+                  <span className="set-label">{t('Build')}</span>
+                  <code>
+                    v{__APP_VERSION__} · {__APP_COMMIT__} · {__APP_BUILT__}
+                  </code>
+                </div>
               </div>
             )}
           </div>

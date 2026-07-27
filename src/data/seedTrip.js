@@ -11,7 +11,8 @@ export const PHASES = {
 export const SEED_TRIP = {
   meta: {
     title: 'STURGIS 2026',
-    subtitle: 'La Expedición Chilena · Print and Ride Edition',
+    subtitle: 'La Expedición Chilena',
+    summary: 'Eleven days and roughly 2,700 routed miles out of Missoula: the Gallatin Canyon down to Island Park, Yellowstone end to end and over Sylvan Pass to Cody, the Bighorns to four nights in the Black Hills for the rally, then home the long way over Little Bighorn, the Beartooth, and Going-to-the-Sun. Seven riders on rented Harleys.',
     startDate: '2026-08-07',
     riders: 7,
     totalMiles: 2390,

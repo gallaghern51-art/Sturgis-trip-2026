@@ -82,7 +82,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .masthead h1 .yr { color: var(--rally); }
 .masthead .sub {
   font-family: var(--mono);
-  font-size: 14.5px;
+  font-size: 17px;
   font-weight: 500;
   color: var(--ink);
   letter-spacing: 0.04em;
@@ -141,10 +141,19 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .ribbon .seg.active { background: var(--asphalt-3); border-color: var(--seg-color); }
 .ribbon .seg .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px; background: var(--seg-color); }
 .ribbon .seg.anchor .bar { box-shadow: 0 0 8px var(--seg-color); }
-.ribbon .seg .dw { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.05em; }
+.ribbon .seg .dw {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.05em;
+  display: block; padding-right: 26px; /* keeps D# clear of the warning dot */
+}
 .ribbon .seg .ttl { font-family: var(--display); font-size: 14.5px; font-weight: 600; letter-spacing: 0.02em; line-height: 1.1; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ribbon .seg .mi { font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); margin-top: 2px; }
-.ribbon .seg .warn-dot { position: absolute; top: 6px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+/* The dot and the day number both want the top-right corner. Dot outermost,
+   number tucked inside it, and a ring so the dot reads on any seg background. */
+.ribbon .seg .warn-dot {
+  position: absolute; top: 6px; right: 7px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--danger); box-shadow: 0 0 0 2px var(--asphalt-2);
+}
+.ribbon .seg.active .warn-dot { box-shadow: 0 0 0 2px var(--asphalt-3); }
 .ribbon .seg .warn-dot.w { background: var(--rally); }
 .ribbon .overview-seg { flex: 0 0 64px; min-width: 64px; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); }
 .ribbon .overview-seg.active { color: var(--rally); border-color: var(--rally); }
@@ -317,9 +326,16 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 .module { padding: 10px 12px; border: 1px dashed var(--rally); border-radius: 6px; margin-bottom: 8px; background: rgba(245, 63, 31, 0.04); }
 .module.off { border-color: var(--line); background: transparent; opacity: 0.75; }
-.module .mod-head { display: flex; align-items: center; gap: 8px; }
-.module .mod-head .nm { font-family: var(--display); font-size: 16px; font-weight: 600; flex: 1; }
-.module .mod-dur { font-family: var(--mono); font-size: 10.5px; color: var(--rally); }
+/* Title on its own row. As a flex row it had to share the line with the timing
+   text and three controls, which squeezed a long name like "Crazy Horse night
+   laser show" into a one-word-per-line column. Spanning every column pushes the
+   timing and controls onto the next row instead. */
+.module .mod-head { display: grid; grid-template-columns: 1fr auto auto auto; gap: 4px 8px; align-items: center; }
+.module .mod-head .nm {
+  grid-column: 1 / -1; min-width: 0;
+  font-family: var(--display); font-size: 16px; font-weight: 600; line-height: 1.15;
+}
+.module .mod-dur { grid-column: 1; min-width: 0; font-family: var(--mono); font-size: 10.5px; color: var(--rally); }
 .module p { font-size: 12.5px; color: var(--ink-dim); margin-top: 5px; }
 .module p b { color: var(--ink); font-weight: 600; }
 /* relocating a module carries its text and its stops to the new day */
@@ -687,8 +703,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .masthead .actions .btn { width: 100%; }
   .masthead .actions .sheet-head .btn { width: auto; flex: none; }
   .masthead .actions .scen-select { grid-column: 1 / -1; max-width: none; width: 100%; }
-  /* the optimizer is a tab down here, not a header button */
-  .optimizer-btn { display: none; }
+  /* the optimizer is a tab in the bottom nav down here, so drop it from the
+     header's view switcher rather than offering it twice */
+  .viewtabs .opt-tab { display: none; }
 
   /* ribbon is the day switcher — snap it, and lose the scrollbar */
   .ribbon {
@@ -837,6 +854,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .viewtabs button:last-child { border-right: none; }
 .viewtabs button:hover { color: var(--ink); }
 .viewtabs button.active { background: var(--rally); color: #000000; }
+/* The optimizer is a panel toggle like the other three, but it opens a side
+   panel rather than swapping this one — the accent keeps that distinction. */
+.viewtabs .opt-tab.active { background: var(--outbound); color: #000000; }
 
 /* ---------- ride mode: nav map + HUD overlays ---------- */
 
@@ -940,9 +960,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 /* ---------- masthead flags ---------- */
 
-.mast-flags { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; vertical-align: -3px; }
+.mast-flags { display: inline-flex; align-items: center; gap: 5px; margin-left: 12px; vertical-align: -4px; }
 .mast-flags .flag {
-  height: 13px; width: auto; border-radius: 2px; display: inline-block;
+  height: 17px; width: auto; border-radius: 2px; display: inline-block;
   box-shadow: 0 0 0 1px rgba(127, 127, 127, 0.35);
 }
 /* the four states the route crosses, set apart from the crew flags */
@@ -1015,7 +1035,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 /* ---------- ribbon day number ---------- */
 
 .ribbon .seg .dnum {
-  float: right; font-style: normal; font-weight: 600;
+  position: absolute; top: 5px; right: 18px;
+  font-style: normal; font-weight: 600; font-size: 10px;
   color: var(--outbound); letter-spacing: 0.02em;
 }
 
@@ -1125,3 +1146,18 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .set-dev-toggle:hover { color: var(--ink-dim); }
 .set-dev-body { margin-top: 12px; }
 .set-dev-body .set-note { margin-top: -4px; }
+
+
+/* ---------- trip summary (overview) ---------- */
+
+.trip-summary {
+  font-size: 13.5px; line-height: 1.55; color: var(--ink-dim);
+  margin: 13px 0 4px;
+}
+
+.set-build { display: flex; align-items: baseline; gap: 14px; margin-top: 14px; }
+.set-build code {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+  background: var(--asphalt-2); border: 1px solid var(--line);
+  border-radius: 4px; padding: 4px 8px;
+}

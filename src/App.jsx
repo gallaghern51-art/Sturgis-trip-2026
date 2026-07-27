@@ -170,7 +170,7 @@ export default function App() {
               {state.lib.trips.map((t) => (
                 <option key={t.id} value={t.id}>{t.id === state.lib.activeId ? '● ' : ''}{t.name}</option>
               ))}
-              {state.lib.trips.length > 1 && <option value="__delete">🗑 {t('Delete current trip')}</option>}
+              {state.lib.trips.length > 1 && <option value="__delete">{t('Delete current trip')}</option>}
             </select>
             <select
               className="scen-select"
@@ -192,21 +192,23 @@ export default function App() {
               <option value="__save">＋ {t('Save current as scenario')}</option>
               {state.scenarios.map((s) => <option key={s.id} value={s.id}>{t('Load')}: {s.name}</option>)}
             </select>
+            {/* Optimizer belongs with the other panel switches — it is a view of
+                the trip, not a file action. */}
             <div className="viewtabs">
               {[['plan', 'Plan'], ['feas', 'Feasibility'], ['budget', 'Budget']].map(([v, label]) => (
                 <button key={v} className={view === v ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{t(label)}</button>
               ))}
+              <button className={`opt-tab${chatOpen ? ' active' : ''}`} onClick={() => setChatOpen((v) => !v)}>{t('Optimizer')}</button>
             </div>
-            {/* daily-use first (ride, packing), then edit/file plumbing, settings last */}
-            <button className="btn primary" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>▶ {t('Ride')}</button>
-            <button className="btn" onClick={() => setPackingOpen(true)}>🎒 {t('Packing')}</button>
+            {/* then the doing-things buttons, then file plumbing, settings last */}
+            <button className="btn primary" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>{t('Ride')}</button>
+            <button className="btn" onClick={() => setPackingOpen(true)}>{t('Packing')}</button>
             <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
             <button className="btn" onClick={exportJson}>{t('Export')}</button>
             <button className="btn" onClick={() => fileRef.current?.click()}>{t('Import')}</button>
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
             <button className="btn danger-ghost" onClick={() => { if (confirm('Reset this trip to the original Sturgis field guide template?')) dispatch({ type: 'reset' }); }}>{t('Reset')}</button>
-            <button className="btn gold optimizer-btn" onClick={() => setChatOpen((v) => !v)}>{chatOpen ? t('Hide') + ' ' : ''}{t('Optimizer')}</button>
-            <button className="btn" onClick={() => setSettingsOpen(true)}>⚙ {t('Settings')}</button>
+            <button className="btn" onClick={() => setSettingsOpen(true)}>{t('Settings')}</button>
           </div>
         </header>
         {menuOpen && <div className="sheet-backdrop" onClick={() => setMenuOpen(false)} />}

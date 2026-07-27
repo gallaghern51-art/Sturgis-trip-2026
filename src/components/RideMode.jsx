@@ -463,7 +463,7 @@ export default function RideMode({ onClose }) {
             ))}
           </select>
           <span className="ride-clock">{fmtTime(clock)}</span>
-          <button className="btn" title={muted ? t('Unmute') : t('Mute')} onClick={() => setMuted((m) => !m)}>{muted ? '🔇' : '🔊'}</button>
+          <button className="btn" title={muted ? t('Unmute') : t('Mute')} onClick={() => setMuted((m) => !m)}>{muted ? t('Muted') : t('Voice')}</button>
           <button className="btn" onClick={onClose}>{t('Exit')}</button>
         </div>
 
