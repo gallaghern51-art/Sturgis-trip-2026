@@ -15,6 +15,7 @@ import FeasibilityPanel from './components/FeasibilityPanel.jsx';
 import BudgetPanel from './components/BudgetPanel.jsx';
 import PackingList from './components/PackingList.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import Dashboard from './components/Dashboard.jsx';
 import { useAutoTranslate } from './engine/autoTranslate.js';
 import { useT, useUnits } from './engine/settings.jsx';
 
@@ -50,7 +51,7 @@ export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [routes, setRoutes] = useState({}); // dayId -> {legs, geometry}
   const [chatOpen, setChatOpen] = useState(true);
-  const [view, setView] = useState('plan'); // plan | feas | budget
+  const [view, setView] = useState('dash'); // dash | plan | feas | budget
   const [newTripOpen, setNewTripOpen] = useState(false);
   const [rideOpen, setRideOpen] = useState(false);
   const [packingOpen, setPackingOpen] = useState(false);
@@ -128,7 +129,33 @@ export default function App() {
     document.title = `${state.trip.meta.title} · Roadbook`;
   }, [state.trip.meta.title]);
 
-  const panelLabel = selectedDay ? selectedDay.dow : view === 'feas' ? 'Feasibility' : view === 'budget' ? 'Budget' : 'Trip';
+
+  // Every dashboard card routes through here, so the hub stays declarative and
+  // there is one list of what the app can be asked to do.
+  const openTarget = (target) => {
+    setMenuOpen(false);
+    switch (target) {
+      case 'plan': case 'feas': case 'budget':
+        setView(target); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
+      case 'optimizer':
+        setChatOpen(true); if (isMobile) setMobileTab('chat'); break;
+      case 'packing': setPackingOpen(true); break;
+      case 'settings': setSettingsOpen(true); break;
+      case 'ride': setRideOpen(true); break;
+      case 'new': setNewTripOpen(true); break;
+      case 'export': exportJson(); break;
+      case 'import': fileRef.current?.click(); break;
+      // Bookings live on the trip overview, so send the rider to it rather than
+      // duplicating the list in a second place.
+      case 'bookings': setView('plan'); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
+      case 'reset':
+        if (confirm('Reset this trip to the bundled Sturgis template? Your edits to this trip are discarded.')) dispatch({ type: 'reset' });
+        break;
+      default: break;
+    }
+  };
+
+  const panelLabel = selectedDay ? selectedDay.dow : view === 'dash' ? 'Dashboard' : view === 'feas' ? 'Feasibility' : view === 'budget' ? 'Budget' : 'Trip';
 
   return (
     <TripContext.Provider value={{ state, dispatch, routes, routedLegsByDay, summary, ui }}>
@@ -137,7 +164,12 @@ export default function App() {
           <div className="mast-id">
             <h1 className="brand">ROAD<span className="yr">BOOK</span></h1>
             <span className="sub">
-              {state.trip.meta.title} · {u.mi(summary.totalMiles)} · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
+              {/* title and stats are separate spans so a narrow screen breaks
+                  between them rather than mid-phrase ("7 / RIDERS") */}
+              <span className="mast-trip">{state.trip.meta.title}</span>
+              <span className="mast-stats">
+                {u.mi(summary.totalMiles)} · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
+              </span>
               <span className="mast-flags">
                 {CREW_FLAGS.map((f) => <img key={f.alt} className="flag crew" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
                 {/* state flags only make sense on the Sturgis route */}
@@ -211,21 +243,17 @@ export default function App() {
             </select>
             {/* Optimizer belongs with the other panel switches — it is a view of
                 the trip, not a file action. */}
+            {/* Only view switches live up here now. Packing, Settings, Export,
+                Import, Reset and New trip moved onto the dashboard — eleven
+                same-weight buttons was the problem, not their labels. */}
             <div className="viewtabs">
-              {[['plan', 'Plan'], ['feas', 'Feasibility'], ['budget', 'Budget']].map(([v, label]) => (
-                <button key={v} className={view === v ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{t(label)}</button>
+              {[['dash', 'Dashboard'], ['plan', 'Planner'], ['feas', 'Feasibility'], ['budget', 'Budget']].map(([v, label]) => (
+                <button key={v} className={view === v && !selectedDay ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{t(label)}</button>
               ))}
               <button className={`opt-tab${chatOpen ? ' active' : ''}`} onClick={() => setChatOpen((v) => !v)}>{t('Optimizer')}</button>
             </div>
-            {/* Trip admin, then Ride last so the one button you press at a
-                kickstand sits at the end of the row and reads as the action. */}
-            <button className="btn" onClick={() => setPackingOpen(true)}>{t('Packing')}</button>
-            <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
-            <button className="btn" onClick={exportJson}>{t('Export')}</button>
-            <button className="btn" onClick={() => fileRef.current?.click()}>{t('Import')}</button>
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
-            <button className="btn danger-ghost" onClick={() => { if (confirm('Reset this trip to the original Sturgis field guide template?')) dispatch({ type: 'reset' }); }}>{t('Reset')}</button>
-            <button className="btn" onClick={() => setSettingsOpen(true)}>{t('Settings')}</button>
+            <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
             <button className="btn primary ride-btn" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>
               <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
               {t('Ride')}
@@ -238,7 +266,20 @@ export default function App() {
           <MapView />
           <aside className="side">
             <div className="side-inner">
-              {selectedDay ? <DayPanel day={selectedDay} /> : view === 'feas' ? <FeasibilityPanel /> : view === 'budget' ? <BudgetPanel /> : <OverviewPanel routes={routes} />}
+              {/* The hub has to be reachable from anywhere it sent you. On a
+                  phone the bottom tab renames itself to the current view, so
+                  without this there is no way back to the dashboard at all. */}
+              {(view !== 'dash' || selectedDay) && (
+                <button
+                  className="back-to-dash"
+                  onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
+                >‹ {t('Dashboard')}</button>
+              )}
+              {selectedDay ? <DayPanel day={selectedDay} />
+                : view === 'dash' ? <Dashboard onOpen={openTarget} />
+                : view === 'feas' ? <FeasibilityPanel />
+                : view === 'budget' ? <BudgetPanel />
+                : <OverviewPanel routes={routes} />}
             </div>
           </aside>
           {(isMobile || chatOpen) && <ChatPanel onClose={closeChat} />}

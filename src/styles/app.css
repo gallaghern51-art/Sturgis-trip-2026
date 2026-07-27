@@ -88,6 +88,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+.mast-trip, .mast-stats { white-space: nowrap; }
+.mast-trip::after { content: ' · '; }
 .masthead .spacer { flex: 1; }
 /* the title block only becomes its own column on small screens */
 .mast-id { display: contents; }
@@ -668,9 +670,26 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
     padding-left: max(12px, env(safe-area-inset-left));
     padding-right: max(12px, env(safe-area-inset-right));
   }
-  .mast-id { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .mast-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  /* the spacer also carries flex:1, so on a phone it split the row with the
+     title block and squeezed it to half the available width */
+  .masthead .spacer { display: none; }
   .masthead h1 { font-size: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .masthead .sub { font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The stats line plus the flags need ~460px and a phone gives it ~250, so
+     nowrap+ellipsis clipped the flags off the screen entirely. Let it wrap and
+     size the type to the space instead of hiding the overflow. */
+  .masthead .sub {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+    font-size: 12px; line-height: 1.25;
+    white-space: normal; overflow: hidden; text-overflow: clip;
+  }
+  /* one row each, so nothing breaks mid-phrase */
+  .mast-trip, .mast-stats { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .mast-trip::after { content: none; }
+  .mast-stats { font-size: 11px; color: var(--ink-dim); }
+  .masthead .sub .mast-flags { margin-left: 0; display: flex; margin-top: 3px; }
+  .masthead .sub .flag { height: 14px; }
+  .masthead .sub .state-flags { margin-left: 4px; padding-left: 6px; }
   .menu-btn { display: block; flex: none; }
 
   .sheet-backdrop { position: fixed; inset: 0; z-index: 65; background: rgba(0, 0, 0, 0.6); }
@@ -1191,3 +1210,53 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .xlate-bar { width: 46px; height: 3px; border-radius: 2px; background: var(--asphalt-3); overflow: hidden; }
 .xlate-bar i { display: block; height: 100%; background: var(--outbound); transition: width 0.25s ease; }
 .set-retry { font-size: 10px; padding: 2px 8px; margin-left: 10px; }
+
+
+/* ---------- dashboard ----------
+   The hub. Cards are grouped by purpose (plan / prepare / file) and each shows
+   live state, so it reads as a status board rather than only a menu. */
+
+.dashboard { padding-bottom: 8px; }
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dash-card {
+  display: flex; flex-direction: column; gap: 3px; text-align: left;
+  padding: 12px 13px; min-height: 76px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--asphalt-2);
+  transition: border-color 0.15s, background 0.15s, transform 0.08s;
+}
+.dash-card:hover { border-color: var(--ink-faint); background: var(--asphalt-3); }
+.dash-card:active { transform: translateY(1px); }
+.dc-label {
+  font-family: var(--display); font-size: 16px; font-weight: 600;
+  letter-spacing: 0.03em; color: var(--ink);
+}
+.dc-meta {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--outbound);
+}
+.dc-note { font-size: 12px; color: var(--ink-dim); line-height: 1.35; }
+
+/* left edge carries the card's weight — attention, action, or destructive */
+.dash-card.warn { border-left: 3px solid var(--danger); }
+.dash-card.warn .dc-meta { color: var(--danger); }
+.dash-card.primary { border-left: 3px solid var(--outbound); }
+.dash-card.accent { border-left: 3px solid var(--rally); }
+.dash-card.accent .dc-meta { color: var(--rally); }
+.dash-card.danger .dc-label { color: var(--ink-dim); }
+.dash-card.danger:hover { border-color: var(--danger); }
+.dash-card.danger:hover .dc-label { color: var(--danger); }
+
+@media (max-width: 520px) {
+  .dash-grid { grid-template-columns: 1fr; gap: 8px; }
+  .dash-card { min-height: 0; }
+}
+
+/* Always-present way back to the hub, since the mobile tab bar relabels itself
+   to whatever view is open and cannot double as a home button. */
+.back-to-dash {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-faint);
+  padding: 2px 0 10px;
+}
+.back-to-dash:hover { color: var(--outbound); }
