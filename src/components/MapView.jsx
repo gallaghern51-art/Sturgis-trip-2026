@@ -5,6 +5,7 @@ import { PHASES } from '../data/seedTrip.js';
 import { haversineMiles, bestInsertIndex } from '../engine/tripEngine.js';
 import { dayTimeline, fmtTime, fmtDur } from '../engine/timeline.js';
 import { BASEMAPS, STYLE_SATELLITE, STYLE_FALLBACK, LIGHT_SAFE, ensureTerrain, GOOGLE_KEY, cachedGoogleStyle, googleStyle } from '../engine/basemaps.js';
+import { useT, useTT, useUnits } from '../engine/settings.jsx';
 
 // Basemap roster: Google tiles headline when a session exists, free styles otherwise.
 function buildBasemapList() {
@@ -66,6 +67,10 @@ export default function MapView() {
   const [terrain3d, setTerrain3d] = React.useState(false);
   const terrainRef = useRef(false);
   terrainRef.current = terrain3d;
+  const t = useT();
+  const tt = useTT();
+  const u = useUnits();
+  const scaleRef = useRef(null);
   const stateRef = useRef({ trip, selectedDayId });
   stateRef.current = { trip, selectedDayId };
 
@@ -103,7 +108,9 @@ export default function MapView() {
       positionOptions: { enableHighAccuracy: true },
       trackUserLocation: true,
     }), 'top-right');
-    map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-right');
+    const scale = new maplibregl.ScaleControl({ unit: 'imperial' });
+    map.addControl(scale, 'bottom-right');
+    scaleRef.current = scale;
     // Direction chevrons live in the style's image store, which setStyle wipes.
     const addArrow = () => { if (!map.hasImage('route-arrow')) map.addImage('route-arrow', arrowImage()); };
     map.on('styleimagemissing', (e) => { if (e.id === 'route-arrow') addArrow(); });
@@ -132,7 +139,7 @@ export default function MapView() {
         .map((d) => `route-${d.id}-line`)
         .filter((id) => map.getLayer(id));
       if (map.queryRenderedFeatures(e.point, { layers: lineIds }).length) return;
-      const name = window.prompt('Add a stop here — name it:');
+      const name = window.prompt(t('Add a stop here — name it:'));
       if (!name) return;
       const day = stateRef.current.trip.days.find((d) => d.id === dayId);
       const pt = { lat: e.lngLat.lat, lng: e.lngLat.lng };
@@ -149,6 +156,11 @@ export default function MapView() {
     ro.observe(containerRef.current);
     return () => { ro.disconnect(); map.remove(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // the map scale bar follows the units setting
+  useEffect(() => {
+    scaleRef.current?.setUnit(u.metric ? 'metric' : 'imperial');
+  }, [u.metric]);
 
   // redraw on data change
   useEffect(() => {
@@ -319,7 +331,7 @@ export default function MapView() {
         .setLngLat(e.lngLat)
         .setHTML(`
           <div class="pp-name">${esc(day.dow)} · ${esc(shortLeg(from?.name))} → ${esc(shortLeg(to?.name))}</div>
-          <div class="pp-note">${seg ? `${Math.round(seg.legMiles)} mi · ${fmtDur(seg.legMin)} · ETA ${fmtTime(seg.arrive)}` : ''}</div>
+          <div class="pp-note">${seg ? `${u.mi(seg.legMiles)} · ${fmtDur(seg.legMin)} · ETA ${fmtTime(seg.arrive)}` : ''}</div>
           <div class="pp-note">Click for leg details</div>`)
         .addTo(map);
     });
@@ -379,9 +391,9 @@ export default function MapView() {
             .setLngLat([w.lng, w.lat])
             .setHTML(`
               <div class="pp-name">${esc(w.name)}</div>
-              <div class="pp-note">${day.dow} · ${s ? `ETA ${fmtTime(s.arrive)}` : ''}${w.fuel ? ' · FUEL' : ''}${w.kind === 'photo' ? ' · PHOTO' : ''}</div>
+              <div class="pp-note">${day.dow} · ${s ? `ETA ${fmtTime(s.arrive)}` : ''}${w.fuel ? ' · FUEL' : ''}${w.kind === 'photo' ? ` · ${t('Photo').toUpperCase()}` : ''}</div>
               ${w.note ? `<div class="pp-note">${esc(w.note)}</div>` : ''}
-              <div class="pp-note">Click for details</div>`)
+              <div class="pp-note">${t('Click for details')}</div>`)
             .addTo(map);
         });
         el.addEventListener('mouseleave', () => hoverPopupRef.current?.remove());
@@ -412,8 +424,8 @@ export default function MapView() {
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       <div className="map-hint">
         {selectedDay
-          ? <>Editing <b>{selectedDay.dow} {selectedDay.date.slice(5)}</b><span className="hint-more"> — click map to add a stop · drag markers · click stops & legs for details</span></>
-          : <>Whole-trip view<span className="hint-more"> — hover a route for leg info, click for details, pick a day to edit</span></>}
+          ? <>{t('Editing')} <b>{selectedDay.dow} {selectedDay.date.slice(5)}</b><span className="hint-more"> {t('— click map to add a stop · drag markers · click stops & legs for details')}</span></>
+          : <>{t('Whole-trip view')}<span className="hint-more"> {t('— hover a route for leg info, click for details, pick a day to edit')}</span></>}
       </div>
       <div className="basemap-switch">
         {Object.entries(maps).map(([key, b]) => (
@@ -431,10 +443,10 @@ export default function MapView() {
       </div>
       <div className="map-legend">
         {Object.entries(PHASES).map(([k, p]) => (
-          <span key={k} className="key"><i style={{ background: p.color }} />{p.label}</span>
+          <span key={k} className="key"><i style={{ background: p.color }} />{t(p.label)}</span>
         ))}
-        <span className="key"><i style={{ background: '#f48322', height: 8, width: 8, borderRadius: 2 }} />Fuel</span>
-        <span className="key"><i style={{ background: '#cecece', height: 8, width: 8, borderRadius: 2, transform: 'rotate(45deg)' }} />Photo</span>
+        <span className="key"><i style={{ background: '#f48322', height: 8, width: 8, borderRadius: 2 }} />{t('Fuel')}</span>
+        <span className="key"><i style={{ background: '#cecece', height: 8, width: 8, borderRadius: 2, transform: 'rotate(45deg)' }} />{t('Photo')}</span>
       </div>
     </div>
   );

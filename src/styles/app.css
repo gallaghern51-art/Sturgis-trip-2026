@@ -82,8 +82,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .masthead h1 .yr { color: var(--rally); }
 .masthead .sub {
   font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-dim);
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--ink);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -987,3 +988,44 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 :root[data-theme='light'] .warning { color: #a03d0c; }
 :root[data-theme='light'] .warning.danger { color: #b3200a; }
 :root[data-theme='light'] .cond-card .cond-main { color: #c2340f; }
+
+
+/* ---------- ribbon day number ---------- */
+
+.ribbon .seg .dnum {
+  float: right; font-style: normal; font-weight: 600;
+  color: var(--outbound); letter-spacing: 0.02em;
+}
+
+/* ---------- rally banner (group-supplied Sturgis artwork) ---------- */
+
+.rally-banner {
+  display: flex; gap: 10px; margin-top: 12px;
+}
+.rally-banner img {
+  flex: 1; min-width: 0; height: 92px; object-fit: contain;
+  background: #000; border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px;
+}
+
+/* ---------- rider roster ---------- */
+
+.roster-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.roster-row input { flex: 1.2; min-width: 0; }
+.roster-row select { flex: 1; min-width: 0; }
+
+/* ---------- packing list editing ---------- */
+
+.pack-sec h4 .mini-edit { margin-left: 8px; }
+.pack-item { position: relative; }
+.pack-item .pack-rm {
+  margin-left: auto; flex: none; color: var(--ink-faint); font-size: 11px;
+  padding: 0 4px; opacity: 0; transition: opacity 0.12s;
+}
+.pack-item:hover .pack-rm { opacity: 1; }
+.pack-item .pack-rm:hover { color: var(--danger); }
+.pack-add { display: flex; gap: 8px; margin: 4px 0 2px 6px; }
+.pack-add input { flex: 1; min-width: 0; }
+@media (pointer: coarse) {
+  .pack-item .pack-rm { opacity: 0.6; } /* no hover on phones */
+}

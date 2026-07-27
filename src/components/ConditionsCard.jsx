@@ -3,6 +3,7 @@ import {
   fetchDayConditions, conditionKind, conditionColor,
   tempColor, precipColor, windColor,
 } from '../engine/conditions.js';
+import { useT, useTT, useUnits } from '../engine/settings.jsx';
 
 // Inline SVG rather than emoji: these inherit the condition color via
 // currentColor, where emoji glyphs would render in their own fixed palette.
@@ -96,6 +97,9 @@ const ICONS = {
 
 export default function ConditionsCard({ day }) {
   const [cond, setCond] = useState(null);
+  const t = useT();
+  const tt = useTT();
+  const u = useUnits();
 
   useEffect(() => {
     let dead = false;
@@ -109,29 +113,29 @@ export default function ConditionsCard({ day }) {
 
   return (
     <div className="section">
-      <h3>Conditions <span className="cnt">{day.date} · Open-Meteo</span></h3>
-      {!cond && <div className="cond-card">checking forecast…</div>}
+      <h3>{t('Conditions')} <span className="cnt">{day.date} · Open-Meteo</span></h3>
+      {!cond && <div className="cond-card">{t('checking forecast…')}</div>}
       {cond?.unavailable && (
         <div className="cond-card dim">
-          Forecast not in range yet — Open-Meteo covers ~16 days out. Check back closer to the date.
+          {t('Forecast not in range yet — Open-Meteo covers ~16 days out. Check back closer to the date.')}
         </div>
       )}
       {cond && !cond.unavailable && (
         <div className="cond-card wx" style={{ '--cond': accent }}>
           <svg className="wx-icon" viewBox="0 0 24 26" aria-hidden="true">{ICONS[kind]}</svg>
           <div className="wx-head">
-            <span className="wx-summary">{cond.summary}</span>
-            <span className="cond-at">near {cond.at}</span>
+            <span className="wx-summary">{t(cond.summary)}</span>
+            <span className="cond-at">{t('near')} {tt(cond.at)}</span>
           </div>
           <span className="wx-temp">
-            <b style={{ color: tempColor(cond.hi) }}>{cond.hi}°</b>
-            <i style={{ color: tempColor(cond.lo) }}>{cond.lo}°</i>
+            <b style={{ color: tempColor(cond.hi) }}>{u.temp(cond.hi)}</b>
+            <i style={{ color: tempColor(cond.lo) }}>{u.temp(cond.lo)}</i>
           </span>
           <div className="wx-metrics">
             {cond.precip != null && (
               <span className="cond-item" style={{ color: precipColor(cond.precip) }}>☂ {cond.precip}%</span>
             )}
-            <span className="cond-item" style={{ color: windColor(cond.wind) }}>wind {cond.wind} mph</span>
+            <span className="cond-item" style={{ color: windColor(cond.wind) }}>{t('wind')} {u.speed(cond.wind)}</span>
             <span className="cond-item wx-sun">☀ {cond.sunrise} → {cond.sunset}</span>
           </div>
         </div>

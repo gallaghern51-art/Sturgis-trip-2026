@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useTrip } from '../engine/store.js';
 import { tripSummary } from '../engine/tripEngine.js';
 import { fmtDayDate } from '../engine/dates.js';
+import { useT, useTT, useUnits } from '../engine/settings.jsx';
 
 const KEY = 'moto.budget.v1';
-const DEFAULTS = { gas: 3.6, mpg: 45, riders: 8, lodging: 95, food: 75, tickets: 150, misc: 200 };
+const DEFAULTS = { gas: 3.6, mpg: 45, riders: 7, lodging: 95, food: 75, tickets: 150, misc: 200 };
 
 export default function BudgetPanel() {
   const { state, routedLegsByDay } = useTrip();
@@ -31,6 +32,9 @@ export default function BudgetPanel() {
   const foodRider = days * b.food;
   const perRider = fuelRider + lodgingRider + foodRider + Number(b.tickets) + Number(b.misc);
   const $ = (n) => `$${Math.round(n).toLocaleString()}`;
+  const t = useT();
+  const tt = useTT();
+  const u = useUnits();
 
   const num = (k) => ({
     type: 'number', value: b[k], min: 0, step: k === 'gas' ? 0.05 : 1,
@@ -40,37 +44,37 @@ export default function BudgetPanel() {
   return (
     <div>
       <div className="day-head">
-        <div className="eyebrow">Fuel from routed miles · everything else adjustable</div>
-        <h2>Budget & fuel</h2>
+        <div className="eyebrow">{t('Fuel from routed miles · everything else adjustable')}</div>
+        <h2>{t('Budget & fuel')}</h2>
         <div className="datebar">
-          <span className="chip">≈ {$(perRider)} per rider</span>
-          <span className="chip">≈ {$(perRider * b.riders)} group total</span>
+          <span className="chip">≈ {$(perRider)} {t('$/rider').replace('$/', '/ ')}</span>
+          <span className="chip">≈ {$(perRider * b.riders)} {t('$ group').replace('$ ', '/ ')}</span>
         </div>
       </div>
 
       <div className="section">
-        <h3>Assumptions</h3>
+        <h3>{t('Assumptions')}</h3>
         <div className="budget-grid">
-          <label className="fld">Gas $/gal<input {...num('gas')} /></label>
+          <label className="fld">{t('Gas $/gal')}<input {...num('gas')} /></label>
           <label className="fld">MPG<input {...num('mpg')} /></label>
-          <label className="fld">Riders<input {...num('riders')} /></label>
-          <label className="fld">Lodging $/night/rider<input {...num('lodging')} /></label>
-          <label className="fld">Food $/day/rider<input {...num('food')} /></label>
-          <label className="fld">Tickets $/rider<input {...num('tickets')} /></label>
-          <label className="fld">Misc $/rider<input {...num('misc')} /></label>
+          <label className="fld">{t('Riders')}<input {...num('riders')} /></label>
+          <label className="fld">{t('Lodging $/night/rider')}<input {...num('lodging')} /></label>
+          <label className="fld">{t('Food $/day/rider')}<input {...num('food')} /></label>
+          <label className="fld">{t('Tickets $/rider')}<input {...num('tickets')} /></label>
+          <label className="fld">{t('Misc $/rider')}<input {...num('misc')} /></label>
         </div>
       </div>
 
       <div className="section">
-        <h3>Fuel by day <span className="cnt">{Math.round(summary.totalMiles)} routed mi · {b.mpg} mpg · ${b.gas.toFixed(2)}/gal</span></h3>
+        <h3>{t('Fuel by day')} <span className="cnt">{u.mi(summary.totalMiles)} · {b.mpg} mpg · ${b.gas.toFixed(2)}/gal</span></h3>
         <div className="table-wrap">
           <table className="scen-table">
-            <thead><tr><th>Day</th><th>Miles</th><th>Gal/bike</th><th>$/rider</th><th>$ group</th></tr></thead>
+            <thead><tr><th>{t('Day')}</th><th>{u.metric ? 'Km' : t('Miles')}</th><th>{t('Gal/bike')}</th><th>{t('$/rider')}</th><th>{t('$ group')}</th></tr></thead>
             <tbody>
               {perDay.map(({ d, miles, gallons, fuelRider: fr, fuelGroup }) => (
                 <tr key={d.id}>
-                  <td>{d.dow} {fmtDayDate(d.date)} <span className="scen-date">{d.title.slice(0, 30)}</span></td>
-                  <td>{Math.round(miles)}</td>
+                  <td>{d.dow} {fmtDayDate(d.date)} <span className="scen-date">{tt(d.title).slice(0, 30)}</span></td>
+                  <td>{u.miNum(miles)}</td>
                   <td>{gallons.toFixed(1)}</td>
                   <td>{$(fr)}</td>
                   <td>{$(fuelGroup)}</td>
@@ -82,20 +86,19 @@ export default function BudgetPanel() {
       </div>
 
       <div className="section">
-        <h3>Per-rider total</h3>
+        <h3>{t('Per-rider total')}</h3>
         <table className="scen-table">
           <tbody>
-            <tr><td>Fuel ({Math.round(summary.totalMiles)} mi)</td><td>{$(fuelRider)}</td></tr>
-            <tr><td>Lodging ({nights} nights × ${b.lodging})</td><td>{$(lodgingRider)}</td></tr>
-            <tr><td>Food ({days} days × ${b.food})</td><td>{$(foodRider)}</td></tr>
-            <tr><td>Tickets (Buffalo Chip, museums, passes)</td><td>{$(b.tickets)}</td></tr>
-            <tr><td>Misc / buffer</td><td>{$(b.misc)}</td></tr>
-            <tr className="current"><td><b>Total per rider</b></td><td><b>{$(perRider)}</b></td></tr>
+            <tr><td>{t('Fuel')} ({u.mi(summary.totalMiles)})</td><td>{$(fuelRider)}</td></tr>
+            <tr><td>{t('Lodging (row)') === 'Lodging (row)' ? 'Lodging' : t('Lodging (row)')} ({nights} {t('nights')} × ${b.lodging})</td><td>{$(lodgingRider)}</td></tr>
+            <tr><td>{t('Food')} ({days} {t('days')} × ${b.food})</td><td>{$(foodRider)}</td></tr>
+            <tr><td>{t('Tickets (Buffalo Chip, museums, passes)')}</td><td>{$(b.tickets)}</td></tr>
+            <tr><td>{t('Misc / buffer')}</td><td>{$(b.misc)}</td></tr>
+            <tr className="current"><td><b>{t('Total per rider')}</b></td><td><b>{$(perRider)}</b></td></tr>
           </tbody>
         </table>
         <p style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 10 }}>
-          Rule of thumb extras: cash in small bills for vendor-heavy events, and the $80 America the
-          Beautiful pass if the route touches multiple national parks — it usually pays for itself twice.
+          {t('Rule of thumb extras: cash in small bills for vendor-heavy events, and the $80 America the Beautiful pass if the route touches multiple national parks — it usually pays for itself twice.')}
         </p>
       </div>
     </div>
