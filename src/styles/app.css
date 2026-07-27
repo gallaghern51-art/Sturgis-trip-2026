@@ -208,8 +208,10 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   font-family: var(--mono); font-size: 11px; color: #fff; pointer-events: none;
   white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, 0.75);
 }
-.wp-label.above { bottom: calc(100% + 5px); transform: translateX(-50%); }
-.wp-label.below { top: calc(100% + 5px); transform: translateX(-50%); }
+/* Always below the marker: the route line passes through the marker centre, so
+   a label underneath it never overlaps the line. cullLabels() in MapView hides
+   any label that would collide with a higher-priority one. */
+.wp-label { top: calc(100% + 5px); transform: translateX(-50%); }
 .maplibregl-popup-content {
   background: var(--asphalt-2) !important; color: var(--ink) !important;
   border: 1px solid var(--line); border-radius: 6px; font-family: var(--body); font-size: 13px;

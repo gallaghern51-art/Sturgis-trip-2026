@@ -56,6 +56,7 @@ export default function MapView() {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
+  const labelsRef = useRef([]); // {el, priority, order} for screen-space label culling
   const readyRef = useRef(false);
   const hoverPopupRef = useRef(null);
   const routedRef = useRef(routedLegsByDay);
@@ -83,7 +84,8 @@ export default function MapView() {
   // Event handlers registered at init would otherwise capture the first render's
   // drawAll (empty routes) — route everything through a ref to the latest one.
   const drawAllRef = useRef(() => {});
-  useEffect(() => { drawAllRef.current = drawAll; });
+  const cullLabelsRef = useRef(() => {});
+  useEffect(() => { drawAllRef.current = drawAll; cullLabelsRef.current = cullLabels; });
   const scheduleDraw = () => {
     const map = mapRef.current;
     if (!map) return;
@@ -115,6 +117,11 @@ export default function MapView() {
     // labels are DOM markers with no collision engine — hide them when the
     // camera is too far out for a day's 15 names to be anything but noise
     map.on('zoom', () => setZoomedOut(map.getZoom() < 8.5));
+    // `move` keeps labels sane during the gesture; the *end events re-run on the
+    // settled camera, because a mid-flight cull can leave a pair overlapping.
+    map.on('move', () => cullLabelsRef.current());
+    map.on('moveend', () => cullLabelsRef.current());
+    map.on('zoomend', () => cullLabelsRef.current());
     // Direction chevrons live in the style's image store, which setStyle wipes.
     const addArrow = () => { if (!map.hasImage('route-arrow')) map.addImage('route-arrow', arrowImage()); };
     map.on('styleimagemissing', (e) => { if (e.id === 'route-arrow') addArrow(); });
@@ -353,11 +360,30 @@ export default function MapView() {
     });
   }
 
+  // MapLibre collides its own symbol labels, but these are DOM markers, so do it
+  // here: walk labels by priority and hide any whose box overlaps one already
+  // kept. Re-runs on every camera move — what fits at z12 does not fit at z9.
+  function cullLabels() {
+    const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    const ordered = [...labelsRef.current].sort((a, b) => a.priority - b.priority || a.order - b.order);
+    const kept = [];
+    for (const { el } of ordered) el.style.visibility = 'visible'; // measure unhidden
+    for (const { el } of ordered) {
+      const r = el.getBoundingClientRect();
+      if (!r.width) continue;
+      // 3px breathing room so kept labels never look kerned together
+      const box = { left: r.left - 3, right: r.right + 3, top: r.top - 3, bottom: r.bottom + 3 };
+      if (kept.some((k) => overlaps(box, k))) el.style.visibility = 'hidden';
+      else kept.push(box);
+    }
+  }
+
   function drawMarkers() {
     const map = mapRef.current;
     const { trip: t, selectedDayId: sel } = stateRef.current;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
+    labelsRef.current = [];
 
     const days = sel ? t.days.filter((d) => d.id === sel) : t.days;
     for (const day of days) {
@@ -375,13 +401,17 @@ export default function MapView() {
           el.style.height = size;
         }
         // Name labels while editing a day — the whole-trip view stays clean.
-        // Alternate above/below the route so consecutive labels never stack
-        // into each other along a straight leg.
+        // Always below the marker, like Apple Maps: the route line runs through
+        // the marker's centre, so a label underneath never sits on the line.
+        // Label-on-label overlap is resolved by cullLabels().
         if (showAll) {
           const lab = document.createElement('span');
-          lab.className = `wp-label ${wi % 2 ? 'below' : 'above'}`;
+          lab.className = 'wp-label';
           lab.textContent = w.name.length > 26 ? w.name.slice(0, 25) + '…' : w.name;
           el.appendChild(lab);
+          // endpoints and fuel stops win a contested spot over a generic via
+          const priority = isEnd ? 0 : w.fuel ? 1 : w.kind === 'photo' ? 2 : 3;
+          labelsRef.current.push({ el: lab, priority, order: wi });
         }
         const marker = new maplibregl.Marker({ element: el, draggable: showAll })
           .setLngLat([w.lng, w.lat])
@@ -420,6 +450,8 @@ export default function MapView() {
         markersRef.current.push(marker);
       }
     }
+    // labels exist in the DOM now — measure and de-conflict them
+    requestAnimationFrame(cullLabels);
   }
 
   const selectedDay = trip.days.find((d) => d.id === selectedDayId);
