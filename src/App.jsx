@@ -197,16 +197,16 @@ export default function App() {
                 <button key={v} className={view === v ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{t(label)}</button>
               ))}
             </div>
-            {/* daily-use first (ride, packing, settings), then edit/file plumbing */}
+            {/* daily-use first (ride, packing), then edit/file plumbing, settings last */}
             <button className="btn primary" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>▶ {t('Ride')}</button>
             <button className="btn" onClick={() => setPackingOpen(true)}>🎒 {t('Packing')}</button>
-            <button className="btn" onClick={() => setSettingsOpen(true)}>⚙ {t('Settings')}</button>
             <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
             <button className="btn" onClick={exportJson}>{t('Export')}</button>
             <button className="btn" onClick={() => fileRef.current?.click()}>{t('Import')}</button>
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
             <button className="btn danger-ghost" onClick={() => { if (confirm('Reset this trip to the original Sturgis field guide template?')) dispatch({ type: 'reset' }); }}>{t('Reset')}</button>
             <button className="btn gold optimizer-btn" onClick={() => setChatOpen((v) => !v)}>{chatOpen ? t('Hide') + ' ' : ''}{t('Optimizer')}</button>
+            <button className="btn" onClick={() => setSettingsOpen(true)}>⚙ {t('Settings')}</button>
           </div>
         </header>
         {menuOpen && <div className="sheet-backdrop" onClick={() => setMenuOpen(false)} />}

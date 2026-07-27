@@ -10,7 +10,9 @@ import { dayTimeline, fmtTime, fmtDur } from '../engine/timeline.js';
 import PlaceSearch from './PlaceSearch.jsx';
 import ConditionsCard from './ConditionsCard.jsx';
 import { tripToGpx, downloadFile } from '../engine/exporters.js';
-import { useT, useTT, useUnits } from '../engine/settings.jsx';
+import { useT, useTT, useUnits, useSettings } from '../engine/settings.jsx';
+import { dayRoadShields } from '../engine/roads.js';
+import { parksForDay } from '../data/parks.js';
 
 export default function DayPanel({ day }) {
   const { state, dispatch, summary, routedLegsByDay, routes } = useTrip();
@@ -28,6 +30,9 @@ export default function DayPanel({ day }) {
   const t = useT();
   const tt = useTT();
   const u = useUnits();
+  const { shields: showShields } = useSettings();
+  const shieldsByStop = dayRoadShields(day);
+  const parks = parksForDay(day);
   // Running odometer per stop — leg miles come from the same timeline the ETAs use.
   const cumMiles = [];
   let acc = 0;
@@ -64,6 +69,14 @@ export default function DayPanel({ day }) {
             onClick={() => downloadFile(`trip-${day.date}-${day.dow.toLowerCase()}.gpx`, tripToGpx(state.trip, routes, routedLegsByDay, day.id), 'application/gpx+xml')}
           >⬇ GPX</button>
         </div>
+        {(day.phase === 'rally' || parks.length > 0) && (
+          <div className="day-badges">
+            {day.phase === 'rally' && (
+              <img className="badge-thumb" src="/pics/sturgis-wordmark.jpg" alt="Sturgis Rally" title="Sturgis Motorcycle Rally" loading="lazy" />
+            )}
+            {parks.map((pk) => <ParkBadge key={pk.id} park={pk} label={t('National park')} />)}
+          </div>
+        )}
       </div>
 
       <div className="stat-row">
@@ -79,16 +92,6 @@ export default function DayPanel({ day }) {
 
       <p style={{ fontSize: 13, color: 'var(--ink-dim)', marginTop: 10 }}>{tt(day.summary)}</p>
 
-      {/* rally days wear the patch — group-supplied artwork in public/pics */}
-      {day.phase === 'rally' && (
-        <div className="rally-banner">
-          <img src="/pics/sturgis-wordmark.jpg" alt="Sturgis — The Ride. The Roar. The Rally." loading="lazy" />
-          {/Sturgis Day/i.test(day.title) && (
-            <img src="/pics/sturgis-85.png" alt="Sturgis Motorcycle Rally — Black Hills, South Dakota" loading="lazy" />
-          )}
-        </div>
-      )}
-
       {day.constraints?.length > 0 && (
         <div className="section">
           <h3>{t('Hard constraints')}</h3>
@@ -101,7 +104,7 @@ export default function DayPanel({ day }) {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={day.waypoints.map((w) => w.id)} strategy={verticalListSortingStrategy}>
             {day.waypoints.map((w, i) => (
-              <SortableWaypoint key={w.id} w={w} dayId={day.id} dispatch={dispatch} sched={timeline.stops[i]} cum={cumMiles[i]} first={i === 0} tt={tt} u={u} t={t} />
+              <SortableWaypoint key={w.id} w={w} dayId={day.id} dispatch={dispatch} sched={timeline.stops[i]} cum={cumMiles[i]} first={i === 0} tt={tt} u={u} t={t} shields={showShields ? shieldsByStop[i] : null} />
             ))}
           </SortableContext>
         </DndContext>
@@ -153,6 +156,26 @@ export default function DayPanel({ day }) {
         >{t('Remove this day')}</button>
       </div>
     </div>
+  );
+}
+
+
+// Park badge — the NPS arrowhead plus the park's name.
+function ParkBadge({ park, label }) {
+  return (
+    <span className="park-badge" title={`${park.short} · ${label}`}>
+      <img src="/pics/nps-arrowhead.png" alt="" aria-hidden="true" loading="lazy" />
+      {park.short}
+    </span>
+  );
+}
+
+// Interstate / US route / state route, in the three real signage shapes.
+function RoadShield({ road }) {
+  return (
+    <i className={`shield ${road.kind}${road.inherited ? ' inherited' : ''}`}>
+      {road.kind === 'interstate' ? road.num : `${road.prefix}-${road.num}`}
+    </i>
   );
 }
 
@@ -395,7 +418,7 @@ function LodgingSection({ day, dispatch }) {
   );
 }
 
-function SortableWaypoint({ w, dayId, dispatch, sched, cum, first, tt, u, t }) {
+function SortableWaypoint({ w, dayId, dispatch, sched, cum, first, tt, u, t, shields }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: w.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   return (
@@ -407,6 +430,11 @@ function SortableWaypoint({ w, dayId, dispatch, sched, cum, first, tt, u, t }) {
         {/* interval distance since the last stop, then the day's running odometer */}
         {!first && sched && sched.legMiles > 0 && (
           <span className="leg-mi">+{u.miNum(sched.legMiles)} {u.miUnit} · {u.miNum(cum)}</span>
+        )}
+        {shields?.length > 0 && (
+          <span className="leg-roads">
+            {shields.map((r) => <RoadShield key={r.key} road={r} />)}
+          </span>
         )}
       </span>
       <span

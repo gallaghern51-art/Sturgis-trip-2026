@@ -13,7 +13,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { translateContent } from '../i18n/content-es.js';
 
 const KEY = 'moto.settings.v1';
-const DEFAULTS = { lang: 'en', theme: 'dark', units: 'imperial' };
+const DEFAULTS = { lang: 'en', theme: 'dark', units: 'imperial', shields: true };
 
 function load() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...DEFAULTS }; }
@@ -310,6 +310,11 @@ const ES = {
   'Add an item…': 'Agregar un ítem…',
   'Add': 'Agregar',
   'Restore removed items': 'Restaurar ítems eliminados',
+  // highway shields
+  'Highway shields': 'Escudos de carretera',
+  'On': 'Sí',
+  'Off': 'No',
+  'National park': 'Parque nacional',
   // module editor
   'add an option': 'agregar una opción',
   'move to': 'mover a',

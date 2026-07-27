@@ -1015,16 +1015,42 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   color: var(--outbound); letter-spacing: 0.02em;
 }
 
-/* ---------- rally banner (group-supplied Sturgis artwork) ---------- */
+/* ---------- day badges: rally thumb + national-park marks ----------
+   A strip in the day header, not a banner — it is a label for the day, so it
+   should cost one line, not a third of the panel. */
 
-.rally-banner {
-  display: flex; gap: 10px; margin-top: 12px;
+.day-badges { display: flex; align-items: center; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+/* the source art is trimmed to the mark itself, so it stays legible this small */
+.badge-thumb {
+  height: 30px; width: auto; border-radius: 4px; background: #000;
+  border: 1px solid var(--line); padding: 2px 4px; flex: none;
 }
-.rally-banner img {
-  flex: 1; min-width: 0; height: 92px; object-fit: contain;
-  background: #000; border: 1px solid var(--line); border-radius: 8px;
-  padding: 6px;
+/* neutral chrome so the arrowhead itself is the colour */
+.park-badge {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  height: 30px; padding: 0 10px 0 6px; border-radius: 4px;
+  border: 1px solid var(--line); background: var(--asphalt-2);
+  color: var(--ink-dim);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
 }
+.park-badge img { height: 22px; width: auto; flex: none; }
+
+/* ---------- highway shields ----------
+   Under each stop's time/mileage split. Toggle lives in Settings, so if the
+   group decides it is clutter it comes off without touching the layout. */
+
+.leg-roads { display: flex; gap: 3px; justify-content: flex-end; flex-wrap: wrap; margin-top: 3px; }
+.shield {
+  font-family: var(--mono); font-style: normal; font-size: 8.5px; font-weight: 500;
+  letter-spacing: 0.02em; line-height: 1; padding: 2px 3px; border-radius: 2px;
+  border: 1px solid; white-space: nowrap;
+}
+/* blue/red interstate, white US escutcheon, plain state square */
+.shield.interstate { background: #123a8c; border-color: #123a8c; color: #fff; }
+.shield.us { background: #f2f2f2; border-color: #b9b9b9; color: #141414; }
+.shield.state { background: transparent; border-color: var(--ink-faint); color: var(--ink-dim); }
+/* inherited = the guide never named the road here, we carried the last one */
+.shield.inherited { opacity: 0.5; }
 
 /* ---------- rider roster ---------- */
 

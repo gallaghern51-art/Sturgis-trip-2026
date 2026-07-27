@@ -3,7 +3,7 @@ import { useSettings, useT } from '../engine/settings.jsx';
 
 // Language + theme, per device. Both apply instantly; nothing to save.
 export default function SettingsModal({ onClose }) {
-  const { lang, theme, units, set } = useSettings();
+  const { lang, theme, units, shields, set } = useSettings();
   const t = useT();
 
   return (
@@ -33,6 +33,13 @@ export default function SettingsModal({ onClose }) {
             <div className="set-seg">
               <button className={units === 'imperial' ? 'active' : ''} onClick={() => set({ units: 'imperial' })}>{t('Imperial (mi, °F)')}</button>
               <button className={units === 'metric' ? 'active' : ''} onClick={() => set({ units: 'metric' })}>{t('Metric (km, °C)')}</button>
+            </div>
+          </div>
+          <div className="set-row">
+            <span className="set-label">{t('Highway shields')}</span>
+            <div className="set-seg">
+              <button className={shields ? 'active' : ''} onClick={() => set({ shields: true })}>{t('On')}</button>
+              <button className={!shields ? 'active' : ''} onClick={() => set({ shields: false })}>{t('Off')}</button>
             </div>
           </div>
           <p className="set-note">
