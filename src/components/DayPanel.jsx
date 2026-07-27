@@ -173,11 +173,12 @@ function ParkBadge({ park, label }) {
 // Real signage artwork when we have it; a plain chip otherwise (see SHIELD_ART).
 function RoadShield({ road }) {
   const label = `${road.prefix}-${road.num}`;
-  if (SHIELD_ART.has(road.key)) {
+  const art = SHIELD_ART[road.key];
+  if (art) {
     return (
       <img
         className={`shield-img${road.inherited ? ' inherited' : ''}`}
-        src={`/shields/${road.key}.svg`}
+        src={`/shields/${art}`}
         alt={label}
         title={label}
         loading="lazy"
