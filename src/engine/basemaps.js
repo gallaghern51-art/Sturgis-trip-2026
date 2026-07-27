@@ -117,8 +117,8 @@ export async function googleStyle(kind) {
   return styleFromSession(kind, rec);
 }
 
-// The cream "return" phase disappears on a light basemap — swap it for a legible tan.
-export const LIGHT_SAFE = { return: '#a8873a', prep: '#6b675e' };
+// The light-gray "return"/"prep" phases disappear on a light basemap — swap in dark tones.
+export const LIGHT_SAFE = { return: '#1a1a1a', prep: '#5a5a5a' };
 
 // ---- 3D terrain (AWS Open Data / Mapzen terrarium DEM — free, no key) ----
 

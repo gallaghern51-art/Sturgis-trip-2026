@@ -40,7 +40,7 @@ function arrowImage(size = 26) {
   g.strokeStyle = 'rgba(10, 12, 16, 0.9)';
   g.lineWidth = 7;
   chevron();
-  g.strokeStyle = '#f5f2ea';
+  g.strokeStyle = '#ffffff';
   g.lineWidth = 3.2;
   chevron();
   return g.getImageData(0, 0, size, size);
@@ -255,7 +255,7 @@ export default function MapView() {
         });
         map.addLayer({
           id: `${srcId}-casing`, type: 'line', source: srcId,
-          paint: { 'line-color': '#0c0f13', 'line-width': lineWidth(5.5), 'line-opacity': 0.7 },
+          paint: { 'line-color': '#000000', 'line-width': lineWidth(5.5), 'line-opacity': 0.7 },
           layout: round,
         });
         map.addLayer({
@@ -352,7 +352,7 @@ export default function MapView() {
         if (!showAll && !isEnd) continue;
         const el = document.createElement('div');
         el.className = `wp-marker${w.fuel ? ' fuel' : ''}${w.kind === 'photo' ? ' photo' : ''}`;
-        el.style.background = w.fuel ? '#e8622c' : w.kind === 'photo' ? '#f0e3c8' : color;
+        el.style.background = w.fuel ? '#f48322' : w.kind === 'photo' ? '#cecece' : color;
         if (isEnd) {
           const size = isTouch() ? '20px' : '16px';
           el.style.width = size;
@@ -431,8 +431,8 @@ export default function MapView() {
         {Object.entries(PHASES).map(([k, p]) => (
           <span key={k} className="key"><i style={{ background: p.color }} />{p.label}</span>
         ))}
-        <span className="key"><i style={{ background: '#e8622c', height: 8, width: 8, borderRadius: 2 }} />Fuel</span>
-        <span className="key"><i style={{ background: '#f0e3c8', height: 8, width: 8, borderRadius: 2, transform: 'rotate(45deg)' }} />Photo</span>
+        <span className="key"><i style={{ background: '#f48322', height: 8, width: 8, borderRadius: 2 }} />Fuel</span>
+        <span className="key"><i style={{ background: '#cecece', height: 8, width: 8, borderRadius: 2, transform: 'rotate(45deg)' }} />Photo</span>
       </div>
     </div>
   );
