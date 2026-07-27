@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSettings, useT } from '../engine/settings.jsx';
 
 // Language + theme, per device. Both apply instantly; nothing to save.
 export default function SettingsModal({ onClose }) {
   const { lang, theme, units, shields, set } = useSettings();
   const t = useT();
+  const [devOpen, setDevOpen] = useState(false);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -35,16 +36,29 @@ export default function SettingsModal({ onClose }) {
               <button className={units === 'metric' ? 'active' : ''} onClick={() => set({ units: 'metric' })}>{t('Metric (km, °C)')}</button>
             </div>
           </div>
-          <div className="set-row">
-            <span className="set-label">{t('Highway shields')}</span>
-            <div className="set-seg">
-              <button className={shields ? 'active' : ''} onClick={() => set({ shields: true })}>{t('On')}</button>
-              <button className={!shields ? 'active' : ''} onClick={() => set({ shields: false })}>{t('Off')}</button>
-            </div>
-          </div>
           <p className="set-note">
             {t('Applies on this device only. Trip text and AI answers stay in the language they were written in — ask the optimizer in Spanish and it answers in Spanish.')}
           </p>
+
+          {/* Experiments live behind a fold so the everyday settings stay to
+              three choices. Anything in here can be pulled without ceremony. */}
+          <div className="set-dev">
+            <button className="set-dev-toggle" aria-expanded={devOpen} onClick={() => setDevOpen((v) => !v)}>
+              {devOpen ? '▾' : '▸'} {t('Developer')}
+            </button>
+            {devOpen && (
+              <div className="set-dev-body">
+                <div className="set-row">
+                  <span className="set-label">{t('Highway shields')}</span>
+                  <div className="set-seg">
+                    <button className={shields ? 'active' : ''} onClick={() => set({ shields: true })}>{t('On')}</button>
+                    <button className={!shields ? 'active' : ''} onClick={() => set({ shields: false })}>{t('Off')}</button>
+                  </div>
+                </div>
+                <p className="set-note">{t('Route shields under each stop. Experimental — remove it if it reads as clutter.')}</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

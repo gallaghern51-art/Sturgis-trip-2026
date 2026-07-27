@@ -312,6 +312,8 @@ const ES = {
   'Restore removed items': 'Restaurar ítems eliminados',
   // highway shields
   'Highway shields': 'Escudos de carretera',
+  'Developer': 'Desarrollo',
+  'Route shields under each stop. Experimental — remove it if it reads as clutter.': 'Escudos de ruta bajo cada parada. Experimental — quítalo si se ve desordenado.',
   'On': 'Sí',
   'Off': 'No',
   'National park': 'Parque nacional',

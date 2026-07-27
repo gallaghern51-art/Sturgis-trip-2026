@@ -71,7 +71,6 @@ export default function MapView() {
   const t = useT();
   const tt = useTT();
   const u = useUnits();
-  const [zoomedOut, setZoomedOut] = React.useState(false);
   const scaleRef = useRef(null);
   const stateRef = useRef({ trip, selectedDayId });
   stateRef.current = { trip, selectedDayId };
@@ -116,7 +115,6 @@ export default function MapView() {
     scaleRef.current = scale;
     // labels are DOM markers with no collision engine — hide them when the
     // camera is too far out for a day's 15 names to be anything but noise
-    map.on('zoom', () => setZoomedOut(map.getZoom() < 8.5));
     // `move` keeps labels sane during the gesture; the *end events re-run on the
     // settled camera, because a mid-flight cull can leave a pair overlapping.
     map.on('move', () => cullLabelsRef.current());
@@ -456,7 +454,7 @@ export default function MapView() {
 
   const selectedDay = trip.days.find((d) => d.id === selectedDayId);
   return (
-    <div className={`map-wrap${['streets', 'light', 'groad'].includes(basemap) ? ' labels-dark' : ''}${zoomedOut ? ' labels-hidden' : ''}`}>
+    <div className={`map-wrap${['streets', 'light', 'groad'].includes(basemap) ? ' labels-dark' : ''}`}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       <div className="map-hint">
         {selectedDay

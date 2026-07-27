@@ -11,7 +11,7 @@ import PlaceSearch from './PlaceSearch.jsx';
 import ConditionsCard from './ConditionsCard.jsx';
 import { tripToGpx, downloadFile } from '../engine/exporters.js';
 import { useT, useTT, useUnits, useSettings } from '../engine/settings.jsx';
-import { dayRoadShields } from '../engine/roads.js';
+import { dayRoadShields, SHIELD_ART } from '../engine/roads.js';
 import { parksForDay } from '../data/parks.js';
 
 export default function DayPanel({ day }) {
@@ -72,7 +72,7 @@ export default function DayPanel({ day }) {
         {(day.phase === 'rally' || parks.length > 0) && (
           <div className="day-badges">
             {day.phase === 'rally' && (
-              <img className="badge-thumb" src="/pics/sturgis-wordmark.jpg" alt="Sturgis Rally" title="Sturgis Motorcycle Rally" loading="lazy" />
+              <img className="badge-thumb rally" src="/pics/sturgis-86.png" alt="Sturgis Rally 2026" title="Sturgis Motorcycle Rally 2026 · 86th" loading="lazy" />
             )}
             {parks.map((pk) => <ParkBadge key={pk.id} park={pk} label={t('National park')} />)}
           </div>
@@ -170,12 +170,22 @@ function ParkBadge({ park, label }) {
   );
 }
 
-// Interstate / US route / state route, in the three real signage shapes.
+// Real signage artwork when we have it; a plain chip otherwise (see SHIELD_ART).
 function RoadShield({ road }) {
+  const label = `${road.prefix}-${road.num}`;
+  if (SHIELD_ART.has(road.key)) {
+    return (
+      <img
+        className={`shield-img${road.inherited ? ' inherited' : ''}`}
+        src={`/shields/${road.key}.svg`}
+        alt={label}
+        title={label}
+        loading="lazy"
+      />
+    );
+  }
   return (
-    <i className={`shield ${road.kind}${road.inherited ? ' inherited' : ''}`}>
-      {road.kind === 'interstate' ? road.num : `${road.prefix}-${road.num}`}
-    </i>
+    <i className={`shield ${road.kind}${road.inherited ? ' inherited' : ''}`}>{label}</i>
   );
 }
 
@@ -437,18 +447,21 @@ function SortableWaypoint({ w, dayId, dispatch, sched, cum, first, tt, u, t, shi
           </span>
         )}
       </span>
-      <span
-        className="nm clickable"
-        title="Center the map on this stop"
-        onClick={() => {
-          if (Number.isFinite(w.lat) && Number.isFinite(w.lng)) dispatch({ type: 'focus_point', lat: w.lat, lng: w.lng });
-        }}
-      >
-        {tt(w.name)}
-        {w.fuel && <span className="tag fuel">FUEL</span>}
-        {w.kind === 'photo' && <span className="tag photo">{t('Photo').toUpperCase()}</span>}
-        {sched && sched.dwell > 0 && <span className="tag dwell">{fmtDur(sched.dwell)}</span>}
-      </span>
+      <div className="wp-main">
+        <span
+          className="nm clickable"
+          title="Center the map on this stop"
+          onClick={() => {
+            if (Number.isFinite(w.lat) && Number.isFinite(w.lng)) dispatch({ type: 'focus_point', lat: w.lat, lng: w.lng });
+          }}
+        >
+          {tt(w.name)}
+          {w.fuel && <span className="tag fuel">FUEL</span>}
+          {w.kind === 'photo' && <span className="tag photo">{t('Photo').toUpperCase()}</span>}
+          {sched && sched.dwell > 0 && <span className="tag dwell">{fmtDur(sched.dwell)}</span>}
+        </span>
+        {w.note && <span className="note">{tt(w.note)}</span>}
+      </div>
       <button
         className="rm info"
         title="Stop details"
@@ -459,7 +472,6 @@ function SortableWaypoint({ w, dayId, dispatch, sched, cum, first, tt, u, t, shi
         title="Remove stop"
         onClick={() => dispatch({ type: 'apply_ops', ops: [{ op: 'remove_waypoint', dayId, waypointId: w.id }] })}
       >✕</button>
-      {w.note && <span className="note">{tt(w.note)}</span>}
     </div>
   );
 }

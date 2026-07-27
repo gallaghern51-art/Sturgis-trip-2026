@@ -271,10 +271,14 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .section > h3 .cnt { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
 
 .wp-row {
-  display: grid; grid-template-columns: 20px 76px 1fr auto auto; gap: 8px; align-items: baseline;
+  display: grid; grid-template-columns: 20px 76px 1fr auto auto; gap: 8px; align-items: start;
   padding: 7px 6px; border-radius: 5px; border: 1px solid transparent;
   background: var(--asphalt-1);
 }
+/* name and note share one cell so the note sits against the title. It used to
+   be its own grid row, which the taller time/mileage/shield column pushed to
+   the bottom of the row, stranding it from the stop it describes. */
+.wp-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .wp-row .eta { font-family: var(--mono); font-size: 11px; color: var(--rally); text-align: right; line-height: 1.3; }
 .wp-row .eta .leg-t { display: block; font-size: 9.5px; color: var(--ink-faint); }
 /* interval miles since the previous stop · running day total */
@@ -290,7 +294,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .wp-row .nm .tag { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; padding: 1px 5px; border-radius: 3px; margin-left: 6px; vertical-align: 1px; }
 .wp-row .nm .tag.fuel { background: rgba(244, 131, 34, 0.18); color: var(--outbound); }
 .wp-row .nm .tag.photo { background: rgba(206, 206, 206, 0.12); color: var(--return); }
-.wp-row .note { grid-column: 3 / 6; font-size: 12px; color: var(--ink-dim); }
+.wp-row .note { font-size: 12px; color: var(--ink-dim); line-height: 1.4; }
 .wp-row .rm { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); opacity: 0; }
 .wp-row:hover .rm { opacity: 1; }
 .wp-row .rm:hover { color: var(--danger); }
@@ -1019,27 +1023,29 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
    A strip in the day header, not a banner — it is a label for the day, so it
    should cost one line, not a third of the panel. */
 
-.day-badges { display: flex; align-items: center; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
-/* the source art is trimmed to the mark itself, so it stays legible this small */
-.badge-thumb {
-  height: 30px; width: auto; border-radius: 4px; background: #000;
-  border: 1px solid var(--line); padding: 2px 4px; flex: none;
-}
-/* neutral chrome so the arrowhead itself is the colour */
+.day-badges { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+/* No frame, no plate — these are marks, not buttons (same as the masthead
+   flags). The rally art is black line-work on an opaque white background, so
+   the blend modes drop that background instead of showing it as a white tile:
+   invert + screen on the dark theme, multiply on the light one. */
+.badge-thumb { height: 30px; width: auto; flex: none; }
+.badge-thumb.rally { height: 34px; filter: invert(1); mix-blend-mode: screen; }
+:root[data-theme='light'] .badge-thumb.rally { filter: none; mix-blend-mode: multiply; }
 .park-badge {
   display: inline-flex; align-items: center; gap: 6px; flex: none;
-  height: 30px; padding: 0 10px 0 6px; border-radius: 4px;
-  border: 1px solid var(--line); background: var(--asphalt-2);
   color: var(--ink-dim);
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
 }
-.park-badge img { height: 22px; width: auto; flex: none; }
+.park-badge img { height: 26px; width: auto; flex: none; } /* already has alpha */
 
 /* ---------- highway shields ----------
    Under each stop's time/mileage split. Toggle lives in Settings, so if the
    group decides it is clutter it comes off without touching the layout. */
 
-.leg-roads { display: flex; gap: 3px; justify-content: flex-end; flex-wrap: wrap; margin-top: 3px; }
+.leg-roads { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; align-items: center; }
+/* real signage from public/shields — sized to sit with the mono numbers */
+.shield-img { height: 19px; width: auto; flex: none; }
+.shield-img.inherited { opacity: 0.45; }
 .shield {
   font-family: var(--mono); font-style: normal; font-size: 8.5px; font-weight: 500;
   letter-spacing: 0.02em; line-height: 1; padding: 2px 3px; border-radius: 2px;
@@ -1095,3 +1101,15 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   text-shadow: 0 1px 2px #fff, 0 0 5px rgba(255, 255, 255, 0.9), 0 0 2px #fff;
 }
 .map-wrap.labels-hidden .wp-label { display: none; }
+
+
+/* ---------- settings: developer fold ---------- */
+
+.set-dev { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; }
+.set-dev-toggle {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-faint); padding: 2px 0;
+}
+.set-dev-toggle:hover { color: var(--ink-dim); }
+.set-dev-body { margin-top: 12px; }
+.set-dev-body .set-note { margin-top: -4px; }
