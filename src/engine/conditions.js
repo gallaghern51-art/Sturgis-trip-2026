@@ -66,21 +66,25 @@ export function tempColor(f) {
   return '#0A84FF';
 }
 
+// Metrics that aren't worth flagging stay plain and legible rather than tinted
+// — matches --ink-dim, so an ordinary 8 mph reads as clearly as a dangerous 35.
+const METRIC_PLAIN = '#cecece';
+
 // Rain chance reads blue and gains weight as it climbs.
 export function precipColor(pct) {
-  if (pct == null) return CONDITION_COLORS.unknown;
-  if (pct >= 60) return '#0A84FF';
+  if (pct == null) return METRIC_PLAIN;
+  if (pct >= 60) return '#4AA8FF';
   if (pct >= 30) return '#64D2FF';
-  return CONDITION_COLORS.unknown;
+  return METRIC_PLAIN;
 }
 
 // Wind is a real hazard on a bike, so it escalates like a warning instead of
 // staying neutral: 20+ mph is a fight, 30+ is a plan change.
 export function windColor(mph) {
-  if (mph == null) return CONDITION_COLORS.unknown;
+  if (mph == null) return METRIC_PLAIN;
   if (mph >= 30) return '#FF453A';
   if (mph >= 20) return '#FF9F0A';
-  return CONDITION_COLORS.unknown;
+  return METRIC_PLAIN;
 }
 
 function cache() {
