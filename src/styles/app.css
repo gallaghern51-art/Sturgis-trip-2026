@@ -1031,21 +1031,23 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .badge-thumb { height: 30px; width: auto; flex: none; }
 .badge-thumb.rally { height: 34px; filter: invert(1); mix-blend-mode: screen; }
 :root[data-theme='light'] .badge-thumb.rally { filter: none; mix-blend-mode: multiply; }
-/* No plate. A coloured plate fought the emblem from both sides — brown lost its
-   border, green flattened its interior — so the arrowhead sits bare like the
-   masthead flags and a soft drop-shadow lifts it off the page instead. */
+/* Plate in the NPS greens: Mallard Green #213A1B on the dark theme, a lighter
+   step toward Curry Leaf (#56903A) on the light one, so it still shifts with
+   the theme. Deliberately NOT the NPS Classic Brown #6F4930 — checked at 3x,
+   a brown plate swallows the arrowhead's own brown border and the emblem loses
+   its outline. Green keeps both the border and the green interior readable. */
 .park-badge {
   display: inline-flex; align-items: center; gap: 7px; flex: none;
-  color: var(--ink-dim);
+  height: 34px; padding: 0 11px 0 7px; border-radius: 5px;
+  background: #213a1b; border: 1px solid #33512a; color: #f4f1e6;
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+}
+:root[data-theme='light'] .park-badge {
+  background: #3f7130; border-color: #315826; color: #fbf8ee;
 }
 .park-badge img {
   height: 26px; width: auto; flex: none; /* already has alpha */
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
-}
-/* on paper the shadow does the separating, so it needs a touch more spread */
-:root[data-theme='light'] .park-badge img {
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.34));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 5px rgba(0, 0, 0, 0.4));
 }
 
 /* ---------- highway shields ----------
