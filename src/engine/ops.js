@@ -99,7 +99,8 @@ function applyOp(t, op) {
       return t;
     }
     case 'set_meta': {
-      const allowed = ['title', 'subtitle', 'riders', 'startDate', 'fuelRule', 'range'];
+      // roster: [{ id, name, bike }] — who's riding what, shown under Field notes
+      const allowed = ['title', 'subtitle', 'summary', 'riders', 'startDate', 'fuelRule', 'range', 'roster'];
       for (const k of Object.keys(op.patch ?? {})) {
         if (!allowed.includes(k)) throw new Error(`meta field ${k} not editable`);
       }

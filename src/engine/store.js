@@ -140,6 +140,15 @@ export function reducer(state, action) {
       return { ...state, pendingProposal: null };
 
     // Chat history persists per trip so the optimizer's memory survives reloads.
+    // Translations live ON the trip (trip.i18n[lang]) rather than in source, so
+    // they export/import with it and any trip — hand-built or AI-generated — can
+    // carry its own. Merged, never replaced: a partial run keeps what it got.
+    case 'save_translations': {
+      const trip = { ...state.trip, i18n: { ...(state.trip.i18n ?? {}) } };
+      trip.i18n[action.lang] = { ...(trip.i18n[action.lang] ?? {}), ...action.translations };
+      syncTrip(state, trip);
+      return { ...state, trip };
+    }
     case 'save_chat': {
       const rec = activeRecord(state.lib);
       rec.chat = action.messages.slice(-60); // cap so localStorage stays sane

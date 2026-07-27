@@ -5,6 +5,7 @@ import { feasibilityDigest } from '../engine/timeline.js';
 import { splitsDigest } from '../engine/splits.js';
 import { describeOps } from '../engine/ops.js';
 import { runPlanner } from '../engine/planner.js';
+import { useT } from '../engine/settings.jsx';
 
 const SUGGESTIONS = [
   'Run a full feasibility read — where does this plan break?',
@@ -19,6 +20,7 @@ export default function ChatPanel({ onClose }) {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [building, setBuilding] = useState(null); // {chars, thinking} streamed so far
+  const t = useT();
   const [setupNeeded, setSetupNeeded] = useState(false);
   const scrollRef = useRef(null);
 
@@ -139,14 +141,14 @@ export default function ChatPanel({ onClose }) {
             className="btn"
             title="Clear this trip's chat history"
             onClick={() => { if (confirm('Clear the optimizer conversation for this trip?')) { dispatch({ type: 'clear_chat' }); setMessages([]); } }}
-          >Clear</button>
+          >{t('Clear')}</button>
         )}
         <button className="btn" onClick={onClose}>✕</button>
       </div>
       <div className="chat-msgs" ref={scrollRef}>
         {messages.length === 0 && (
           <div className="msg ai">
-            I hold the whole plan — every waypoint, booking, fuel stop, and constraint — plus the live metrics from your edits. Ask for analysis, or tell me to rework the trip and I'll propose concrete changes you can preview and apply.
+            {t("I hold the whole plan — every waypoint, booking, fuel stop, and constraint — plus the live metrics from your edits. Ask for analysis, or tell me to rework the trip and I'll propose concrete changes you can preview and apply.")}
           </div>
         )}
         {messages.map((m, i) => (
@@ -160,9 +162,9 @@ export default function ChatPanel({ onClose }) {
             <span className="thinking">
               {(() => {
                 const secs = building?.ms ? ` · ${Math.round(building.ms / 1000)}s` : '';
-                if (!building) return 'analyzing the route…';
-                if (building.chars > 0) return `drafting changes… ${building.chars.toLocaleString()} characters${secs}`;
-                if (building.thinking > 0) return `working through the trip…${secs}`;
+                if (!building) return t('analyzing the route…');
+                if (building.chars > 0) return `${t('drafting changes…')} ${building.chars.toLocaleString()} ${t('characters')}${secs}`;
+                if (building.thinking > 0) return `${t('working through the trip…')}${secs}`;
                 return `reading the trip…${secs}`;
               })()}
             </span>
@@ -172,14 +174,14 @@ export default function ChatPanel({ onClose }) {
 
       {proposal && (
         <div className="proposal">
-          <div className="p-title">Proposed changes{proposal.saveAs ? ` → saves as “${proposal.saveAs}”` : ''}</div>
+          <div className="p-title">{t('Proposed changes')}{proposal.saveAs ? ` → ${t('saves as')} “${proposal.saveAs}”` : ''}</div>
           <div style={{ fontSize: 13, color: 'var(--ink)', marginTop: 4 }}>{proposal.summary}</div>
           <ul>
             {describeOps(state.trip, proposal.ops).map((d, i) => <li key={i}>{d}</li>)}
           </ul>
           <div className="p-actions">
-            <button className="btn gold" onClick={applyProposal}>Apply</button>
-            <button className="btn" onClick={() => dispatch({ type: 'clear_proposal' })}>Dismiss</button>
+            <button className="btn gold" onClick={applyProposal}>{t('Apply')}</button>
+            <button className="btn" onClick={() => dispatch({ type: 'clear_proposal' })}>{t('Dismiss')}</button>
           </div>
         </div>
       )}
@@ -194,8 +196,10 @@ export default function ChatPanel({ onClose }) {
 
       {messages.length === 0 && (
         <div className="chat-suggest">
+          {/* the chip label is translated; the click sends the translated text,
+              so the model is asked in the user's language and answers in it */}
           {SUGGESTIONS.map((s) => (
-            <button key={s} onClick={() => send(s)}>{s}</button>
+            <button key={s} onClick={() => send(t(s))}>{t(s)}</button>
           ))}
         </div>
       )}
@@ -203,7 +207,7 @@ export default function ChatPanel({ onClose }) {
       <div className="chat-input">
         <textarea
           value={input}
-          placeholder="Ask, or tell me to rework the trip…"
+          placeholder={t('Ask, or tell me to rework the trip…')}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -212,7 +216,7 @@ export default function ChatPanel({ onClose }) {
             }
           }}
         />
-        <button className="btn gold" onClick={() => send()} disabled={busy}>Send</button>
+        <button className="btn gold" onClick={() => send()} disabled={busy}>{t('Send')}</button>
       </div>
     </div>
   );

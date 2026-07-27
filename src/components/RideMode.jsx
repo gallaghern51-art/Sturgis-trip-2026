@@ -6,6 +6,7 @@ import { haversineMiles } from '../engine/tripEngine.js';
 import { routeDaySteps, routeFrom } from '../engine/routing.js';
 import { STYLE_SATELLITE, warmTilesAhead, cachedGoogleStyle, googleStyle, GOOGLE_KEY } from '../engine/basemaps.js';
 import { fmtDayDate } from '../engine/dates.js';
+import { useT, useTT, useUnits } from '../engine/settings.jsx';
 
 // Ride Mode: a navigation HUD over a live map. Projects your GPS position onto
 // the planned route and answers the questions that matter at 70 mph: where do I
@@ -113,6 +114,26 @@ function ensureNavLayers(map) {
   map.addLayer({ id: 'ride-live-line', type: 'line', source: 'ride-live', paint: { 'line-color': NAV_AHEAD, 'line-width': 5.5, 'line-opacity': 0.95 }, layout: round });
 }
 
+
+// Line-art speaker, drawn to match the HUD rather than borrowing a system glyph
+// (an emoji speaker renders as a coloured tile on most platforms).
+function SpeakerIcon({ muted }) {
+  const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  return (
+    <svg viewBox="0 0 22 22" className="spk-icon" aria-hidden="true">
+      <path d="M4 8.5h3l4.5-3.5v12L7 13.5H4z" {...stroke} />
+      {muted ? (
+        <path d="M15 8.5l4.5 5M19.5 8.5l-4.5 5" {...stroke} />
+      ) : (
+        <>
+          <path d="M15 8a4.2 4.2 0 0 1 0 6" {...stroke} />
+          <path d="M17.6 5.8a7.4 7.4 0 0 1 0 10.4" {...stroke} />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export default function RideMode({ onClose }) {
   const { state, routes, routedLegsByDay } = useTrip();
   const { trip } = state;
@@ -128,6 +149,9 @@ export default function RideMode({ onClose }) {
   const [rerouteFailed, setRerouteFailed] = useState(false);
   const [follow, setFollow] = useState(true);
   const [muted, setMuted] = useState(false);
+  const t = useT();
+  const tt = useTT();
+  const u = useUnits();
   const statsRef = useRef({ miles: 0, maxMph: 0, last: null });
   const wakeRef = useRef(null);
   const mapDivRef = useRef(null);
@@ -434,8 +458,8 @@ export default function RideMode({ onClose }) {
   const deltaChip = delta == null ? null : Math.abs(delta) < 5
     ? { cls: 'on-time', text: 'ON PLAN' }
     : delta > 0
-      ? { cls: 'behind', text: `${fmtDur(delta)} BEHIND` }
-      : { cls: 'ahead', text: `${fmtDur(-delta)} AHEAD` };
+      ? { cls: 'behind', text: `${fmtDur(delta)} ${t('behind plan').toUpperCase()}` }
+      : { cls: 'ahead', text: `${fmtDur(-delta)} ${t('ahead of plan').toUpperCase()}` };
 
   const showOverview = () => {
     setFollow(false);
@@ -454,14 +478,23 @@ export default function RideMode({ onClose }) {
 
       <div className="ride-overlay ride-overlay-top">
         <div className="ride-topbar">
+          {/* Full leg name, translated. It used to be sliced to 30 chars, which
+              cut "Fly In · Bike Pickup · Missoula" mid-word and never followed
+              the language setting. CSS ellipsizes if the select is narrow. */}
           <select value={dayId} onChange={(e) => setDayId(e.target.value)}>
             {trip.days.map((d) => (
-              <option key={d.id} value={d.id}>{d.dow} {fmtDayDate(d.date)} — {d.title.slice(0, 30)}</option>
+              <option key={d.id} value={d.id}>{d.dow} {fmtDayDate(d.date)} — {tt(d.title)}</option>
             ))}
           </select>
           <span className="ride-clock">{fmtTime(clock)}</span>
-          <button className="btn" title={muted ? 'Unmute voice guidance' : 'Mute voice guidance'} onClick={() => setMuted((m) => !m)}>{muted ? '🔇' : '🔊'}</button>
-          <button className="btn" onClick={onClose}>Exit</button>
+          <button
+            className={`btn icon-btn${muted ? ' off' : ''}`}
+            title={muted ? t('Unmute') : t('Mute')}
+            aria-label={muted ? t('Unmute') : t('Mute')}
+            aria-pressed={muted}
+            onClick={() => setMuted((m) => !m)}
+          ><SpeakerIcon muted={muted} /></button>
+          <button className="btn" onClick={onClose}>{t('Exit')}</button>
         </div>
 
         {geoErr && <div className="warning danger">⚠ {geoErr}</div>}
@@ -495,8 +528,8 @@ export default function RideMode({ onClose }) {
         </div>
         <div className="ride-bottombar">
           <div className="rb-speed">
-            <div className="n">{fix?.speedMph != null ? Math.round(fix.speedMph) : '—'}</div>
-            <div className="l">MPH</div>
+            <div className="n">{fix?.speedMph != null ? (u.metric ? Math.round(fix.speedMph * 1.609344) : Math.round(fix.speedMph)) : '—'}</div>
+            <div className="l">{u.metric ? 'KM/H' : 'MPH'}</div>
           </div>
           <div className={`rb-delta ${deltaChip?.cls ?? ''}`}>
             <div className="n">{deltaChip?.text ?? (fix ? 'LOCATING…' : 'WAITING FOR GPS')}</div>
@@ -506,7 +539,7 @@ export default function RideMode({ onClose }) {
           </div>
           <div className="rb-eta">
             <div className="n">{eta != null ? fmtTime(eta) : '—'}</div>
-            <div className="l">{nav ? `${nav.remMi >= 10 ? Math.round(nav.remMi) : nav.remMi.toFixed(1)} MI · ${fmtDur(nav.remMin)}` : 'ETA'}</div>
+            <div className="l">{nav ? `${u.miNum(nav.remMi)} ${u.miUnit.toUpperCase()} · ${fmtDur(nav.remMin)}` : 'ETA'}</div>
           </div>
         </div>
         <div className="rp-bar"><div className="rp-fill" style={{ width: `${proj ? Math.min(100, (proj.doneMiles / Math.max(1, totalMiles)) * 100) : 0}%` }} /></div>

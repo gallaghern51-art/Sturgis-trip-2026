@@ -68,7 +68,7 @@ export function tempColor(f) {
 
 // Metrics that aren't worth flagging stay plain and legible rather than tinted
 // — matches --ink-dim, so an ordinary 8 mph reads as clearly as a dangerous 35.
-const METRIC_PLAIN = '#cecece';
+const METRIC_PLAIN = 'var(--ink-dim)'; // themes with light/dark
 
 // Rain chance reads blue and gains weight as it climbs.
 export function precipColor(pct) {

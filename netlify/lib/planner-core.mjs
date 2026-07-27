@@ -175,6 +175,7 @@ Rules:
 - Keep daily distance realistic: 150–300 mi for scenic days, up to 450 for transit days, and note it in the summary.
 - Every day gets: an honest one-to-two-sentence summary (trade-offs included), a depart time, lunch and dinner meal entries with real restaurant-quality picks when you know them (or the honest "best option in town" note), and lodging (real town + property suggestion, status "reserve").
 - Phases: use "outbound" for the way out, "rally" for event/destination days, "return" for the way home, "prep" for travel/arrival days.
+- meta.summary: two to three sentences on the whole trip — the shape of the route, the landmark days, the rider count.
 - Respect the rider count and requested day count exactly.`;
 
 export const GENERATE_TOOL = {
@@ -195,6 +196,7 @@ export const GENERATE_TOOL = {
             properties: {
               title: { type: 'string' },
               subtitle: { type: 'string' },
+              summary: { type: 'string', description: 'Two-to-three sentences describing the whole trip: the shape of the route, the landmark days, and the rider count. Shown at the top of the trip overview.' },
               riders: { type: 'integer' },
               fuelRule: { type: 'string' },
             },

@@ -82,8 +82,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .masthead h1 .yr { color: var(--rally); }
 .masthead .sub {
   font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-dim);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -140,10 +141,19 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .ribbon .seg.active { background: var(--asphalt-3); border-color: var(--seg-color); }
 .ribbon .seg .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px; background: var(--seg-color); }
 .ribbon .seg.anchor .bar { box-shadow: 0 0 8px var(--seg-color); }
-.ribbon .seg .dw { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.05em; }
+.ribbon .seg .dw {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.05em;
+  display: block; padding-right: 26px; /* keeps D# clear of the warning dot */
+}
 .ribbon .seg .ttl { font-family: var(--display); font-size: 14.5px; font-weight: 600; letter-spacing: 0.02em; line-height: 1.1; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ribbon .seg .mi { font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); margin-top: 2px; }
-.ribbon .seg .warn-dot { position: absolute; top: 6px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+/* The dot and the day number both want the top-right corner. Dot outermost,
+   number tucked inside it, and a ring so the dot reads on any seg background. */
+.ribbon .seg .warn-dot {
+  position: absolute; top: 6px; right: 7px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--danger); box-shadow: 0 0 0 2px var(--asphalt-2);
+}
+.ribbon .seg.active .warn-dot { box-shadow: 0 0 0 2px var(--asphalt-3); }
 .ribbon .seg .warn-dot.w { background: var(--rally); }
 .ribbon .overview-seg { flex: 0 0 64px; min-width: 64px; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); }
 .ribbon .overview-seg.active { color: var(--rally); border-color: var(--rally); }
@@ -207,8 +217,10 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   font-family: var(--mono); font-size: 11px; color: #fff; pointer-events: none;
   white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, 0.75);
 }
-.wp-label.above { bottom: calc(100% + 5px); transform: translateX(-50%); }
-.wp-label.below { top: calc(100% + 5px); transform: translateX(-50%); }
+/* Always below the marker: the route line passes through the marker centre, so
+   a label underneath it never overlaps the line. cullLabels() in MapView hides
+   any label that would collide with a higher-priority one. */
+.wp-label { top: calc(100% + 5px); transform: translateX(-50%); }
 .maplibregl-popup-content {
   background: var(--asphalt-2) !important; color: var(--ink) !important;
   border: 1px solid var(--line); border-radius: 6px; font-family: var(--body); font-size: 13px;
@@ -268,10 +280,14 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .section > h3 .cnt { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
 
 .wp-row {
-  display: grid; grid-template-columns: 20px 76px 1fr auto auto; gap: 8px; align-items: baseline;
+  display: grid; grid-template-columns: 20px 76px 1fr auto auto; gap: 8px; align-items: start;
   padding: 7px 6px; border-radius: 5px; border: 1px solid transparent;
   background: var(--asphalt-1);
 }
+/* name and note share one cell so the note sits against the title. It used to
+   be its own grid row, which the taller time/mileage/shield column pushed to
+   the bottom of the row, stranding it from the stop it describes. */
+.wp-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .wp-row .eta { font-family: var(--mono); font-size: 11px; color: var(--rally); text-align: right; line-height: 1.3; }
 .wp-row .eta .leg-t { display: block; font-size: 9.5px; color: var(--ink-faint); }
 /* interval miles since the previous stop · running day total */
@@ -287,7 +303,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .wp-row .nm .tag { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; padding: 1px 5px; border-radius: 3px; margin-left: 6px; vertical-align: 1px; }
 .wp-row .nm .tag.fuel { background: rgba(244, 131, 34, 0.18); color: var(--outbound); }
 .wp-row .nm .tag.photo { background: rgba(206, 206, 206, 0.12); color: var(--return); }
-.wp-row .note { grid-column: 3 / 6; font-size: 12px; color: var(--ink-dim); }
+.wp-row .note { font-size: 12px; color: var(--ink-dim); line-height: 1.4; }
 .wp-row .rm { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); opacity: 0; }
 .wp-row:hover .rm { opacity: 1; }
 .wp-row .rm:hover { color: var(--danger); }
@@ -310,9 +326,16 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 .module { padding: 10px 12px; border: 1px dashed var(--rally); border-radius: 6px; margin-bottom: 8px; background: rgba(245, 63, 31, 0.04); }
 .module.off { border-color: var(--line); background: transparent; opacity: 0.75; }
-.module .mod-head { display: flex; align-items: center; gap: 8px; }
-.module .mod-head .nm { font-family: var(--display); font-size: 16px; font-weight: 600; flex: 1; }
-.module .mod-dur { font-family: var(--mono); font-size: 10.5px; color: var(--rally); }
+/* Title on its own row. As a flex row it had to share the line with the timing
+   text and three controls, which squeezed a long name like "Crazy Horse night
+   laser show" into a one-word-per-line column. Spanning every column pushes the
+   timing and controls onto the next row instead. */
+.module .mod-head { display: grid; grid-template-columns: 1fr auto auto auto; gap: 4px 8px; align-items: center; }
+.module .mod-head .nm {
+  grid-column: 1 / -1; min-width: 0;
+  font-family: var(--display); font-size: 16px; font-weight: 600; line-height: 1.15;
+}
+.module .mod-dur { grid-column: 1; min-width: 0; font-family: var(--mono); font-size: 10.5px; color: var(--rally); }
 .module p { font-size: 12.5px; color: var(--ink-dim); margin-top: 5px; }
 .module p b { color: var(--ink); font-weight: 600; }
 /* relocating a module carries its text and its stops to the new day */
@@ -680,8 +703,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .masthead .actions .btn { width: 100%; }
   .masthead .actions .sheet-head .btn { width: auto; flex: none; }
   .masthead .actions .scen-select { grid-column: 1 / -1; max-width: none; width: 100%; }
-  /* the optimizer is a tab down here, not a header button */
-  .optimizer-btn { display: none; }
+  /* the optimizer is a tab in the bottom nav down here, so drop it from the
+     header's view switcher rather than offering it twice */
+  .viewtabs .opt-tab { display: none; }
 
   /* ribbon is the day switcher — snap it, and lose the scrollbar */
   .ribbon {
@@ -830,6 +854,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .viewtabs button:last-child { border-right: none; }
 .viewtabs button:hover { color: var(--ink); }
 .viewtabs button.active { background: var(--rally); color: #000000; }
+/* The optimizer is a panel toggle like the other three, but it opens a side
+   panel rather than swapping this one — the accent keeps that distinction. */
+.viewtabs .opt-tab.active { background: var(--outbound); color: #000000; }
 
 /* ---------- ride mode: nav map + HUD overlays ---------- */
 
@@ -933,9 +960,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 /* ---------- masthead flags ---------- */
 
-.mast-flags { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; vertical-align: -3px; }
+.mast-flags { display: inline-flex; align-items: center; gap: 5px; margin-left: 12px; vertical-align: -4px; }
 .mast-flags .flag {
-  height: 13px; width: auto; border-radius: 2px; display: inline-block;
+  height: 17px; width: auto; border-radius: 2px; display: inline-block;
   box-shadow: 0 0 0 1px rgba(127, 127, 127, 0.35);
 }
 /* the four states the route crosses, set apart from the crew flags */
@@ -1003,4 +1030,164 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 /* warning text tuned for dark glass needs more pigment on paper */
 :root[data-theme='light'] .warning { color: #a03d0c; }
 :root[data-theme='light'] .warning.danger { color: #b3200a; }
-:root[data-theme='light'] .cond-card .cond-main { color: #c2340f; }
+
+
+/* ---------- ribbon day number ---------- */
+
+.ribbon .seg .dnum {
+  position: absolute; top: 5px; right: 18px;
+  font-style: normal; font-weight: 600; font-size: 10px;
+  color: var(--outbound); letter-spacing: 0.02em;
+}
+
+/* ---------- day badges: rally thumb + national-park marks ----------
+   A strip in the day header, not a banner — it is a label for the day, so it
+   should cost one line, not a third of the panel. */
+
+.day-badges { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+/* No frame, no plate — these are marks, not buttons (same as the masthead
+   flags). The rally art is black line-work on an opaque white background, so
+   the blend modes drop that background instead of showing it as a white tile:
+   invert + screen on the dark theme, multiply on the light one. */
+.badge-thumb { height: 30px; width: auto; flex: none; }
+.badge-thumb.rally { height: 34px; filter: invert(1); mix-blend-mode: screen; }
+:root[data-theme='light'] .badge-thumb.rally { filter: none; mix-blend-mode: multiply; }
+/* Plate in the NPS greens: Mallard Green #213A1B on the dark theme, a lighter
+   step toward Curry Leaf (#56903A) on the light one, so it still shifts with
+   the theme. Deliberately NOT the NPS Classic Brown #6F4930 — checked at 3x,
+   a brown plate swallows the arrowhead's own brown border and the emblem loses
+   its outline. Green keeps both the border and the green interior readable. */
+.park-badge {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  height: 34px; padding: 0 11px 0 7px; border-radius: 5px;
+  background: #213a1b; border: 1px solid #33512a; color: #f4f1e6;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+}
+:root[data-theme='light'] .park-badge {
+  background: #3f7130; border-color: #315826; color: #fbf8ee;
+}
+.park-badge img {
+  height: 26px; width: auto; flex: none; /* already has alpha */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 5px rgba(0, 0, 0, 0.4));
+}
+
+/* ---------- highway shields ----------
+   Under each stop's time/mileage split. Toggle lives in Settings, so if the
+   group decides it is clutter it comes off without touching the layout. */
+
+.leg-roads { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; align-items: center; }
+/* real signage from public/shields — sized to sit with the mono numbers */
+.shield-img { height: 19px; width: auto; flex: none; }
+.shield-img.inherited { opacity: 0.45; }
+.shield {
+  font-family: var(--mono); font-style: normal; font-size: 8.5px; font-weight: 500;
+  letter-spacing: 0.02em; line-height: 1; padding: 2px 3px; border-radius: 2px;
+  border: 1px solid; white-space: nowrap;
+}
+/* blue/red interstate, white US escutcheon, plain state square */
+.shield.interstate { background: #123a8c; border-color: #123a8c; color: #fff; }
+.shield.us { background: #f2f2f2; border-color: #b9b9b9; color: #141414; }
+.shield.state { background: transparent; border-color: var(--ink-faint); color: var(--ink-dim); }
+/* inherited = the guide never named the road here, we carried the last one */
+.shield.inherited { opacity: 0.5; }
+
+/* ---------- rider roster ---------- */
+
+.roster-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.roster-row input { flex: 1.2; min-width: 0; }
+.roster-row select { flex: 1; min-width: 0; }
+
+/* ---------- packing list editing ---------- */
+
+.pack-sec h4 .mini-edit { margin-left: 8px; }
+.pack-item { position: relative; }
+.pack-item .pack-rm {
+  margin-left: auto; flex: none; color: var(--ink-faint); font-size: 11px;
+  padding: 0 4px; opacity: 0; transition: opacity 0.12s;
+}
+.pack-item:hover .pack-rm { opacity: 1; }
+.pack-item .pack-rm:hover { color: var(--danger); }
+.pack-add { display: flex; gap: 8px; margin: 4px 0 2px 6px; }
+.pack-add input { flex: 1; min-width: 0; }
+@media (pointer: coarse) {
+  .pack-item .pack-rm { opacity: 0.6; } /* no hover on phones */
+}
+
+
+/* Light-theme weather: the icon strokes are iOS dark-mode colors — pale gray
+   clouds and cream snow vanish on paper, so re-ink them via stroke-attribute
+   selectors. Text already follows --ink/--ink-dim. */
+:root[data-theme='light'] .wx-icon [stroke='#C9CFD8'] { stroke: #5d6570; }
+:root[data-theme='light'] .wx-icon [stroke='#AEB4BD'] { stroke: #6d747d; }
+:root[data-theme='light'] .wx-icon [stroke='#EAF7FF'] { stroke: #6fb7dd; }
+:root[data-theme='light'] .wx-icon [stroke='#FFD60A'] { stroke: #e0a400; }
+:root[data-theme='light'] .wx-icon [stroke='#4AA8FF'] { stroke: #1873cf; }
+:root[data-theme='light'] .wx-bar { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); }
+
+/* ---------- map label readability ----------
+   White text works over satellite imagery; over the light street basemaps it
+   disappears, so MapView stamps `labels-dark` on the wrap and the labels flip
+   to dark ink with a paper halo. `labels-hidden` kicks in when the camera is
+   too far out for 15 labels to be anything but noise. */
+.map-wrap.labels-dark .wp-label {
+  color: #1c1c1c;
+  text-shadow: 0 1px 2px #fff, 0 0 5px rgba(255, 255, 255, 0.9), 0 0 2px #fff;
+}
+.map-wrap.labels-hidden .wp-label { display: none; }
+
+
+/* ---------- settings: developer fold ---------- */
+
+.set-dev { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; }
+.set-dev-toggle {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-faint); padding: 2px 0;
+}
+.set-dev-toggle:hover { color: var(--ink-dim); }
+.set-dev-body { margin-top: 12px; }
+.set-dev-body .set-note { margin-top: -4px; }
+
+
+/* ---------- trip summary (overview) ---------- */
+
+.trip-summary {
+  font-size: 13.5px; line-height: 1.55; color: var(--ink-dim);
+  margin: 13px 0 4px;
+}
+
+.set-build { display: flex; align-items: baseline; gap: 14px; margin-top: 14px; }
+.set-build code {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+  background: var(--asphalt-2); border: 1px solid var(--line);
+  border-radius: 4px; padding: 4px 8px;
+}
+
+/* icon-only buttons: the glyph is the label, so no text padding and the icon
+   inherits the button's colour rather than carrying its own. */
+.btn.icon-btn { padding: 6px 9px; display: inline-flex; align-items: center; justify-content: center; }
+.spk-icon { width: 18px; height: 18px; display: block; }
+.btn.icon-btn.off { color: var(--ink-faint); }
+.btn.icon-btn.off:hover { color: var(--ink-dim); }
+
+/* Ride is the end cap of the action row — the play mark carries the attention
+   so the label does not have to shout. */
+.btn.ride-btn { display: inline-flex; align-items: center; gap: 7px; }
+.play-tri { width: 11px; height: 11px; flex: none; }
+
+/* ---------- trip translation panel ---------- */
+
+.set-xlate { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.set-xlate-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.set-xlate-count { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+.set-xlate .btn { font-size: 12px; }
+
+/* Translation runs on language change, so this only ever reports — there is
+   nothing to press. It sits in the masthead and disappears when finished. */
+.xlate-pill {
+  display: inline-flex; align-items: center; gap: 7px; margin-left: 12px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em;
+  text-transform: none; color: var(--ink-faint); vertical-align: -2px;
+}
+.xlate-bar { width: 46px; height: 3px; border-radius: 2px; background: var(--asphalt-3); overflow: hidden; }
+.xlate-bar i { display: block; height: 100%; background: var(--outbound); transition: width 0.25s ease; }
+.set-retry { font-size: 10px; padding: 2px 8px; margin-left: 10px; }

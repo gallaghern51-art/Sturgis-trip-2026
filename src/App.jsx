@@ -15,7 +15,8 @@ import FeasibilityPanel from './components/FeasibilityPanel.jsx';
 import BudgetPanel from './components/BudgetPanel.jsx';
 import PackingList from './components/PackingList.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
-import { useT } from './engine/settings.jsx';
+import { useAutoTranslate } from './engine/autoTranslate.js';
+import { useT, useUnits } from './engine/settings.jsx';
 
 // Masthead flags: the crew (US ride, Chilean riders) plus the four states the
 // route crosses. Assets live in public/flags — the user supplied them.
@@ -30,6 +31,21 @@ const STATE_FLAGS = [
   { src: '/flags/sd.svg', alt: 'SD', title: 'South Dakota' },
 ];
 
+// Language selection is the whole instruction: this watches for a language the
+// trip is not translated into yet and fills it in, showing progress rather than
+// asking for a click. Lives inside TripContext.Provider so it can read the trip.
+function TranslationStatus() {
+  const { progress } = useAutoTranslate();
+  if (!progress) return null;
+  const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
+  return (
+    <span className="xlate-pill" title={`${progress.done}/${progress.total}`}>
+      <span className="xlate-bar"><i style={{ width: `${pct}%` }} /></span>
+      translating {progress.done}/{progress.total}
+    </span>
+  );
+}
+
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [routes, setRoutes] = useState({}); // dayId -> {legs, geometry}
@@ -40,6 +56,7 @@ export default function App() {
   const [packingOpen, setPackingOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const t = useT();
+  const u = useUnits();
   const isMobile = useIsMobile();
   const [mobileTab, setMobileTab] = useState('map'); // map | panel | chat
   const [menuOpen, setMenuOpen] = useState(false);
@@ -120,7 +137,7 @@ export default function App() {
           <div className="mast-id">
             <h1 className="brand">ROAD<span className="yr">BOOK</span></h1>
             <span className="sub">
-              {state.trip.meta.title} · {Math.round(summary.totalMiles)} mi · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
+              {state.trip.meta.title} · {u.mi(summary.totalMiles)} · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
               <span className="mast-flags">
                 {CREW_FLAGS.map((f) => <img key={f.alt} className="flag crew" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
                 {/* state flags only make sense on the Sturgis route */}
@@ -130,6 +147,7 @@ export default function App() {
                   </span>
                 )}
               </span>
+              <TranslationStatus />
             </span>
           </div>
           <span className="spacer" />
@@ -169,7 +187,7 @@ export default function App() {
               {state.lib.trips.map((t) => (
                 <option key={t.id} value={t.id}>{t.id === state.lib.activeId ? '● ' : ''}{t.name}</option>
               ))}
-              {state.lib.trips.length > 1 && <option value="__delete">🗑 {t('Delete current trip')}</option>}
+              {state.lib.trips.length > 1 && <option value="__delete">{t('Delete current trip')}</option>}
             </select>
             <select
               className="scen-select"
@@ -191,20 +209,27 @@ export default function App() {
               <option value="__save">＋ {t('Save current as scenario')}</option>
               {state.scenarios.map((s) => <option key={s.id} value={s.id}>{t('Load')}: {s.name}</option>)}
             </select>
+            {/* Optimizer belongs with the other panel switches — it is a view of
+                the trip, not a file action. */}
             <div className="viewtabs">
               {[['plan', 'Plan'], ['feas', 'Feasibility'], ['budget', 'Budget']].map(([v, label]) => (
                 <button key={v} className={view === v ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{t(label)}</button>
               ))}
+              <button className={`opt-tab${chatOpen ? ' active' : ''}`} onClick={() => setChatOpen((v) => !v)}>{t('Optimizer')}</button>
             </div>
-            <button className="btn primary" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>▶ {t('Ride')}</button>
+            {/* Trip admin, then Ride last so the one button you press at a
+                kickstand sits at the end of the row and reads as the action. */}
+            <button className="btn" onClick={() => setPackingOpen(true)}>{t('Packing')}</button>
             <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
-            <button className="btn" onClick={() => setPackingOpen(true)}>🎒 {t('Packing')}</button>
             <button className="btn" onClick={exportJson}>{t('Export')}</button>
             <button className="btn" onClick={() => fileRef.current?.click()}>{t('Import')}</button>
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
             <button className="btn danger-ghost" onClick={() => { if (confirm('Reset this trip to the original Sturgis field guide template?')) dispatch({ type: 'reset' }); }}>{t('Reset')}</button>
-            <button className="btn" onClick={() => setSettingsOpen(true)}>⚙ {t('Settings')}</button>
-            <button className="btn gold optimizer-btn" onClick={() => setChatOpen((v) => !v)}>{chatOpen ? t('Hide') + ' ' : ''}{t('Optimizer')}</button>
+            <button className="btn" onClick={() => setSettingsOpen(true)}>{t('Settings')}</button>
+            <button className="btn primary ride-btn" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>
+              <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
+              {t('Ride')}
+            </button>
           </div>
         </header>
         {menuOpen && <div className="sheet-backdrop" onClick={() => setMenuOpen(false)} />}
