@@ -6,7 +6,7 @@ import { haversineMiles } from '../engine/tripEngine.js';
 import { routeDaySteps, routeFrom } from '../engine/routing.js';
 import { STYLE_SATELLITE, warmTilesAhead, cachedGoogleStyle, googleStyle, GOOGLE_KEY } from '../engine/basemaps.js';
 import { fmtDayDate } from '../engine/dates.js';
-import { useT, useUnits } from '../engine/settings.jsx';
+import { useT, useTT, useUnits } from '../engine/settings.jsx';
 
 // Ride Mode: a navigation HUD over a live map. Projects your GPS position onto
 // the planned route and answers the questions that matter at 70 mph: where do I
@@ -150,6 +150,7 @@ export default function RideMode({ onClose }) {
   const [follow, setFollow] = useState(true);
   const [muted, setMuted] = useState(false);
   const t = useT();
+  const tt = useTT();
   const u = useUnits();
   const statsRef = useRef({ miles: 0, maxMph: 0, last: null });
   const wakeRef = useRef(null);
@@ -477,9 +478,12 @@ export default function RideMode({ onClose }) {
 
       <div className="ride-overlay ride-overlay-top">
         <div className="ride-topbar">
+          {/* Full leg name, translated. It used to be sliced to 30 chars, which
+              cut "Fly In · Bike Pickup · Missoula" mid-word and never followed
+              the language setting. CSS ellipsizes if the select is narrow. */}
           <select value={dayId} onChange={(e) => setDayId(e.target.value)}>
             {trip.days.map((d) => (
-              <option key={d.id} value={d.id}>{d.dow} {fmtDayDate(d.date)} — {d.title.slice(0, 30)}</option>
+              <option key={d.id} value={d.id}>{d.dow} {fmtDayDate(d.date)} — {tt(d.title)}</option>
             ))}
           </select>
           <span className="ride-clock">{fmtTime(clock)}</span>

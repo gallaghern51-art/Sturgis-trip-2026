@@ -2,15 +2,25 @@
 // (imperial/metric), persisted per browser in moto.settings.v1. The theme
 // lands as data-theme on <html> so CSS variable overrides do the work.
 //
-// Two translators, one per kind of text:
-//   t()  — app chrome: buttons, headings, labels (dictionary below)
-//   tt() — trip content and engine sentences: exact-match content map +
-//          regex patterns for parameterized warnings, then unit conversion.
-// Place names, road numbers, and addresses stay as-written everywhere — they
-// have to match road signs and GPS.
+// Two translators, one per kind of text — they scale differently, so they are
+// deliberately not the same mechanism:
+//
+//   t()  — app CHROME (buttons, headings, labels). A finite, stable set, so a
+//          dictionary in this file is right. `npm run i18n:check` fails the
+//          build when a t() call has no translation, so it cannot drift.
+//
+//   tt() — trip CONTENT and engine sentences. Unbounded: every new trip, in any
+//          country, brings its own prose. So it resolves through
+//          i18n/resolve.js, which reads the TRIP'S OWN translation cache first
+//          (see i18n/collect.js and the translate flow). Nothing about adding a
+//          trip requires touching source.
+//
+// Place names, road numbers, and addresses stay as-written in both — they have
+// to match road signs and GPS.
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { translateContent } from '../i18n/content-es.js';
+import { resolveContent } from '../i18n/resolve.js';
+import { TripContext } from './store.js';
 
 const KEY = 'moto.settings.v1';
 const DEFAULTS = { lang: 'en', theme: 'dark', units: 'imperial', shields: true };
@@ -105,6 +115,16 @@ const ES = {
   'nights': 'noches',
   // settings (units)
   'Units': 'Unidades',
+  // trip translation
+  'Trip text': 'Texto del viaje',
+  'translated to Spanish': 'traducido al español',
+  'Translate': 'Traducir',
+  'remaining': 'pendientes',
+  'Translating': 'Traduciendo',
+  'This trip is fully translated.': 'Este viaje está completamente traducido.',
+  'Done.': 'Listo.',
+  'strings could not be translated — run again to retry them.': 'textos no se pudieron traducir — vuelve a ejecutar para reintentarlos.',
+  "Sends this trip's text to the optimizer for translation and stores the result on the trip, so it travels with export and import. Place names, road numbers and addresses are left as written.": 'Envía el texto de este viaje al optimizador para traducirlo y guarda el resultado en el viaje, así viaja con exportar e importar. Los nombres de lugares, números de ruta y direcciones se dejan como están.',
   'Imperial (mi, °F)': 'Imperial (mi, °F)',
   'Metric (km, °C)': 'Métrico (km, °C)',
   // overview panel
@@ -114,6 +134,8 @@ const ES = {
   'Add day': 'Agregar día',
   'Trip settings': 'Configuración del viaje',
   'Trip name': 'Nombre del viaje',
+  'Trip summary': 'Resumen del viaje',
+  'dates stay pinned to the calendar': 'las fechas quedan fijas al calendario',
   'Start date': 'Fecha de inicio',
   'Riders': 'Motociclistas',
   'Range: comfort mi': 'Rango cómodo (mi)',
@@ -382,13 +404,19 @@ function metricizeText(s) {
     .replace(/(\d[\d,]*(?:\.\d+)?) millas\b/g, (_, n) => `${Math.round(parseFloat(n.replace(/,/g, '')) * MI_KM)} km`);
 }
 
-// Trip-content translator: content map + engine patterns, then units.
+// Trip-content translator. Resolution order lives in i18n/resolve.js; the trip's
+// own cache wins, so a translated AI-generated trip needs no code change.
 export function useTT() {
   const { lang, units } = useSettings();
+  // Optional on purpose: tt() is also used above the trip provider in tests and
+  // in chrome-only contexts, where there is simply no cache to consult.
+  const tripCache = useContext(TripContext)?.state?.trip?.i18n?.[lang];
   return (s) => {
     if (s == null || typeof s !== 'string') return s;
-    let out = lang === 'es' ? translateContent(s) : s;
-    if (lang === 'es' && out === s) out = ES[s] ?? out;
+    let out = resolveContent(s, lang, tripCache);
+    // a handful of strings are both chrome and content (phase names, weather
+    // conditions), so fall through to the chrome dictionary before giving up
+    if (out === s && lang !== 'en') out = ES[s] ?? out;
     if (units === 'metric') out = metricizeText(out);
     return out;
   };

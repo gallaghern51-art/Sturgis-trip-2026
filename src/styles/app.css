@@ -1173,3 +1173,10 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
    so the label does not have to shout. */
 .btn.ride-btn { display: inline-flex; align-items: center; gap: 7px; }
 .play-tri { width: 11px; height: 11px; flex: none; }
+
+/* ---------- trip translation panel ---------- */
+
+.set-xlate { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.set-xlate-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.set-xlate-count { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+.set-xlate .btn { font-size: 12px; }
