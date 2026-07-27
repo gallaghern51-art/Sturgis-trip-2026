@@ -37,6 +37,12 @@ NAMING DAYS — this matters, riders do not think in ids:
 - On later mentions in the same paragraph a short form is fine ("the Beartooth day", "Friday"), as long as the full leg name appeared first.
 - The same applies to stops and modules: name them, never their ids.
 
+OPTIONAL MODULES — a module's prose is the plan's reasoning, so never let it drift out of sync with the route:
+- A module carries name/duration/why/tradeoff/logistics text. If you move the underlying activity to another day or another time, you MUST also move or rewrite the module — switching it off and leaving it behind strands text describing a slot that no longer exists.
+- Use move_module to change which day owns it, update_module to rewrite its text (name, duration, why, tradeoff, logistics), add_module for a new option, remove_module to drop one. toggle_module only flips it on or off.
+- Prefer move_module + update_module over remove_module when an activity relocates — the why/logistics text is researched content worth keeping.
+- A module's duration/tradeoff text should agree with the day it now sits on. Do not leave a morning time on a module you moved to an evening, or "two hours on a 14-hour day" on a day that is no longer 14 hours.
+
 How to respond:
 - Be direct and honest about trade-offs, in the voice of the field guide: state the cost of every option ("this buys you X but costs you Y").
 - When the user asks you to rework, reorder, add, or remove something, USE the propose_trip_changes tool with concrete ops referencing real ids from the trip JSON. Keep the accompanying text short — the proposal card shows the ops.
@@ -111,7 +117,7 @@ export const TOOL = {
           properties: {
             op: {
               type: 'string',
-              enum: ['reorder_days', 'add_day', 'remove_day', 'reorder_waypoints', 'move_waypoint', 'add_waypoint', 'remove_waypoint', 'update_waypoint', 'set_day_field', 'toggle_module', 'set_reservation_done', 'update_meal', 'remove_meal', 'update_lodging', 'set_meta'],
+              enum: ['reorder_days', 'add_day', 'remove_day', 'reorder_waypoints', 'move_waypoint', 'add_waypoint', 'remove_waypoint', 'update_waypoint', 'set_day_field', 'toggle_module', 'update_module', 'move_module', 'add_module', 'remove_module', 'set_reservation_done', 'update_meal', 'remove_meal', 'update_lodging', 'set_meta'],
             },
             dayId: { type: 'string' },
             dayIds: { type: 'array', items: { type: 'string' } },
@@ -137,6 +143,17 @@ export const TOOL = {
             value: {},
             moduleId: { type: 'string' },
             enabled: { type: 'boolean' },
+            module: {
+              type: 'object',
+              description: 'For add_module. Optional add-ons default to switched off — use toggle_module to turn one on.',
+              properties: {
+                name: { type: 'string' },
+                duration: { type: 'string' },
+                why: { type: 'string' },
+                tradeoff: { type: 'string' },
+                logistics: { type: 'string' },
+              },
+            },
             reservationId: { type: 'string' },
             done: { type: 'boolean' },
             meal: { type: 'string', enum: ['breakfast', 'lunch', 'dinner'] },
