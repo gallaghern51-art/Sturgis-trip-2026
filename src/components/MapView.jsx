@@ -347,7 +347,7 @@ export default function MapView() {
     for (const day of days) {
       const color = phaseColor(day.phase);
       const showAll = sel === day.id;
-      for (const w of day.waypoints) {
+      for (const [wi, w] of day.waypoints.entries()) {
         const isEnd = w.kind === 'start' || w.kind === 'end';
         if (!showAll && !isEnd) continue;
         const el = document.createElement('div');
@@ -359,9 +359,11 @@ export default function MapView() {
           el.style.height = size;
         }
         // Name labels while editing a day — the whole-trip view stays clean.
+        // Alternate above/below the route so consecutive labels never stack
+        // into each other along a straight leg.
         if (showAll) {
           const lab = document.createElement('span');
-          lab.className = 'wp-label';
+          lab.className = `wp-label ${wi % 2 ? 'below' : 'above'}`;
           lab.textContent = w.name.length > 26 ? w.name.slice(0, 25) + '…' : w.name;
           el.appendChild(lab);
         }

@@ -13,6 +13,22 @@ import NewTripModal from './components/NewTripModal.jsx';
 import RideMode from './components/RideMode.jsx';
 import FeasibilityPanel from './components/FeasibilityPanel.jsx';
 import BudgetPanel from './components/BudgetPanel.jsx';
+import PackingList from './components/PackingList.jsx';
+import SettingsModal from './components/SettingsModal.jsx';
+import { useT } from './engine/settings.jsx';
+
+// Masthead flags: the crew (US ride, Chilean riders) plus the four states the
+// route crosses. Assets live in public/flags — the user supplied them.
+const CREW_FLAGS = [
+  { src: '/flags/us.webp', alt: 'USA', title: 'United States' },
+  { src: '/flags/cl.webp', alt: 'CHI', title: 'Chile' },
+];
+const STATE_FLAGS = [
+  { src: '/flags/mt.svg', alt: 'MT', title: 'Montana' },
+  { src: '/flags/id.svg', alt: 'ID', title: 'Idaho' },
+  { src: '/flags/wy.svg', alt: 'WY', title: 'Wyoming' },
+  { src: '/flags/sd.svg', alt: 'SD', title: 'South Dakota' },
+];
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
@@ -21,6 +37,9 @@ export default function App() {
   const [view, setView] = useState('plan'); // plan | feas | budget
   const [newTripOpen, setNewTripOpen] = useState(false);
   const [rideOpen, setRideOpen] = useState(false);
+  const [packingOpen, setPackingOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const t = useT();
   const isMobile = useIsMobile();
   const [mobileTab, setMobileTab] = useState('map'); // map | panel | chat
   const [menuOpen, setMenuOpen] = useState(false);
@@ -100,7 +119,18 @@ export default function App() {
         <header className="masthead">
           <div className="mast-id">
             <h1 className="brand">ROAD<span className="yr">BOOK</span></h1>
-            <span className="sub">{state.trip.meta.title} · {Math.round(summary.totalMiles)} mi · {state.trip.meta.riders} riders · {state.trip.days.length} days</span>
+            <span className="sub">
+              {state.trip.meta.title} · {Math.round(summary.totalMiles)} mi · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
+              <span className="mast-flags">
+                {CREW_FLAGS.map((f) => <img key={f.alt} className="flag crew" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
+                {/* state flags only make sense on the Sturgis route */}
+                {/STURGIS/i.test(state.trip.meta.title) && (
+                  <span className="state-flags">
+                    {STATE_FLAGS.map((f) => <img key={f.alt} className="flag" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
+                  </span>
+                )}
+              </span>
+            </span>
           </div>
           <span className="spacer" />
           <button
@@ -108,14 +138,14 @@ export default function App() {
             aria-expanded={menuOpen}
             aria-controls="mast-actions"
             onClick={() => setMenuOpen((v) => !v)}
-          >☰ Menu</button>
+          >☰ {t('Menu')}</button>
           <div
             id="mast-actions"
             className={`actions${menuOpen ? ' open' : ''}`}
             onClick={(e) => { if (e.target.closest?.('button')) setMenuOpen(false); }}
           >
             <div className="sheet-head">
-              <span className="sheet-title">Trip controls</span>
+              <span className="sheet-title">{t('Trip controls')}</span>
               <button className="btn" aria-label="Close menu" onClick={() => setMenuOpen(false)}>✕</button>
             </div>
             <select
@@ -134,12 +164,12 @@ export default function App() {
                 e.target.value = '';
               }}
             >
-              <option value="">Trips ({state.lib.trips.length})…</option>
-              <option value="__new">＋ New trip</option>
+              <option value="">{t('Trips')} ({state.lib.trips.length})…</option>
+              <option value="__new">＋ {t('New trip')}</option>
               {state.lib.trips.map((t) => (
                 <option key={t.id} value={t.id}>{t.id === state.lib.activeId ? '● ' : ''}{t.name}</option>
               ))}
-              {state.lib.trips.length > 1 && <option value="__delete">🗑 Delete current trip</option>}
+              {state.lib.trips.length > 1 && <option value="__delete">🗑 {t('Delete current trip')}</option>}
             </select>
             <select
               className="scen-select"
@@ -157,22 +187,24 @@ export default function App() {
                 e.target.value = '';
               }}
             >
-              <option value="">Scenarios ({state.scenarios.length})…</option>
-              <option value="__save">＋ Save current as scenario</option>
-              {state.scenarios.map((s) => <option key={s.id} value={s.id}>Load: {s.name}</option>)}
+              <option value="">{t('Scenarios')} ({state.scenarios.length})…</option>
+              <option value="__save">＋ {t('Save current as scenario')}</option>
+              {state.scenarios.map((s) => <option key={s.id} value={s.id}>{t('Load')}: {s.name}</option>)}
             </select>
             <div className="viewtabs">
               {[['plan', 'Plan'], ['feas', 'Feasibility'], ['budget', 'Budget']].map(([v, label]) => (
-                <button key={v} className={view === v ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{label}</button>
+                <button key={v} className={view === v ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{t(label)}</button>
               ))}
             </div>
-            <button className="btn primary" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>▶ Ride</button>
-            <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>Undo</button>
-            <button className="btn" onClick={exportJson}>Export</button>
-            <button className="btn" onClick={() => fileRef.current?.click()}>Import</button>
+            <button className="btn primary" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>▶ {t('Ride')}</button>
+            <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
+            <button className="btn" onClick={() => setPackingOpen(true)}>🎒 {t('Packing')}</button>
+            <button className="btn" onClick={exportJson}>{t('Export')}</button>
+            <button className="btn" onClick={() => fileRef.current?.click()}>{t('Import')}</button>
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
-            <button className="btn danger-ghost" onClick={() => { if (confirm('Reset this trip to the original Sturgis field guide template?')) dispatch({ type: 'reset' }); }}>Reset</button>
-            <button className="btn gold optimizer-btn" onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide' : ''} Optimizer</button>
+            <button className="btn danger-ghost" onClick={() => { if (confirm('Reset this trip to the original Sturgis field guide template?')) dispatch({ type: 'reset' }); }}>{t('Reset')}</button>
+            <button className="btn" onClick={() => setSettingsOpen(true)}>⚙ {t('Settings')}</button>
+            <button className="btn gold optimizer-btn" onClick={() => setChatOpen((v) => !v)}>{chatOpen ? t('Hide') + ' ' : ''}{t('Optimizer')}</button>
           </div>
         </header>
         {menuOpen && <div className="sheet-backdrop" onClick={() => setMenuOpen(false)} />}
@@ -188,14 +220,16 @@ export default function App() {
         </div>
         {isMobile && (
           <nav className="tabnav" aria-label="Views">
-            <button className={mobileTab === 'map' ? 'active' : ''} onClick={() => setMobileTab('map')} aria-current={mobileTab === 'map'}>Map</button>
-            <button className={mobileTab === 'panel' ? 'active' : ''} onClick={() => setMobileTab('panel')} aria-current={mobileTab === 'panel'}>{panelLabel}</button>
-            <button className={mobileTab === 'chat' ? 'active' : ''} onClick={() => setMobileTab('chat')} aria-current={mobileTab === 'chat'}>Optimizer</button>
+            <button className={mobileTab === 'map' ? 'active' : ''} onClick={() => setMobileTab('map')} aria-current={mobileTab === 'map'}>{t('Map')}</button>
+            <button className={mobileTab === 'panel' ? 'active' : ''} onClick={() => setMobileTab('panel')} aria-current={mobileTab === 'panel'}>{t(panelLabel)}</button>
+            <button className={mobileTab === 'chat' ? 'active' : ''} onClick={() => setMobileTab('chat')} aria-current={mobileTab === 'chat'}>{t('Optimizer')}</button>
           </nav>
         )}
         <DetailModal />
         {newTripOpen && <NewTripModal onClose={() => setNewTripOpen(false)} />}
         {rideOpen && <RideMode onClose={() => setRideOpen(false)} />}
+        {packingOpen && <PackingList onClose={() => setPackingOpen(false)} />}
+        {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       </div>
     </TripContext.Provider>
   );

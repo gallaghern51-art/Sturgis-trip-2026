@@ -200,11 +200,15 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .wp-marker { width: 13px; height: 13px; border-radius: 50%; border: 2px solid #000000; cursor: pointer; box-shadow: 0 0 0 1px rgba(206, 206, 206, 0.35); }
 .wp-marker.fuel { border-radius: 3px; }
 .wp-marker.photo { transform: rotate(45deg); border-radius: 3px; }
+/* Alternating above/below the route line (set in drawMarkers) — side-anchored
+   labels piled into each other along straight legs. */
 .wp-label {
-  position: absolute; left: calc(100% + 7px); top: 50%; transform: translateY(-50%);
+  position: absolute; left: 50%;
   font-family: var(--mono); font-size: 11px; color: #fff; pointer-events: none;
   white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, 0.75);
 }
+.wp-label.above { bottom: calc(100% + 5px); transform: translateX(-50%); }
+.wp-label.below { top: calc(100% + 5px); transform: translateX(-50%); }
 .maplibregl-popup-content {
   background: var(--asphalt-2) !important; color: var(--ink) !important;
   border: 1px solid var(--line); border-radius: 6px; font-family: var(--body); font-size: 13px;
@@ -270,6 +274,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 }
 .wp-row .eta { font-family: var(--mono); font-size: 11px; color: var(--rally); text-align: right; line-height: 1.3; }
 .wp-row .eta .leg-t { display: block; font-size: 9.5px; color: var(--ink-faint); }
+/* interval miles since the previous stop · running day total */
+.wp-row .eta .leg-mi { display: block; font-size: 9.5px; color: var(--ink-dim); }
 .wp-row .nm.clickable { cursor: pointer; }
 .wp-row .nm.clickable:hover { color: var(--rally); }
 .wp-row .nm .tag.dwell { background: rgba(122, 122, 122, 0.18); color: var(--ink-dim); }
@@ -907,3 +913,77 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .rp-bar { height: 9px; border-radius: 5px; background: rgba(26, 26, 26, 0.9); border: 1px solid var(--line); overflow: hidden; }
 .rp-fill { height: 100%; background: linear-gradient(90deg, var(--outbound), var(--rally)); transition: width 0.6s; }
 .rp-meta { display: flex; justify-content: space-between; gap: 14px; font-family: var(--mono); font-size: 12px; color: var(--ink-dim); margin-top: 4px; }
+
+/* ---------- masthead flags ---------- */
+
+.mast-flags { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; vertical-align: -3px; }
+.mast-flags .flag {
+  height: 13px; width: auto; border-radius: 2px; display: inline-block;
+  box-shadow: 0 0 0 1px rgba(127, 127, 127, 0.35);
+}
+/* the four states the route crosses, set apart from the crew flags */
+.state-flags { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--line); }
+
+/* ---------- packing list ---------- */
+
+.modal.packing { width: 560px; }
+.pack-count { font-family: var(--mono); font-size: 11px; color: var(--rally); margin-left: 8px; letter-spacing: 0.05em; }
+.pack-sub { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-top: 4px; }
+.pack-sec { margin-bottom: 16px; }
+.pack-sec h4 {
+  font-family: var(--display); font-size: 15px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--outbound); margin-bottom: 5px;
+}
+.pack-sec h4 .cnt { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); font-weight: 400; margin-left: 6px; }
+.pack-item {
+  display: flex; gap: 9px; align-items: flex-start; padding: 5px 6px; border-radius: 4px;
+  font-size: 13.5px; color: var(--ink-dim); cursor: pointer;
+}
+.pack-item:hover { background: var(--asphalt-2); }
+.pack-item input { accent-color: var(--outbound); margin-top: 3px; flex: none; width: 15px; height: 15px; }
+.pack-item.done span { color: var(--ink-faint); text-decoration: line-through; }
+
+/* ---------- settings ---------- */
+
+.modal.settings { width: 430px; }
+.set-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.set-label {
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--ink-dim); width: 90px; flex: none;
+}
+.set-seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.set-seg button {
+  padding: 7px 14px; font-family: var(--display); font-size: 13.5px; font-weight: 600;
+  letter-spacing: 0.05em; color: var(--ink-dim); border-right: 1px solid var(--line);
+}
+.set-seg button:last-child { border-right: none; }
+.set-seg button.active { background: var(--rally); color: #000; }
+.set-note { font-size: 12px; color: var(--ink-faint); line-height: 1.5; margin-top: 4px; }
+
+/* ---------- light theme ----------
+   data-theme lands on <html> from SettingsProvider. Accents stay Harley;
+   the asphalt scale flips to paper. Ride Mode stays dark on purpose — it's
+   a nav display over satellite imagery. */
+
+:root[data-theme='light'] {
+  --asphalt-0: #f2f2f2;
+  --asphalt-1: #ffffff;
+  --asphalt-2: #ebebeb;
+  --asphalt-3: #dcdcdc;
+  --line: #c9c9c9;
+  --ink: #141414;
+  --ink-dim: #454545;
+  --ink-faint: #8a8a8a;
+  --return: #6f6f6f; /* light-gray phase text vanishes on paper */
+  --prep: #6f6f6f;
+}
+/* panels that hardcode a dark glass background */
+:root[data-theme='light'] .basemap-switch,
+:root[data-theme='light'] .map-legend,
+:root[data-theme='light'] .map-hint {
+  background: rgba(255, 255, 255, 0.92);
+}
+/* warning text tuned for dark glass needs more pigment on paper */
+:root[data-theme='light'] .warning { color: #a03d0c; }
+:root[data-theme='light'] .warning.danger { color: #b3200a; }
+:root[data-theme='light'] .cond-card .cond-main { color: #c2340f; }
