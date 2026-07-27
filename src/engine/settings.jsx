@@ -1,15 +1,19 @@
-// App-wide settings: language (en/es) and theme (dark/light), persisted per
-// browser in moto.settings.v1. The theme lands as data-theme on <html> so CSS
-// variable overrides do the work; language flows through t() below.
+// App-wide settings: language (en/es), theme (dark/light), and units
+// (imperial/metric), persisted per browser in moto.settings.v1. The theme
+// lands as data-theme on <html> so CSS variable overrides do the work.
 //
-// t() covers the app CHROME — buttons, headings, labels. Trip content (day
-// summaries, waypoint notes, module prose) is data written by the group and
-// renders as authored; the optimizer answers in whatever language it's asked.
+// Two translators, one per kind of text:
+//   t()  — app chrome: buttons, headings, labels (dictionary below)
+//   tt() — trip content and engine sentences: exact-match content map +
+//          regex patterns for parameterized warnings, then unit conversion.
+// Place names, road numbers, and addresses stay as-written everywhere — they
+// have to match road signs and GPS.
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { translateContent } from '../i18n/content-es.js';
 
 const KEY = 'moto.settings.v1';
-const DEFAULTS = { lang: 'en', theme: 'dark' };
+const DEFAULTS = { lang: 'en', theme: 'dark', units: 'imperial' };
 
 function load() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...DEFAULTS }; }
@@ -69,7 +73,7 @@ const ES = {
   'Miles': 'Millas',
   'Ride hrs': 'Hrs en ruta',
   'Stop hrs': 'Hrs parado',
-  'Longest fuel gap': 'Mayor tramo sin gasolina',
+  'Longest fuel gap': 'Mayor tramo sin bencina',
   'Hard constraints': 'Restricciones duras',
   'Route & stops': 'Ruta y paradas',
   'drag ⠿ to reorder · tap to zoom the map · ⓘ for details': 'arrastra ⠿ para reordenar · toca para acercar el mapa · ⓘ para detalles',
@@ -99,9 +103,285 @@ const ES = {
   'Feasibility studies': 'Estudios de factibilidad',
   'The whole trip at a glance': 'El viaje completo de un vistazo',
   'nights': 'noches',
+  // settings (units)
+  'Units': 'Unidades',
+  'Imperial (mi, °F)': 'Imperial (mi, °F)',
+  'Metric (km, °C)': 'Métrico (km, °C)',
+  // overview panel
+  'Days': 'Días',
+  'drag to reorder': 'arrastra para reordenar',
+  'press & hold to reorder': 'mantén presionado para reordenar',
+  'Add day': 'Agregar día',
+  'Trip settings': 'Configuración del viaje',
+  'Trip name': 'Nombre del viaje',
+  'Start date': 'Fecha de inicio',
+  'Riders': 'Motociclistas',
+  'Range: comfort mi': 'Rango cómodo (mi)',
+  'Range: absolute mi': 'Rango absoluto (mi)',
+  'MPG': 'MPG',
+  'Ride pack': 'Kit de ruta',
+  'GPX — full trip': 'GPX — viaje completo',
+  'Calendar (.ics)': 'Calendario (.ics)',
+  'GPX loads into Garmin, Rever, or any nav app (per-day GPX is on each day panel).': 'El GPX se carga en Garmin, Rever o cualquier app de navegación (el GPX por día está en el panel de cada día).',
+  'The calendar file drops all 11 days — departures, gates, dinners — into everyone\'s phone in Mountain Time.': 'El archivo de calendario deja los 11 días — salidas, cortes, cenas — en el teléfono de todos, en hora de la Montaña.',
+  'Road status & smoke': 'Estado de rutas y humo',
+  'check the week of': 'revisar la semana del viaje',
+  'Reserve these now': 'Reservar esto ahora',
+  'open': 'pendientes',
+  'Field notes': 'Notas de campo',
+  'Fuel discipline': 'Disciplina de bencina',
+  'Intercom': 'Intercomunicador',
+  'Cash & passes': 'Efectivo y pases',
+  'Altitude': 'Altitud',
+  'Emergency': 'Emergencia',
+  'Rider roster': 'Nómina de motociclistas',
+  'name + bike, saved on the trip': 'nombre + moto, se guarda en el viaje',
+  'Rider name': 'Nombre',
+  'Bike': 'Moto',
+  'Add rider': 'Agregar motociclista',
+  'Choose a bike…': 'Elegir moto…',
+  'marks the': 'marca los',
+  'anchor day': 'día ancla',
+  'anchor days': 'días ancla',
+  'everything else is built around — if a day has to be trimmed, trim anywhere else first.': 'en torno a los que se arma todo lo demás — si hay que recortar un día, recorta primero en cualquier otro.',
+  'Drag days to restructure': 'Arrastra los días para reestructurar',
+  'Press and hold a day to restructure': 'Mantén presionado un día para reestructurar',
+  '— dates stay pinned to the calendar; content moves.': '— las fechas quedan fijas al calendario; el contenido se mueve.',
+  // feasibility panel
+  'Engine-computed · routed miles · timed stop-by-stop': 'Calculado por el motor · millas ruteadas · cronometrado parada a parada',
+  'Feasibility study': 'Estudio de factibilidad',
+  'overall': 'general',
+  'routed': 'ruteadas',
+  'Day by day': 'Día a día',
+  '◎ How to break this loop': '◎ Cómo cortar este circuito',
+  '✂ Where to split this day': '✂ Dónde dividir este día',
+  'Have the optimizer restructure it →': 'Que el optimizador lo reestructure →',
+  'Saved permutations': 'Permutaciones guardadas',
+  'None yet. Use “Save scenario” in the top bar — or ask the optimizer to rebuild the trip and save the result — then compare permutations here and swap between them.': 'Todavía no hay. Usa «Guardar escenario» en la barra superior — o pídele al optimizador que rearme el viaje y guarde el resultado — y compara las permutaciones aquí.',
+  'Plan (col)': 'Plan',
+  'Miles (col)': 'Millas',
+  'Feas.': 'Fact.',
+  'Current working plan': 'Plan de trabajo actual',
+  'Method: departure times from each day\'s plan, routed leg durations (OSRM, +15% group pace), planned time-on-ground at every stop, checked against the trip\'s hard gates, its configured fuel range, daylight (~8:30 PM), and booking status. Scenario rows use cached routing where available and planned mileage otherwise.': 'Método: horas de salida del plan de cada día, duraciones de tramos ruteados (OSRM, +15% por ritmo de grupo), tiempo en tierra planificado en cada parada, contrastado con los cortes duros del viaje, su rango de bencina configurado, la luz de día (~8:30 PM) y el estado de las reservas. Las filas de escenarios usan ruteo en caché cuando existe y millaje planificado si no.',
+  // budget panel
+  'Fuel from routed miles · everything else adjustable': 'Bencina según millas ruteadas · todo lo demás ajustable',
+  'Budget & fuel': 'Presupuesto y bencina',
+  'Assumptions': 'Supuestos',
+  'Gas $/gal': 'Bencina $/galón',
+  'Lodging $/night/rider': 'Alojamiento $/noche/persona',
+  'Food $/day/rider': 'Comida $/día/persona',
+  'Tickets $/rider': 'Entradas $/persona',
+  'Misc $/rider': 'Varios $/persona',
+  'Fuel by day': 'Bencina por día',
+  'Day (col)': 'Día',
+  'Gal/bike': 'Gal/moto',
+  '$/rider': '$/persona',
+  '$ group': '$ grupo',
+  'Per-rider total': 'Total por persona',
+  'Fuel': 'Bencina',
+  'Lodging (row)': 'Alojamiento',
+  'Food (row)': 'Comida',
+  'Tickets (Buffalo Chip, museums, passes)': 'Entradas (Buffalo Chip, museos, pases)',
+  'Misc / buffer': 'Varios / colchón',
+  'Total per rider': 'Total por persona',
+  // chat panel
+  'Clear': 'Limpiar',
+  'Proposed changes': 'Cambios propuestos',
+  'saves as': 'se guarda como',
+  'Apply': 'Aplicar',
+  'Dismiss': 'Descartar',
+  'Ask, or tell me to rework the trip…': 'Pregunta, o pídeme que rearme el viaje…',
+  'Send': 'Enviar',
+  'Thinking…': 'Pensando…',
+  // detail modal / misc
+  'Open this day': 'Abrir este día',
+  'Close (btn)': 'Cerrar',
+  'Add a stop here — name it:': 'Agregar una parada aquí — ponle nombre:',
+  'Add a stop — search any real place (e.g. \'Wall Drug, SD\')…': 'Agregar una parada — busca cualquier lugar real (p. ej. \'Wall Drug, SD\')…',
+  'Click for details': 'Clic para ver detalles',
+  // day panel details
+  'Tonight': 'Esta noche',
+  'lodging': 'alojamiento',
+  '● Confirmed booking': '● Reserva confirmada',
+  '▲ Not yet booked — reserve now': '▲ Sin reservar — reservar ahora',
+  '○ No lodging set': '○ Sin alojamiento definido',
+  'Nothing planned yet': 'Nada planificado aún',
+  '✎ edit': '✎ editar',
+  'Property / plan': 'Propiedad / plan',
+  'Status': 'Estado',
+  'none': 'ninguno',
+  'needs booking': 'falta reservar',
+  'booked': 'reservado',
+  'Address / town': 'Dirección / pueblo',
+  'Note': 'Nota',
+  'Spot': 'Lugar',
+  'Where': 'Dónde',
+  'Save': 'Guardar',
+  'Cancel': 'Cancelar',
+  'breakfast': 'desayuno',
+  'lunch': 'almuerzo',
+  'dinner': 'cena',
+  'Remove this day': 'Eliminar este día',
+  'Remove meal': 'Quitar comida',
+  'Why:': 'Por qué:',
+  'Trade-off:': 'Costo:',
+  'Logistics:': 'Logística:',
+  'Best light': 'Luz',
+  'Parking': 'Estacionamiento',
+  '★ Anchor day — trim elsewhere first': '★ Día ancla — recortar primero en otro lado',
+  'Prep': 'Preparación',
+  'Outbound': 'Ida',
+  'Rally': 'Rally',
+  'Return': 'Regreso',
+  'Satellite': 'Satélite',
+  'Streets': 'Calles',
+  'Road': 'Ruta',
+  'Photo': 'Foto',
+  // weather
+  'checking forecast…': 'consultando el pronóstico…',
+  'Forecast not in range yet — Open-Meteo covers ~16 days out. Check back closer to the date.': 'El pronóstico aún no alcanza — Open-Meteo cubre ~16 días hacia adelante. Revisa más cerca de la fecha.',
+  'near': 'cerca de',
+  'wind': 'viento',
+  'Clear': 'Despejado',
+  'Mostly clear': 'Mayormente despejado',
+  'Partly cloudy': 'Parcialmente nublado',
+  'Overcast': 'Cubierto',
+  'Fog': 'Niebla',
+  'Rime fog': 'Niebla escarchada',
+  'Light drizzle': 'Llovizna suave',
+  'Drizzle': 'Llovizna',
+  'Heavy drizzle': 'Llovizna intensa',
+  'Light rain': 'Lluvia suave',
+  'Rain': 'Lluvia',
+  'Heavy rain': 'Lluvia intensa',
+  'Freezing rain': 'Lluvia helada',
+  'Light snow': 'Nieve suave',
+  'Snow': 'Nieve',
+  'Heavy snow': 'Nieve intensa',
+  'Snow grains': 'Granos de nieve',
+  'Rain showers': 'Chubascos',
+  'Violent showers': 'Chubascos violentos',
+  'Snow showers': 'Chubascos de nieve',
+  'Thunderstorms': 'Tormentas eléctricas',
+  'T-storms w/ hail': 'Tormentas con granizo',
+  'Changing the start date re-pins every day to the new calendar. Fuel warnings and feasibility use the bike range set here.': 'Cambiar la fecha de inicio vuelve a fijar cada día al nuevo calendario. Las advertencias de bencina y la factibilidad usan el rango de moto configurado aquí.',
+  // detail modal
+  'Arrive': 'Llegada',
+  'On the ground': 'En tierra',
+  'Roll out': 'Salida',
+  'Leg in': 'Tramo de llegada',
+  'Time here (min)': 'Tiempo aquí (min)',
+  'Fuel stop': 'Parada de bencina',
+  'Move to day': 'Mover al día',
+  'Remove stop': 'Eliminar parada',
+  'Done': 'Listo',
+  'Distance': 'Distancia',
+  'Ride time': 'Tiempo de ruta',
+  'stop': 'parada',
+  'leg': 'tramo',
+  'Depart (short)': 'Salida',
+  'This stop no longer exists.': 'Esta parada ya no existe.',
+  'This leg no longer exists.': 'Este tramo ya no existe.',
+  'searching…': 'buscando…',
+  'Choose…': 'Elegir…',
+  'Type any real place — e.g. Bozeman, MT': 'Escribe cualquier lugar real — p. ej. Bozeman, MT',
+  'Start:': 'Inicio:',
+  'End:': 'Fin:',
+  '✓ Location updated →': '✓ Ubicación actualizada →',
+  '— route re-snaps on save': '— la ruta se recalcula al guardar',
+  'Rule of thumb extras: cash in small bills for vendor-heavy events, and the $80 America the Beautiful pass if the route touches multiple national parks — it usually pays for itself twice.': 'Extras de regla general: efectivo en billetes chicos para eventos con muchos vendedores, y el pase America the Beautiful de $80 si la ruta toca varios parques nacionales — normalmente se paga solo dos veces.',
+  'analyzing the route…': 'analizando la ruta…',
+  'working through the trip…': 'trabajando el viaje…',
+  'drafting changes…': 'redactando cambios…',
+  'characters': 'caracteres',
+  // chat greeting + suggestion chips (clicking sends the Spanish text, so the
+  // optimizer is asked in Spanish and answers in Spanish)
+  "I hold the whole plan — every waypoint, booking, fuel stop, and constraint — plus the live metrics from your edits. Ask for analysis, or tell me to rework the trip and I'll propose concrete changes you can preview and apply.": 'Tengo el plan completo — cada parada, reserva, carga de bencina y restricción — más las métricas en vivo de tus ediciones. Pídeme análisis, o dime que rearme el viaje y te propondré cambios concretos que puedes previsualizar y aplicar.',
+  'Run a full feasibility read — where does this plan break?': 'Haz una lectura completa de factibilidad — ¿dónde se rompe este plan?',
+  'Where should we break up the loops and the long days?': '¿Dónde deberíamos cortar los circuitos y los días largos?',
+  'Rebuild the trip to fix every failed gate and save it as "Fixed gates"': 'Rearma el viaje para corregir cada corte incumplido y guárdalo como "Cortes corregidos"',
+  'Give me a lower-mileage permutation of the whole trip, save as "Relaxed"': 'Dame una permutación del viaje completo con menos kilometraje, guárdala como "Relajado"',
+  // map hints
+  'Editing': 'Editando',
+  '— click map to add a stop · drag markers · click stops & legs for details': '— clic en el mapa para agregar una parada · arrastra los marcadores · clic en paradas y tramos para detalles',
+  'Whole-trip view': 'Vista del viaje completo',
+  '— hover a route for leg info, click for details, pick a day to edit': '— pasa el cursor por una ruta para info del tramo, clic para detalles, elige un día para editar',
+  // packing edit
+  'Add an item…': 'Agregar un ítem…',
+  'Add': 'Agregar',
+  'Restore removed items': 'Restaurar ítems eliminados',
+  // module editor
+  'add an option': 'agregar una opción',
+  'move to': 'mover a',
+  'another day…': 'otro día…',
+  'Name': 'Nombre',
+  'Timing': 'Horario',
+  'Why': 'Por qué',
+  'Trade-off': 'Costo',
+  'Logistics': 'Logística',
+  // ride mode
+  'Exit': 'Salir',
+  'Overview': 'Vista general',
+  'Mute': 'Silenciar',
+  'Unmute': 'Sonido',
+  'Recenter': 'Recentrar',
+  'ahead of plan': 'adelantados al plan',
+  'behind plan': 'atrasados del plan',
+  'on plan': 'según el plan',
 };
 
 export function useT() {
   const { lang } = useSettings();
   return (s) => (lang === 'es' ? (ES[s] ?? s) : s);
+}
+
+// ---- units ----
+// Imperial is the app's native unit system (the data is written in mi/°F).
+// Metric converts at the last moment, display-only.
+
+const MI_KM = 1.609344;
+
+export function useUnits() {
+  const { units } = useSettings();
+  const metric = units === 'metric';
+  return {
+    metric,
+    // distances
+    mi: (n, digits = 0) => (n == null || Number.isNaN(n) ? '—'
+      : metric ? `${(n * MI_KM).toFixed(digits)} km` : `${Number(n).toFixed(digits)} mi`),
+    miNum: (n) => (metric ? Math.round(n * MI_KM) : Math.round(n)),
+    miUnit: metric ? 'km' : 'mi',
+    // temperature (data is °F)
+    temp: (f) => (f == null || Number.isNaN(f) ? '—'
+      : metric ? `${Math.round(((f - 32) * 5) / 9)}°` : `${Math.round(f)}°`),
+    tempUnit: metric ? '°C' : '°F',
+    // speed (data is mph)
+    speed: (mph) => (mph == null || Number.isNaN(mph) ? '—'
+      : metric ? `${Math.round(mph * MI_KM)} km/h` : `${Math.round(mph)} mph`),
+  };
+}
+
+// Convert the units that appear inside prose/engine sentences. Conservative:
+// only "N mi", "N-mi", "N mph", "N ft", "N°F" style tokens; road numbers
+// (US-14, I-90) and times are untouched.
+function metricizeText(s) {
+  return s
+    .replace(/(\d[\d,]*(?:\.\d+)?)([ -])mi\b/g, (_, n, sep) => `${Math.round(parseFloat(n.replace(/,/g, '')) * MI_KM)}${sep}km`)
+    .replace(/(\d[\d,]*(?:\.\d+)?) ?mph\b/g, (_, n) => `${Math.round(parseFloat(n.replace(/,/g, '')) * MI_KM)} km/h`)
+    .replace(/(\d[\d,]*(?:\.\d+)?)[ -]?ft\b/g, (_, n) => `${Math.round(parseFloat(n.replace(/,/g, '')) * 0.3048).toLocaleString('en-US')} m`)
+    .replace(/(\d+(?:\.\d+)?)°F\b/g, (_, n) => `${Math.round(((parseFloat(n) - 32) * 5) / 9)}°C`)
+    .replace(/(\d[\d,]*(?:\.\d+)?) miles\b/g, (_, n) => `${Math.round(parseFloat(n.replace(/,/g, '')) * MI_KM)} km`)
+    .replace(/(\d[\d,]*(?:\.\d+)?) millas\b/g, (_, n) => `${Math.round(parseFloat(n.replace(/,/g, '')) * MI_KM)} km`);
+}
+
+// Trip-content translator: content map + engine patterns, then units.
+export function useTT() {
+  const { lang, units } = useSettings();
+  return (s) => {
+    if (s == null || typeof s !== 'string') return s;
+    let out = lang === 'es' ? translateContent(s) : s;
+    if (lang === 'es' && out === s) out = ES[s] ?? out;
+    if (units === 'metric') out = metricizeText(out);
+    return out;
+  };
 }

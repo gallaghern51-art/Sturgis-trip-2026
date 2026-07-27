@@ -15,7 +15,7 @@ import FeasibilityPanel from './components/FeasibilityPanel.jsx';
 import BudgetPanel from './components/BudgetPanel.jsx';
 import PackingList from './components/PackingList.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
-import { useT } from './engine/settings.jsx';
+import { useT, useUnits } from './engine/settings.jsx';
 
 // Masthead flags: the crew (US ride, Chilean riders) plus the four states the
 // route crosses. Assets live in public/flags — the user supplied them.
@@ -40,6 +40,7 @@ export default function App() {
   const [packingOpen, setPackingOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const t = useT();
+  const u = useUnits();
   const isMobile = useIsMobile();
   const [mobileTab, setMobileTab] = useState('map'); // map | panel | chat
   const [menuOpen, setMenuOpen] = useState(false);
@@ -120,7 +121,7 @@ export default function App() {
           <div className="mast-id">
             <h1 className="brand">ROAD<span className="yr">BOOK</span></h1>
             <span className="sub">
-              {state.trip.meta.title} · {Math.round(summary.totalMiles)} mi · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
+              {state.trip.meta.title} · {u.mi(summary.totalMiles)} · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
               <span className="mast-flags">
                 {CREW_FLAGS.map((f) => <img key={f.alt} className="flag crew" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
                 {/* state flags only make sense on the Sturgis route */}
@@ -196,14 +197,15 @@ export default function App() {
                 <button key={v} className={view === v ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{t(label)}</button>
               ))}
             </div>
+            {/* daily-use first (ride, packing, settings), then edit/file plumbing */}
             <button className="btn primary" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>▶ {t('Ride')}</button>
-            <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
             <button className="btn" onClick={() => setPackingOpen(true)}>🎒 {t('Packing')}</button>
+            <button className="btn" onClick={() => setSettingsOpen(true)}>⚙ {t('Settings')}</button>
+            <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
             <button className="btn" onClick={exportJson}>{t('Export')}</button>
             <button className="btn" onClick={() => fileRef.current?.click()}>{t('Import')}</button>
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
             <button className="btn danger-ghost" onClick={() => { if (confirm('Reset this trip to the original Sturgis field guide template?')) dispatch({ type: 'reset' }); }}>{t('Reset')}</button>
-            <button className="btn" onClick={() => setSettingsOpen(true)}>⚙ {t('Settings')}</button>
             <button className="btn gold optimizer-btn" onClick={() => setChatOpen((v) => !v)}>{chatOpen ? t('Hide') + ' ' : ''}{t('Optimizer')}</button>
           </div>
         </header>

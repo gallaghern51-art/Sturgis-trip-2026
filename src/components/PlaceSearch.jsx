@@ -2,10 +2,12 @@ import React, { useRef, useState } from 'react';
 import { useTrip } from '../engine/store.js';
 import { bestInsertIndex } from '../engine/tripEngine.js';
 import { geocode } from '../engine/geocode.js';
+import { useT } from '../engine/settings.jsx';
 
 // Live place lookup via OpenStreetMap Nominatim — type a real-world place,
 // get lat/lng, and drop it into the day's route at the cheapest splice point.
 export default function PlaceSearch({ day }) {
+  const t = useT();
   const { dispatch } = useTrip();
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
@@ -49,10 +51,10 @@ export default function PlaceSearch({ day }) {
     <div className="place-search">
       <input
         value={q}
-        placeholder="Add a stop — search any real place (e.g. 'Wall Drug, SD')…"
+        placeholder={t('Add a stop — search any real place (e.g. \'Wall Drug, SD\')…')}
         onChange={(e) => search(e.target.value)}
       />
-      {busy && <div className="ps-status">searching…</div>}
+      {busy && <div className="ps-status">{t('searching…')}</div>}
       {results.length > 0 && (
         <div className="ps-results">
           {results.map((r) => (

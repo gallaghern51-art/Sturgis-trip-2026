@@ -6,6 +6,7 @@ import { haversineMiles } from '../engine/tripEngine.js';
 import { routeDaySteps, routeFrom } from '../engine/routing.js';
 import { STYLE_SATELLITE, warmTilesAhead, cachedGoogleStyle, googleStyle, GOOGLE_KEY } from '../engine/basemaps.js';
 import { fmtDayDate } from '../engine/dates.js';
+import { useT, useUnits } from '../engine/settings.jsx';
 
 // Ride Mode: a navigation HUD over a live map. Projects your GPS position onto
 // the planned route and answers the questions that matter at 70 mph: where do I
@@ -128,6 +129,8 @@ export default function RideMode({ onClose }) {
   const [rerouteFailed, setRerouteFailed] = useState(false);
   const [follow, setFollow] = useState(true);
   const [muted, setMuted] = useState(false);
+  const t = useT();
+  const u = useUnits();
   const statsRef = useRef({ miles: 0, maxMph: 0, last: null });
   const wakeRef = useRef(null);
   const mapDivRef = useRef(null);
@@ -434,8 +437,8 @@ export default function RideMode({ onClose }) {
   const deltaChip = delta == null ? null : Math.abs(delta) < 5
     ? { cls: 'on-time', text: 'ON PLAN' }
     : delta > 0
-      ? { cls: 'behind', text: `${fmtDur(delta)} BEHIND` }
-      : { cls: 'ahead', text: `${fmtDur(-delta)} AHEAD` };
+      ? { cls: 'behind', text: `${fmtDur(delta)} ${t('behind plan').toUpperCase()}` }
+      : { cls: 'ahead', text: `${fmtDur(-delta)} ${t('ahead of plan').toUpperCase()}` };
 
   const showOverview = () => {
     setFollow(false);
@@ -460,8 +463,8 @@ export default function RideMode({ onClose }) {
             ))}
           </select>
           <span className="ride-clock">{fmtTime(clock)}</span>
-          <button className="btn" title={muted ? 'Unmute voice guidance' : 'Mute voice guidance'} onClick={() => setMuted((m) => !m)}>{muted ? '🔇' : '🔊'}</button>
-          <button className="btn" onClick={onClose}>Exit</button>
+          <button className="btn" title={muted ? t('Unmute') : t('Mute')} onClick={() => setMuted((m) => !m)}>{muted ? '🔇' : '🔊'}</button>
+          <button className="btn" onClick={onClose}>{t('Exit')}</button>
         </div>
 
         {geoErr && <div className="warning danger">⚠ {geoErr}</div>}
@@ -495,8 +498,8 @@ export default function RideMode({ onClose }) {
         </div>
         <div className="ride-bottombar">
           <div className="rb-speed">
-            <div className="n">{fix?.speedMph != null ? Math.round(fix.speedMph) : '—'}</div>
-            <div className="l">MPH</div>
+            <div className="n">{fix?.speedMph != null ? (u.metric ? Math.round(fix.speedMph * 1.609344) : Math.round(fix.speedMph)) : '—'}</div>
+            <div className="l">{u.metric ? 'KM/H' : 'MPH'}</div>
           </div>
           <div className={`rb-delta ${deltaChip?.cls ?? ''}`}>
             <div className="n">{deltaChip?.text ?? (fix ? 'LOCATING…' : 'WAITING FOR GPS')}</div>
@@ -506,7 +509,7 @@ export default function RideMode({ onClose }) {
           </div>
           <div className="rb-eta">
             <div className="n">{eta != null ? fmtTime(eta) : '—'}</div>
-            <div className="l">{nav ? `${nav.remMi >= 10 ? Math.round(nav.remMi) : nav.remMi.toFixed(1)} MI · ${fmtDur(nav.remMin)}` : 'ETA'}</div>
+            <div className="l">{nav ? `${u.miNum(nav.remMi)} ${u.miUnit.toUpperCase()} · ${fmtDur(nav.remMin)}` : 'ETA'}</div>
           </div>
         </div>
         <div className="rp-bar"><div className="rp-fill" style={{ width: `${proj ? Math.min(100, (proj.doneMiles / Math.max(1, totalMiles)) * 100) : 0}%` }} /></div>
