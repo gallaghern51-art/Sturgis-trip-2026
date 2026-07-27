@@ -200,8 +200,8 @@ export default function App() {
               ))}
               <button className={`opt-tab${chatOpen ? ' active' : ''}`} onClick={() => setChatOpen((v) => !v)}>{t('Optimizer')}</button>
             </div>
-            {/* then the doing-things buttons, then file plumbing, settings last */}
-            <button className="btn primary" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>{t('Ride')}</button>
+            {/* Trip admin, then Ride last so the one button you press at a
+                kickstand sits at the end of the row and reads as the action. */}
             <button className="btn" onClick={() => setPackingOpen(true)}>{t('Packing')}</button>
             <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
             <button className="btn" onClick={exportJson}>{t('Export')}</button>
@@ -209,6 +209,10 @@ export default function App() {
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
             <button className="btn danger-ghost" onClick={() => { if (confirm('Reset this trip to the original Sturgis field guide template?')) dispatch({ type: 'reset' }); }}>{t('Reset')}</button>
             <button className="btn" onClick={() => setSettingsOpen(true)}>{t('Settings')}</button>
+            <button className="btn primary ride-btn" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>
+              <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
+              {t('Ride')}
+            </button>
           </div>
         </header>
         {menuOpen && <div className="sheet-backdrop" onClick={() => setMenuOpen(false)} />}

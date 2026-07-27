@@ -59,7 +59,9 @@ export default function SettingsModal({ onClose }) {
                 <div className="set-build">
                   <span className="set-label">{t('Build')}</span>
                   <code>
-                    v{__APP_VERSION__} · {__APP_COMMIT__} · {__APP_BUILT__}
+                    {__APP_PR__ ? `PR #${__APP_PR__} · ` : ''}
+                    {__APP_BRANCH__ ? `${__APP_BRANCH__} · ` : ''}
+                    {__APP_COMMIT__} · v{__APP_VERSION__} · {__APP_BUILT__}
                   </code>
                 </div>
               </div>

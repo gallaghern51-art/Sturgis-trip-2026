@@ -1161,3 +1161,15 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   background: var(--asphalt-2); border: 1px solid var(--line);
   border-radius: 4px; padding: 4px 8px;
 }
+
+/* icon-only buttons: the glyph is the label, so no text padding and the icon
+   inherits the button's colour rather than carrying its own. */
+.btn.icon-btn { padding: 6px 9px; display: inline-flex; align-items: center; justify-content: center; }
+.spk-icon { width: 18px; height: 18px; display: block; }
+.btn.icon-btn.off { color: var(--ink-faint); }
+.btn.icon-btn.off:hover { color: var(--ink-dim); }
+
+/* Ride is the end cap of the action row — the play mark carries the attention
+   so the label does not have to shout. */
+.btn.ride-btn { display: inline-flex; align-items: center; gap: 7px; }
+.play-tri { width: 11px; height: 11px; flex: none; }

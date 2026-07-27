@@ -114,6 +114,26 @@ function ensureNavLayers(map) {
   map.addLayer({ id: 'ride-live-line', type: 'line', source: 'ride-live', paint: { 'line-color': NAV_AHEAD, 'line-width': 5.5, 'line-opacity': 0.95 }, layout: round });
 }
 
+
+// Line-art speaker, drawn to match the HUD rather than borrowing a system glyph
+// (an emoji speaker renders as a coloured tile on most platforms).
+function SpeakerIcon({ muted }) {
+  const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  return (
+    <svg viewBox="0 0 22 22" className="spk-icon" aria-hidden="true">
+      <path d="M4 8.5h3l4.5-3.5v12L7 13.5H4z" {...stroke} />
+      {muted ? (
+        <path d="M15 8.5l4.5 5M19.5 8.5l-4.5 5" {...stroke} />
+      ) : (
+        <>
+          <path d="M15 8a4.2 4.2 0 0 1 0 6" {...stroke} />
+          <path d="M17.6 5.8a7.4 7.4 0 0 1 0 10.4" {...stroke} />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export default function RideMode({ onClose }) {
   const { state, routes, routedLegsByDay } = useTrip();
   const { trip } = state;
@@ -463,7 +483,13 @@ export default function RideMode({ onClose }) {
             ))}
           </select>
           <span className="ride-clock">{fmtTime(clock)}</span>
-          <button className="btn" title={muted ? t('Unmute') : t('Mute')} onClick={() => setMuted((m) => !m)}>{muted ? t('Muted') : t('Voice')}</button>
+          <button
+            className={`btn icon-btn${muted ? ' off' : ''}`}
+            title={muted ? t('Unmute') : t('Mute')}
+            aria-label={muted ? t('Unmute') : t('Mute')}
+            aria-pressed={muted}
+            onClick={() => setMuted((m) => !m)}
+          ><SpeakerIcon muted={muted} /></button>
           <button className="btn" onClick={onClose}>{t('Exit')}</button>
         </div>
 
