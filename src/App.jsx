@@ -15,6 +15,7 @@ import FeasibilityPanel from './components/FeasibilityPanel.jsx';
 import BudgetPanel from './components/BudgetPanel.jsx';
 import PackingList from './components/PackingList.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import { useAutoTranslate } from './engine/autoTranslate.js';
 import { useT, useUnits } from './engine/settings.jsx';
 
 // Masthead flags: the crew (US ride, Chilean riders) plus the four states the
@@ -29,6 +30,21 @@ const STATE_FLAGS = [
   { src: '/flags/wy.svg', alt: 'WY', title: 'Wyoming' },
   { src: '/flags/sd.svg', alt: 'SD', title: 'South Dakota' },
 ];
+
+// Language selection is the whole instruction: this watches for a language the
+// trip is not translated into yet and fills it in, showing progress rather than
+// asking for a click. Lives inside TripContext.Provider so it can read the trip.
+function TranslationStatus() {
+  const { progress } = useAutoTranslate();
+  if (!progress) return null;
+  const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
+  return (
+    <span className="xlate-pill" title={`${progress.done}/${progress.total}`}>
+      <span className="xlate-bar"><i style={{ width: `${pct}%` }} /></span>
+      translating {progress.done}/{progress.total}
+    </span>
+  );
+}
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
@@ -131,6 +147,7 @@ export default function App() {
                   </span>
                 )}
               </span>
+              <TranslationStatus />
             </span>
           </div>
           <span className="spacer" />

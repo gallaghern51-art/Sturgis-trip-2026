@@ -1180,3 +1180,14 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .set-xlate-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
 .set-xlate-count { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
 .set-xlate .btn { font-size: 12px; }
+
+/* Translation runs on language change, so this only ever reports — there is
+   nothing to press. It sits in the masthead and disappears when finished. */
+.xlate-pill {
+  display: inline-flex; align-items: center; gap: 7px; margin-left: 12px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em;
+  text-transform: none; color: var(--ink-faint); vertical-align: -2px;
+}
+.xlate-bar { width: 46px; height: 3px; border-radius: 2px; background: var(--asphalt-3); overflow: hidden; }
+.xlate-bar i { display: block; height: 100%; background: var(--outbound); transition: width 0.25s ease; }
+.set-retry { font-size: 10px; padding: 2px 8px; margin-left: 10px; }
