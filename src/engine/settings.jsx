@@ -310,6 +310,15 @@ const ES = {
   'Add an item…': 'Agregar un ítem…',
   'Add': 'Agregar',
   'Restore removed items': 'Restaurar ítems eliminados',
+  // module editor
+  'add an option': 'agregar una opción',
+  'move to': 'mover a',
+  'another day…': 'otro día…',
+  'Name': 'Nombre',
+  'Timing': 'Horario',
+  'Why': 'Por qué',
+  'Trade-off': 'Costo',
+  'Logistics': 'Logística',
   // ride mode
   'Exit': 'Salir',
   'Overview': 'Vista general',

@@ -38,6 +38,31 @@ function findDay(t, dayId) {
   return d;
 }
 
+function findModule(day, moduleId) {
+  const m = (day.modules ?? []).find((x) => x.id === moduleId);
+  if (!m) throw new Error(`unknown module ${moduleId}`);
+  return m;
+}
+
+// A module with real-world locations puts its stops into the day's route while
+// it's switched on. Every op that changes which day owns a module — or whether
+// it's on — has to leave day.waypoints consistent with it, so that splice lives
+// here rather than being repeated per op.
+const moduleWpIds = (m) => (m.waypoints ?? []).map((_, i) => `${m.id}-wp${i}`);
+
+function stripModuleWaypoints(day, m) {
+  const ids = moduleWpIds(m);
+  if (ids.length) day.waypoints = day.waypoints.filter((w) => !ids.includes(w.id));
+}
+
+function insertModuleWaypoints(day, m) {
+  if (!m.waypoints?.length) return;
+  const ids = moduleWpIds(m);
+  // splice before the day's final waypoint so the route runs out and back
+  const at = Math.max(1, day.waypoints.length - 1);
+  day.waypoints.splice(at, 0, ...m.waypoints.map((mw, i) => ({ id: ids[i], kind: 'via', mile: null, note: '', ...mw })));
+}
+
 function applyOp(t, op) {
   switch (op.op) {
     case 'reorder_days': {
@@ -135,20 +160,57 @@ function applyOp(t, op) {
     }
     case 'toggle_module': {
       const d = findDay(t, op.dayId);
-      const m = (d.modules ?? []).find((x) => x.id === op.moduleId);
-      if (!m) throw new Error(`unknown module ${op.moduleId}`);
+      const m = findModule(d, op.moduleId);
       m.enabled = op.enabled ?? !m.enabled;
-      // Modules with real-world locations populate the map when switched on.
-      if (m.waypoints?.length) {
-        const ids = m.waypoints.map((_, i) => `${m.id}-wp${i}`);
-        d.waypoints = d.waypoints.filter((w) => !ids.includes(w.id));
-        if (m.enabled) {
-          // splice before the day's final waypoint so the route runs out and back
-          const at = Math.max(1, d.waypoints.length - 1);
-          const added = m.waypoints.map((mw, i) => ({ id: ids[i], kind: 'via', mile: null, note: '', ...mw }));
-          d.waypoints.splice(at, 0, ...added);
-        }
+      stripModuleWaypoints(d, m);
+      if (m.enabled) insertModuleWaypoints(d, m);
+      return t;
+    }
+    // A module's prose is the trip's reasoning, not decoration — when a stop
+    // moves, text that still describes the old slot is worse than no text.
+    case 'update_module': {
+      const d = findDay(t, op.dayId);
+      const m = findModule(d, op.moduleId);
+      const allowed = ['name', 'duration', 'why', 'tradeoff', 'logistics'];
+      const bad = Object.keys(op.patch ?? {}).filter((k) => !allowed.includes(k));
+      if (bad.length) {
+        throw new Error(`cannot update ${bad.join(', ')} — use toggle_module, move_module or remove_module`);
       }
+      Object.assign(m, op.patch);
+      return t;
+    }
+    case 'move_module': {
+      const from = findDay(t, op.fromDayId);
+      const to = findDay(t, op.toDayId);
+      const idx = (from.modules ?? []).findIndex((x) => x.id === op.moduleId);
+      if (idx < 0) throw new Error(`unknown module ${op.moduleId}`);
+      const [m] = from.modules.splice(idx, 1);
+      stripModuleWaypoints(from, m);
+      to.modules = to.modules ?? [];
+      to.modules.push(m);
+      if (m.enabled) insertModuleWaypoints(to, m);
+      return t;
+    }
+    case 'add_module': {
+      const d = findDay(t, op.dayId);
+      const m = {
+        id: uid('mod'), enabled: false,
+        name: '', duration: '', why: '', tradeoff: '', logistics: '',
+        ...op.module,
+      };
+      if (!m.name) throw new Error('module needs a name');
+      d.modules = d.modules ?? [];
+      d.modules.push(m);
+      if (m.enabled) insertModuleWaypoints(d, m);
+      return t;
+    }
+    case 'remove_module': {
+      const d = findDay(t, op.dayId);
+      const idx = (d.modules ?? []).findIndex((x) => x.id === op.moduleId);
+      if (idx < 0) throw new Error(`unknown module ${op.moduleId}`);
+      const [m] = d.modules.splice(idx, 1);
+      // otherwise its stops linger in the route with no module left to toggle
+      stripModuleWaypoints(d, m);
       return t;
     }
     case 'set_reservation_done': {
@@ -185,6 +247,12 @@ export function describeOps(trip, ops) {
     const title = d.title?.split('·')[0]?.trim() || 'untitled';
     return `${d.dow} ${d.date?.slice(5).replace(/^0?(\d+)-0?(\d+)$/, '$1/$2')} — ${title}`;
   };
+  // Modules are named too — “a module” tells the user nothing about what moved.
+  const modName = (dayId, moduleId) => {
+    const d = trip.days.find((x) => x.id === dayId);
+    const m = (d?.modules ?? []).find((x) => x.id === moduleId);
+    return m?.name ? `“${m.name}”` : 'a module';
+  };
   return ops.map((op) => {
     switch (op.op) {
       case 'reorder_days': return 'Reorder the day sequence';
@@ -194,7 +262,11 @@ export function describeOps(trip, ops) {
       case 'remove_waypoint': return `Remove a stop from ${dayName(op.dayId)}`;
       case 'update_waypoint': return `Edit a stop on ${dayName(op.dayId)}`;
       case 'set_day_field': return `Set ${op.field} on ${dayName(op.dayId)}`;
-      case 'toggle_module': return `Turn ${op.enabled ? 'ON' : 'OFF'} a module on ${dayName(op.dayId)}`;
+      case 'toggle_module': return `Turn ${op.enabled ? 'ON' : 'OFF'} ${modName(op.dayId, op.moduleId)} on ${dayName(op.dayId)}`;
+      case 'update_module': return `Rewrite ${modName(op.dayId, op.moduleId)} (${Object.keys(op.patch ?? {}).join(', ')}) on ${dayName(op.dayId)}`;
+      case 'move_module': return `Move ${modName(op.fromDayId, op.moduleId)} from ${dayName(op.fromDayId)} to ${dayName(op.toDayId)}`;
+      case 'add_module': return `Add the option “${op.module?.name}” to ${dayName(op.dayId)}`;
+      case 'remove_module': return `Remove ${modName(op.dayId, op.moduleId)} from ${dayName(op.dayId)}`;
       case 'set_reservation_done': return 'Update the booking checklist';
       case 'update_meal': return `Change ${op.meal} on ${dayName(op.dayId)}`;
       case 'remove_meal': return `Remove ${op.meal} on ${dayName(op.dayId)}`;
