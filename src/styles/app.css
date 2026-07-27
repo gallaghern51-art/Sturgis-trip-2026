@@ -309,6 +309,13 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .module .mod-dur { font-family: var(--mono); font-size: 10.5px; color: var(--rally); }
 .module p { font-size: 12.5px; color: var(--ink-dim); margin-top: 5px; }
 .module p b { color: var(--ink); font-weight: 600; }
+/* relocating a module carries its text and its stops to the new day */
+.mod-move {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.mod-move select { flex: 1; min-width: 0; font-size: 11.5px; padding: 3px 6px; text-transform: none; letter-spacing: 0; }
 .toggle {
   width: 34px; height: 18px; border-radius: 9px; background: var(--asphalt-3); position: relative; flex-shrink: 0;
   border: 1px solid var(--line); transition: background 0.15s;

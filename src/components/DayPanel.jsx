@@ -92,27 +92,7 @@ export default function DayPanel({ day }) {
 
       <ConditionsCard day={day} />
 
-      {day.modules?.length > 0 && (
-        <div className="section">
-          <h3>Optional modules</h3>
-          {day.modules.map((m) => (
-            <div key={m.id} className={`module${m.enabled ? '' : ' off'}`}>
-              <div className="mod-head">
-                <span className="nm">{m.name}</span>
-                <span className="mod-dur">{m.duration}</span>
-                <button
-                  className={`toggle${m.enabled ? ' on' : ''}`}
-                  aria-label={`Toggle ${m.name}`}
-                  onClick={() => dispatch({ type: 'apply_ops', ops: [{ op: 'toggle_module', dayId: day.id, moduleId: m.id, enabled: !m.enabled }] })}
-                />
-              </div>
-              <p><b>Why:</b> {m.why}</p>
-              <p><b>Trade-off:</b> {m.tradeoff}</p>
-              {m.logistics && <p><b>Logistics:</b> {m.logistics}</p>}
-            </div>
-          ))}
-        </div>
-      )}
+      <ModulesSection day={day} dispatch={dispatch} days={state.trip.days} />
 
       <MealsSection day={day} dispatch={dispatch} />
 
@@ -205,6 +185,123 @@ function MealsSection({ day, dispatch }) {
           {missing.map((s) => <button key={s} className="btn" style={{ fontSize: 11, padding: '3px 9px' }} onClick={() => startEdit(s)}>＋ {s}</button>)}
         </div>
       )}
+    </div>
+  );
+}
+
+// Optional add-ons. The toggle is the common action, but the prose needs to be
+// editable too: when an activity moves to another day, text still describing the
+// old slot is worse than no text — so name/timing/reasoning are all editable,
+// and a module can be relocated without losing its researched why/logistics.
+const BLANK_MODULE = { name: '', duration: '', why: '', tradeoff: '', logistics: '' };
+
+function ModulesSection({ day, dispatch, days }) {
+  const [editing, setEditing] = useState(null); // module id, or '__new'
+  const [form, setForm] = useState(BLANK_MODULE);
+  const modules = day.modules ?? [];
+  const elsewhere = days.filter((d) => d.id !== day.id);
+
+  const apply = (ops) => dispatch({ type: 'apply_ops', ops });
+  const startEdit = (m) => { setForm({ ...BLANK_MODULE, ...m }); setEditing(m.id); };
+  const startNew = () => { setForm(BLANK_MODULE); setEditing('__new'); };
+
+  const save = () => {
+    const patch = {
+      name: form.name, duration: form.duration,
+      why: form.why, tradeoff: form.tradeoff, logistics: form.logistics,
+    };
+    if (editing === '__new') {
+      if (!patch.name.trim()) return; // add_module rejects a nameless module
+      apply([{ op: 'add_module', dayId: day.id, module: patch }]);
+    } else {
+      apply([{ op: 'update_module', dayId: day.id, moduleId: editing, patch }]);
+    }
+    setEditing(null);
+  };
+
+  if (!modules.length && editing !== '__new') {
+    return (
+      <div className="section">
+        <h3>Optional modules</h3>
+        <button className="btn" style={{ fontSize: 11, padding: '3px 9px' }} onClick={startNew}>＋ add an option</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="section">
+      <h3>Optional modules <span className="cnt">click ✎ to edit</span></h3>
+      {modules.map((m) => (
+        <div key={m.id} className={`module${m.enabled ? '' : ' off'}`}>
+          {editing === m.id ? (
+            <ModuleForm form={form} setForm={setForm} save={save} cancel={() => setEditing(null)} />
+          ) : (
+            <>
+              <div className="mod-head">
+                <span className="nm">{m.name}</span>
+                <span className="mod-dur">{m.duration}</span>
+                <button className="mini-edit" title="Edit this module" onClick={() => startEdit(m)}>✎</button>
+                <button
+                  className="mini-edit"
+                  title="Remove this module"
+                  onClick={() => apply([{ op: 'remove_module', dayId: day.id, moduleId: m.id }])}
+                >✕</button>
+                <button
+                  className={`toggle${m.enabled ? ' on' : ''}`}
+                  aria-label={`Toggle ${m.name}`}
+                  onClick={() => apply([{ op: 'toggle_module', dayId: day.id, moduleId: m.id, enabled: !m.enabled }])}
+                />
+              </div>
+              {m.why && <p><b>Why:</b> {m.why}</p>}
+              {m.tradeoff && <p><b>Trade-off:</b> {m.tradeoff}</p>}
+              {m.logistics && <p><b>Logistics:</b> {m.logistics}</p>}
+              {elsewhere.length > 0 && (
+                <label className="mod-move">
+                  move to
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) apply([{ op: 'move_module', moduleId: m.id, fromDayId: day.id, toDayId: e.target.value }]);
+                    }}
+                  >
+                    <option value="">another day…</option>
+                    {elsewhere.map((d) => (
+                      <option key={d.id} value={d.id}>{d.dow} {d.date?.slice(5)} — {d.title}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </>
+          )}
+        </div>
+      ))}
+      {editing === '__new' && (
+        <div className="module off">
+          <ModuleForm form={form} setForm={setForm} save={save} cancel={() => setEditing(null)} isNew />
+        </div>
+      )}
+      {!editing && (
+        <button className="btn" style={{ fontSize: 11, padding: '3px 9px', marginTop: 6 }} onClick={startNew}>＋ add an option</button>
+      )}
+    </div>
+  );
+}
+
+function ModuleForm({ form, setForm, save, cancel, isNew }) {
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  return (
+    <div>
+      <div className="fld-row">
+        <label className="fld">Name<input value={form.name} onChange={set('name')} placeholder="e.g. Cody Firearms Museum" /></label>
+        <label className="fld">Timing<input value={form.duration} onChange={set('duration')} placeholder="e.g. 2 hrs, Sunday afternoon" /></label>
+      </div>
+      <label className="fld">Why<textarea rows={2} value={form.why} onChange={set('why')} /></label>
+      <label className="fld">Trade-off<textarea rows={2} value={form.tradeoff} onChange={set('tradeoff')} /></label>
+      <label className="fld">Logistics<textarea rows={2} value={form.logistics} onChange={set('logistics')} /></label>
+      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+        <button className="btn gold" onClick={save} disabled={isNew && !form.name.trim()}>{isNew ? 'Add' : 'Save'}</button>
+        <button className="btn" onClick={cancel}>Cancel</button>
+      </div>
     </div>
   );
 }
