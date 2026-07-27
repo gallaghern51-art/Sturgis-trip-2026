@@ -10,6 +10,7 @@ import { dayTimeline, fmtTime, fmtDur } from '../engine/timeline.js';
 import PlaceSearch from './PlaceSearch.jsx';
 import ConditionsCard from './ConditionsCard.jsx';
 import { tripToGpx, downloadFile } from '../engine/exporters.js';
+import { useT } from '../engine/settings.jsx';
 
 export default function DayPanel({ day }) {
   const { state, dispatch, summary, routedLegsByDay, routes } = useTrip();
@@ -24,6 +25,11 @@ export default function DayPanel({ day }) {
   const gaps = fuelGaps(day, routedLegsByDay[day.id]);
   const longestGap = gaps.reduce((m, g) => Math.max(m, g.miles), 0);
   const timeline = dayTimeline(day, routedLegsByDay[day.id]);
+  const t = useT();
+  // Running odometer per stop — leg miles come from the same timeline the ETAs use.
+  const cumMiles = [];
+  let acc = 0;
+  for (const s of timeline.stops) { acc += s.legMiles; cumMiles.push(acc); }
 
   const onDragEnd = (e) => {
     const { active, over } = e;
@@ -36,12 +42,12 @@ export default function DayPanel({ day }) {
   return (
     <div>
       <div className="day-head">
-        <div className="eyebrow">{day.dow} · {fmtLongDate(day.date)} · Day {state.trip.days.indexOf(day) + 1} of {state.trip.days.length}</div>
+        <div className="eyebrow">{day.dow} · {fmtLongDate(day.date)} · {t('Day')} {state.trip.days.indexOf(day) + 1} {t('of')} {state.trip.days.length}</div>
         <h2>{day.title}</h2>
         <div className="datebar">
           <span className="chip phase" style={{ background: phase?.color }}>{phase?.label}</span>
           {day.anchor && <span className="chip anchor">★ Anchor day — trim elsewhere first</span>}
-          <label className="chip depart-edit">Depart
+          <label className="chip depart-edit">{t('Depart')}
             <input
               defaultValue={day.depart}
               key={day.id + day.depart}
@@ -49,7 +55,7 @@ export default function DayPanel({ day }) {
               onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
             />
           </label>
-          <span className="chip">End ~{fmtTime(timeline.endMin)}</span>
+          <span className="chip">{t('End')} ~{fmtTime(timeline.endMin)}</span>
           <button
             className="chip gpx-btn"
             title="Download this day as a GPX route for Garmin / phone nav"
@@ -59,10 +65,10 @@ export default function DayPanel({ day }) {
       </div>
 
       <div className="stat-row">
-        <div className="stat"><div className="n">{per?.miles ?? day.miles}</div><div className="l">Miles</div></div>
-        <div className="stat"><div className="n">{per ? per.rideHours.toFixed(1) : day.hours}</div><div className="l">Ride hrs</div></div>
-        <div className="stat"><div className="n">{per ? per.stopHours.toFixed(1) : '—'}</div><div className="l">Stop hrs</div></div>
-        <div className="stat"><div className="n">{longestGap || '—'}</div><div className="l">Longest fuel gap</div></div>
+        <div className="stat"><div className="n">{per?.miles ?? day.miles}</div><div className="l">{t('Miles')}</div></div>
+        <div className="stat"><div className="n">{per ? per.rideHours.toFixed(1) : day.hours}</div><div className="l">{t('Ride hrs')}</div></div>
+        <div className="stat"><div className="n">{per ? per.stopHours.toFixed(1) : '—'}</div><div className="l">{t('Stop hrs')}</div></div>
+        <div className="stat"><div className="n">{longestGap || '—'}</div><div className="l">{t('Longest fuel gap')}</div></div>
       </div>
 
       {per?.warnings.map((w, i) => (
@@ -73,17 +79,17 @@ export default function DayPanel({ day }) {
 
       {day.constraints?.length > 0 && (
         <div className="section">
-          <h3>Hard constraints</h3>
+          <h3>{t('Hard constraints')}</h3>
           <ul className="ops-list">{day.constraints.map((c, i) => <li key={i}>{c}</li>)}</ul>
         </div>
       )}
 
       <div className="section">
-        <h3>Route & stops <span className="cnt">{day.waypoints.length} · drag ⠿ to reorder · tap to zoom the map · ⓘ for details</span></h3>
+        <h3>{t('Route & stops')} <span className="cnt">{day.waypoints.length} · {t('drag ⠿ to reorder · tap to zoom the map · ⓘ for details')}</span></h3>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={day.waypoints.map((w) => w.id)} strategy={verticalListSortingStrategy}>
             {day.waypoints.map((w, i) => (
-              <SortableWaypoint key={w.id} w={w} dayId={day.id} dispatch={dispatch} sched={timeline.stops[i]} first={i === 0} />
+              <SortableWaypoint key={w.id} w={w} dayId={day.id} dispatch={dispatch} sched={timeline.stops[i]} cum={cumMiles[i]} first={i === 0} />
             ))}
           </SortableContext>
         </DndContext>
@@ -272,7 +278,7 @@ function LodgingSection({ day, dispatch }) {
   );
 }
 
-function SortableWaypoint({ w, dayId, dispatch, sched, first }) {
+function SortableWaypoint({ w, dayId, dispatch, sched, cum, first }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: w.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   return (
@@ -281,6 +287,10 @@ function SortableWaypoint({ w, dayId, dispatch, sched, first }) {
       <span className="eta">
         {sched ? fmtTime(first ? sched.depart : sched.arrive) : '·'}
         {!first && sched && sched.legMin > 0 && <span className="leg-t">+{fmtDur(sched.legMin)}</span>}
+        {/* interval miles since the last stop, then the day's running odometer */}
+        {!first && sched && sched.legMiles > 0 && (
+          <span className="leg-mi">+{Math.round(sched.legMiles)} mi · {Math.round(cum)}</span>
+        )}
       </span>
       <span
         className="nm clickable"
