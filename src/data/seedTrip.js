@@ -13,7 +13,7 @@ export const SEED_TRIP = {
     title: 'STURGIS 2026',
     subtitle: 'La Expedición Chilena · Print and Ride Edition',
     startDate: '2026-08-07',
-    riders: 8,
+    riders: 7,
     totalMiles: 2390,
     nights: 10,
     fuelRule: 'Fill at half tank on any stretch over 100 miles. Rental Harleys: 150–180 mi comfortable, 200 absolute.',
@@ -36,7 +36,7 @@ export const SEED_TRIP = {
         { id: 'd0w2', name: 'Downtown Missoula', mile: 10, note: 'Hotel as booked. Walk to Front St & Higgins', lat: 46.8701, lng: -113.9953, kind: 'end' },
       ],
       meals: [
-        { meal: 'dinner', name: 'The Pearl Cafe', where: '231 E Front St, Missoula', note: 'French–Montana, the best table in Missoula. Reserve for 8.', alt: 'Plonk on Higgins Ave, or Scotty’s Table' },
+        { meal: 'dinner', name: 'The Pearl Cafe', where: '231 E Front St, Missoula', note: 'French–Montana, the best table in Missoula. Reserve for 7.', alt: 'Plonk on Higgins Ave, or Scotty’s Table' },
       ],
       photos: [
         { id: 'd0p0', name: 'Clark Fork Riverfront — Caras Park & Higgins Bridge', why: 'The whole group clean, rested, and unbruised. The only day everyone and everything looks new.', light: 'Golden hour, last 60–90 min before sunset', parking: 'Caras Park lot, gentle arc, one clear exit lane', notes: 'Take it Friday. It will never look this good again.', lat: 46.8695, lng: -113.9971 },
@@ -69,7 +69,7 @@ export const SEED_TRIP = {
         { id: 'd1w7', name: 'Island Park, ID', mile: 243, note: 'US-20 West. Moose Court per Airbnb directions', lat: 44.4166, lng: -111.3728, kind: 'end' },
       ],
       meals: [
-        { meal: 'lunch', name: 'Montana Ale Works', where: '611 E Main St, Bozeman', note: 'Converted railroad warehouse, Montana-sourced menu, room enough to swallow 8 riders without a reservation.', alt: 'Backcountry Burger Bar, or Bridger Brewing' },
+        { meal: 'lunch', name: 'Montana Ale Works', where: '611 E Main St, Bozeman', note: 'Converted railroad warehouse, Montana-sourced menu, room enough to swallow 7 riders without a reservation.', alt: 'Backcountry Burger Bar, or Bridger Brewing' },
         { meal: 'dinner', name: 'Madison Crossing Lounge', where: '121 Madison Ave, West Yellowstone', note: 'Old schoolhouse, best kitchen in town, bison and trout done properly. Eat before the last 30 min to the cabin.', alt: 'Market Place groceries on Canyon St, grill at the cabin' },
       ],
       photos: [
@@ -142,9 +142,7 @@ export const SEED_TRIP = {
         'Gillette fuel is MANDATORY — last easy stop before SD',
         'If behind at Greybull: skip Shell Falls walk (25 min) → accept arriving after dark',
       ],
-      gates: [
-        { waypointId: 'd3w4', by: '8:00 AM', label: 'Museum opening' },
-      ],
+      gates: [],
       waypoints: [
         { id: 'd3w0', name: 'Wapiti cabin', mile: 0, note: 'Depart 5:45 AM, US-14/16/20 East. Slow — wildlife', lat: 44.4666, lng: -109.4326, kind: 'start' },
         { id: 'd3w1', name: 'Buffalo Bill Reservoir north shore', mile: 20, note: 'SUNRISE STOP 6:10–6:50. Face west', lat: 44.508, lng: -109.28, kind: 'photo', dwell: 40 },
@@ -158,7 +156,7 @@ export const SEED_TRIP = {
         { id: 'd3w10', name: 'Dayton, WY', mile: 139, note: 'Long descent off the Bighorns', lat: 44.873, lng: -107.2626, kind: 'via', dwell: 0, fuel: false },
         { id: 'd3w11', name: 'Ranchester, WY', mile: 144, note: 'I-90 East entrance', lat: 44.9097, lng: -107.1618, kind: 'via', dwell: 0, fuel: false },
         { id: 'wms15eyz25', name: 'Circle K — Sheridan, WY', mile: null, note: '812 N Main St, near I-90. Splash-and-go, closes the Greybull–Gillette gap over the Bighorns. Backup: Cenex, 1450 Coffeen Ave.', lat: 44.8061119, lng: -106.9560238, kind: 'fuel', fuel: true },
-        { id: 'd3w12', name: 'Flying J Travel Center — Gillette, WY', mile: 254, note: '1810 S Douglas Hwy. MANDATORY FUEL — last easy stop before SD, big truck stop handles 8 bikes fast. Backup: Maverik, 310 Skyline Dr.', lat: 44.2773573, lng: -105.4948935, kind: 'fuel', fuel: true },
+        { id: 'd3w12', name: 'Flying J Travel Center — Gillette, WY', mile: 254, note: '1810 S Douglas Hwy. MANDATORY FUEL — last easy stop before SD, big truck stop handles 7 bikes fast. Backup: Maverik, 310 Skyline Dr.', lat: 44.2773573, lng: -105.4948935, kind: 'fuel', fuel: true },
         { id: 'd3w14', name: 'Spearfish, SD', mile: 325, note: 'Exit 14 for US-85 South', lat: 44.4908, lng: -103.8594, kind: 'via', dwell: 0, fuel: false },
         { id: 'd3w15', name: 'Lead, SD', mile: 345, note: 'US-85 through Deadwood to Lead. Arrive ~8:00 PM', lat: 44.352, lng: -103.7652, kind: 'end' },
       ],
@@ -187,7 +185,7 @@ export const SEED_TRIP = {
       anchor: true,
       summary: 'The one day with no route to make. Ride in via Boulder Canyon, park once by 10:00 AM, and spend the day on foot: Main Street end to end, the Motorcycle Museum, vendor rows, Buffalo Chip at night.',
       constraints: [
-        'Park by 10:00 AM — after 11:00 it’s 30–45 min circling for a block big enough for 8',
+        'Park by 10:00 AM — after 11:00 it’s 30–45 min circling for a block big enough for 7',
         'Cash only at most lots and vendors',
         'Nobody leaves a stop until all eight are counted',
       ],
@@ -319,7 +317,7 @@ export const SEED_TRIP = {
       meals: [
         { meal: 'breakfast', name: 'Lead, quick', where: 'Lead, SD', note: 'Coffee and something small. Save the appetite — tonight and tomorrow are both good.', alt: '' },
         { meal: 'lunch', name: 'Frackelton’s', where: 'Sheridan, WY (mile 150)', note: 'Better than anything at Crow Agency. Do not eat at the battlefield — there is essentially nothing.', alt: 'Bighorn Design coffee-and-sandwich end for speed' },
-        { meal: 'dinner', name: 'Carbon County Steakhouse', where: '121 W 11th St, Red Lodge', note: 'Montana beef in a restored 1890s building — best steak in Red Lodge. Reserve for 8, then a nightcap at the Pollard bar.', alt: 'Foster & Logan’s Pub' },
+        { meal: 'dinner', name: 'Carbon County Steakhouse', where: '121 W 11th St, Red Lodge', note: 'Montana beef in a restored 1890s building — best steak in Red Lodge. Reserve for 7, then a nightcap at the Pollard bar.', alt: 'Foster & Logan’s Pub' },
       ],
       photos: [
         { id: 'd7p0', name: 'Little Bighorn — Last Stand Hill & the Indian Memorial', why: 'Marble markers scattered where men fell, the river in the cottonwoods below. The Spirit Warriors sculpture is the counterweight and the better piece of art. Photograph it quietly.', light: 'Late morning to early afternoon — hard light, but it suits the place', parking: 'NPS Visitor Center lot, park as a block', notes: 'No drones. Read the plaques — the site does not work as a drive-by.', lat: 45.5695, lng: -107.4322 },
@@ -363,7 +361,7 @@ export const SEED_TRIP = {
       ],
       meals: [
         { meal: 'breakfast', name: 'Cafe Regis', where: '501 S Word Ave, Red Lodge', note: 'The local breakfast institution, opens early enough for the 7:00 rollout.', alt: 'City Bakery on Broadway to move faster' },
-        { meal: 'lunch', name: 'PICCOLA CUCINA AT OX PASTURE — 1:00 PM', where: '7 N Broadway Ave, Red Lodge', note: 'Reserved, table of 8. Chef Philip Guardione’s Sicilian kitchen — widely called the best Italian in Montana and it is not a close race. The octopus, the lasagna al ragù, the tableside tiramisù. Ninety minutes, then load up.', alt: '' },
+        { meal: 'lunch', name: 'PICCOLA CUCINA AT OX PASTURE — 1:00 PM', where: '7 N Broadway Ave, Red Lodge', note: 'Reserved, table of 7. Chef Philip Guardione’s Sicilian kitchen — widely called the best Italian in Montana and it is not a close race. The octopus, the lasagna al ragù, the tableside tiramisù. Ninety minutes, then load up.', alt: '' },
         { meal: 'dinner', name: 'Enbar Craft Cocktail Lounge', where: '108 Central Ave, Great Falls', note: 'The best room in Great Falls; takes reservations on OpenTable.', alt: 'Harvest Craft Kitchen, or Mighty Mo Brew Co for pizza and a pint after 420 miles' },
       ],
       photos: [
