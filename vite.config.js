@@ -61,7 +61,13 @@ function netlifyFunctionsInDev() {
 
 export default defineConfig({
   plugins: [react(), netlifyFunctionsInDev()],
-  server: { port: 5199 },
+  // 5199 by default so `npm run dev` is predictable, but an assigned PORT wins
+  // — nothing in the app depends on the number (every call is a relative URL),
+  // so a tool that hands us a free port should get to.
+  server: {
+    port: Number(process.env.PORT) || 5199,
+    strictPort: Boolean(process.env.PORT),
+  },
   // Surfaced under Settings → Developer tools, so a rider reporting a problem
   // can say which build they are on.
   define: {
