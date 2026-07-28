@@ -961,64 +961,72 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .ride-clock { font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--ink); text-shadow: 0 1px 4px #000; }
 .ride-topbar .btn { min-height: 44px; background: rgba(0, 0, 0, 0.92); }
 
-/* A banner, not a billboard. The point of this card is to leave the road on
-   screen: the map is how you see the turn coming, and the earlier sizing ate
-   most of an iPhone's height to say "0.4 mi". Distance and instruction share a
-   line-height budget, the instruction caps at two lines, and the "then" line is
-   one line that truncates rather than growing the card. */
+/* A banner, not a billboard, stacked the way Apple stacks it: lanes on top
+   (you choose the lane before you read the road name), then distance with the
+   exit number pushed to the far side, then the shield inline with the road it
+   belongs to, then the following maneuver on its own lighter strip. Neutral
+   dark panel rather than a red-bordered box — the colour cue is the route line
+   on the map; the banner's job is to be legible, not loud. */
 .turn-card {
-  background: rgba(0, 0, 0, 0.94);
-  border: 1px solid var(--rally); border-radius: 12px;
-  padding: 8px 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  background: rgba(24, 24, 26, 0.93);
+  backdrop-filter: blur(18px) saturate(1.15);
+  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 13px;
+  padding: 9px 13px 0;
+  overflow: hidden;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.6);
 }
-.turn-head { display: flex; gap: 10px; align-items: center; }
-.turn-card.loading { border-color: var(--line); }
-.turn-icon { color: var(--rally); display: flex; align-items: center; flex: none; }
-.turn-arrow { width: 44px; height: 44px; }
-.turn-body { min-width: 0; }
+.turn-head { display: flex; gap: 11px; align-items: center; padding-bottom: 9px; }
+.turn-card.loading { padding-bottom: 9px; }
+.turn-icon { color: var(--ink); display: flex; align-items: center; flex: none; }
+.turn-arrow { width: 42px; height: 42px; }
+.turn-body { min-width: 0; flex: 1; }
 .t-dist {
-  display: flex; align-items: center; gap: 7px;
-  font-family: var(--display); font-size: 32px; font-weight: 700; line-height: 1;
-  color: var(--rally); font-variant-numeric: tabular-nums;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-family: var(--display); font-size: 31px; font-weight: 700; line-height: 1.02;
+  color: var(--ink); font-variant-numeric: tabular-nums;
 }
-/* the sign you are looking for, at the size it is useful glanced at */
-.t-dist .t-shield { height: 26px; }
-.t-dist i.t-shield { height: auto; font-size: 13px; padding: 2px 5px; }
+.t-mi { min-width: 0; }
+/* the exit number is signage, so it gets a sign of its own */
+.t-exit {
+  flex: none; font-family: var(--display); font-size: 15px; font-weight: 600;
+  letter-spacing: 0.03em; color: var(--ink);
+  background: rgba(255, 255, 255, 0.17); border-radius: 7px; padding: 4px 8px 3px;
+}
 .t-instr {
-  font-family: var(--display); font-size: 21px; font-weight: 700; line-height: 1.1;
-  color: var(--ink); margin-top: 1px;
+  font-family: var(--display); font-size: 21px; font-weight: 700; line-height: 1.14;
+  color: var(--ink); margin-top: 2px;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
-/* Not flex: the arrow is a word in a sentence, and as a flex item it let the
-   wrapping instruction shove "then" into the middle of its own second line. */
+/* the shield rides in the text, at cap height, like it does on a real sign */
+.t-instr .t-shield { height: 23px; vertical-align: -5px; margin-right: 5px; }
+.t-instr i.t-shield { height: auto; font-size: 13px; padding: 2px 5px; vertical-align: 1px; }
+/* Its own strip, full bleed to the card edges — the next maneuver is a second
+   thought, not a second line of the first one. */
 .t-then {
-  font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint); margin-top: 4px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 -13px; padding: 7px 13px;
+  background: rgba(255, 255, 255, 0.1);
+  font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--ink-dim);
 }
-.t-then .turn-arrow { width: 13px; height: 13px; vertical-align: -2px; margin: 0 2px; }
+.t-then > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-then .turn-arrow { width: 21px; height: 21px; flex: none; }
 
 /* ---------- lane guidance ----------
-   Apple/Google read: arrows painted on a dark road surface, no boxes drawn
-   around each lane. Lit lanes are white — the colour real lane paint is, and
-   the highest contrast available through a visor — and unlit lanes stay
-   visible but recede, because the count is half the information. */
+   Arrows on the panel itself, no bar and no boxes: the lanes are the drawing.
+   Lit lanes are white — the colour road paint is, and the highest contrast
+   available through a visor — and unlit lanes stay visible but recede, because
+   the count is half the information. */
 .lane-strip {
-  display: flex; gap: 3px; margin-top: 7px; justify-content: center;
-  padding: 5px 8px 4px; border-radius: 7px;
-  background: rgba(255, 255, 255, 0.06);
+  display: flex; gap: 8px; justify-content: center; align-items: flex-end;
+  padding: 3px 0 8px;
 }
-/* Sized to the arrows, not stretched across the card: four lanes spread over a
-   full phone width stop reading as adjacent lanes of one road. */
 .lane {
-  min-width: 34px; display: flex; align-items: center; justify-content: center; gap: 0;
-  color: rgba(255, 255, 255, 0.26);
+  display: flex; align-items: center; justify-content: center; gap: 0;
+  color: rgba(255, 255, 255, 0.32);
 }
 .lane.on { color: #ffffff; }
-.lane-arrow { width: 26px; height: 26px; flex: none; margin: 0 -3px; }
-/* two indications on one lane (a shared straight/right) overlap slightly, the
-   way they are actually painted, instead of sitting apart like two lanes */
-.lane.on .lane-arrow { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
+.lane-arrow { width: 30px; height: 30px; flex: none; margin: 0 -4px; }
+.lane.on .lane-arrow { filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85)); }
 
 .nav-puck {
   width: 0; height: 0;

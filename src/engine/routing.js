@@ -245,6 +245,11 @@ function compactSteps(route, stopNames) {
         mod: st.maneuver.modifier ?? null,
         exit: st.maneuver.exit ?? null,
         road: st.ref || st.name || null,
+        // The street name on its own. The banner shows this beside the shield —
+        // "Huffine Lane", not "Turn left onto Huffine Lane" — because the arrow
+        // has already said "turn left" and the sentence only costs it a line.
+        roadName: st.name || null,
+        exitNo: st.exits || null, // signed exit number, when the junction carries one
         lanes: laneCells(st),
         instr: instructionFor(st, isArrive ? stopNames?.[li] : null),
       });

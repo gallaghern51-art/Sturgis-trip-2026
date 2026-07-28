@@ -22,7 +22,6 @@ const nowMin = () => {
   return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
 };
 
-// Maneuver → arrow rotation (an up-arrow SVG rotated in place).
 // ---------- lane guidance ----------
 // Road-paint arrows, not rotated clip-art. A real lane arrow has a shaft that
 // rises in the direction of travel and *bends* into the turn, ending in a solid
@@ -921,18 +920,28 @@ export default function RideMode({ onClose }) {
 
         {nav && !offRoute && (
           <div className="turn-card">
+            {/* Lanes first, the way Apple stacks it: you pick the lane before you
+                read the road name, so it belongs above both. */}
+            <LaneStrip lanes={nav.next.lanes} />
             <div className="turn-head">
               <div className="turn-icon"><TurnArrow step={nav.next} /></div>
               <div className="turn-body">
                 <div className="t-dist">
-                  {fmtStepDist(nav.toNext)}
-                  {stepShields(nav.next).map((r) => <RoadShield key={r.key} road={r} className="t-shield" />)}
+                  <span className="t-mi">{fmtStepDist(nav.toNext)}</span>
+                  {nav.next.exitNo && <span className="t-exit">{t('Exit')} {nav.next.exitNo}</span>}
                 </div>
-                <div className="t-instr">{nav.next.instr}</div>
+                <div className="t-instr">
+                  {stepShields(nav.next).map((r) => <RoadShield key={r.key} road={r} className="t-shield" />)}
+                  {nav.next.roadName || nav.next.instr}
+                </div>
               </div>
             </div>
-            <LaneStrip lanes={nav.next.lanes} />
-            {nav.after && <div className="t-then">{t('then')} <TurnArrow step={nav.after} /> {nav.after.instr}</div>}
+            {nav.after && (
+              <div className="t-then">
+                <TurnArrow step={nav.after} />
+                <span>{nav.after.instr}</span>
+              </div>
+            )}
           </div>
         )}
         {steps === null && fix && <div className="turn-card loading"><div className="t-instr">loading turn-by-turn…</div></div>}
