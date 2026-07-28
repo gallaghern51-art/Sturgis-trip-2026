@@ -5,7 +5,7 @@ import { translationCoverage } from '../i18n/collect.js';
 import { clearTranslateFailure } from '../engine/autoTranslate.js';
 
 // Language + theme, per device. Both apply instantly; nothing to save.
-export default function SettingsModal({ onClose }) {
+export default function SettingsModal() {
   const { lang, theme, units, shields, set } = useSettings();
   const t = useT();
   const [devOpen, setDevOpen] = useState(false);
@@ -14,11 +14,10 @@ export default function SettingsModal({ onClose }) {
   const coverage = translationCoverage(state.trip, lang === 'en' ? 'es' : lang);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal settings" onClick={(e) => e.stopPropagation()}>
+    <div className="panel-view settings">
+      <div className="panel-view-inner">
         <div className="modal-head">
           <h3>{t('Settings')}</h3>
-          <button className="btn" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
           <div className="set-row">

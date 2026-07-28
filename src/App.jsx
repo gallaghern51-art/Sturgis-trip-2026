@@ -66,12 +66,9 @@ function TranslationStatus() {
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [routes, setRoutes] = useState({}); // dayId -> {legs, geometry}
-  const [chatOpen, setChatOpen] = useState(true);
   const [view, setView] = useState('dash'); // dash | plan | feas | budget
   const [newTripOpen, setNewTripOpen] = useState(false);
   const [rideOpen, setRideOpen] = useState(false);
-  const [packingOpen, setPackingOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const t = useT();
   const tt = useTT();
   const u = useUnits();
@@ -106,8 +103,8 @@ export default function App() {
 
   // On a phone the side panel and the optimizer are tabs, not columns. The chat
   // stays mounted behind the other tabs so a conversation survives tab switches.
-  const openChat = () => (isMobile ? setMobileTab('chat') : setChatOpen(true));
-  const closeChat = () => (isMobile ? setMobileTab('map') : setChatOpen(false));
+  // The optimizer is a view now, so "go to chat" is just navigation.
+  const openChat = () => openTarget('optimizer');
   // Anything that jumps the reader into the side panel (a modal's "open this
   // day", a feasibility row) has to bring the panel on screen on mobile.
   const showPanel = () => { if (isMobile) setMobileTab('panel'); };
@@ -151,10 +148,11 @@ export default function App() {
     switch (target) {
       case 'dash': case 'plan': case 'feas': case 'budget':
         setView(target); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
-      case 'optimizer':
-        setChatOpen(true); if (isMobile) setMobileTab('chat'); break;
-      case 'packing': setPackingOpen(true); break;
-      case 'settings': setSettingsOpen(true); break;
+      // Every page is a view in the panel column. Packing and Settings used to
+      // be dialogs and the Optimizer a drawer pinned under the map, which is
+      // why they felt like different species from Planner and Budget.
+      case 'optimizer': case 'packing': case 'settings':
+        setView(target); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
       case 'ride': setRideOpen(true); break;
       case 'new': setNewTripOpen(true); break;
       case 'export': exportJson(); break;
@@ -196,12 +194,10 @@ export default function App() {
   // Planner.
   // Desktop shows map + panel + optimizer at once, so its lit seat is about
   // what the panel holds, not which pane is on screen.
-  const seatActive = !isMobile
-    ? (chatOpen ? 'optimizer' : selectedDay ? 'plan' : view)
+  const seatActive = !isMobile ? (selectedDay ? 'plan' : view)
     : mobileTab === 'map' ? 'map'
-      : mobileTab === 'chat' ? 'optimizer'
-        : selectedDay ? 'plan'
-          : view;
+      : selectedDay ? 'plan'
+        : view;
   const activeSeatRef = useRef(null);
   useEffect(() => {
     activeSeatRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
@@ -232,9 +228,10 @@ export default function App() {
   // handlers, so a destination can never exist on one and not the other.
   const ViewBar = () => (
     <nav className={`tabnav${isMobile ? '' : ' deskbar'}`} aria-label="Views">
-      {SEATS.filter(([key]) => isMobile || key !== 'map').map(([key, label]) => (
+      {SEATS.filter(([key]) => isMobile || key !== 'map').map(([key, label], i) => (
         <button
           key={key}
+          style={{ '--i': i }}
           ref={seatActive === key ? activeSeatRef : null}
           className={seatActive === key ? 'active' : ''}
           aria-current={seatActive === key}
@@ -296,7 +293,7 @@ export default function App() {
           {!isMobile && <ViewBar />}
           <Ribbon />
         </div>
-        <div className={`main${!isMobile && chatOpen ? ' chat-open' : ''}`} data-tab={mobileTab}>
+        <div className="main" data-tab={mobileTab}>
           <MapView />
           <aside className="side">
             <div className="side-inner">
@@ -307,17 +304,17 @@ export default function App() {
                 : view === 'dash' ? <Dashboard onOpen={openTarget} />
                 : view === 'feas' ? <FeasibilityPanel />
                 : view === 'budget' ? <BudgetPanel />
+                : view === 'packing' ? <PackingList />
+                : view === 'settings' ? <SettingsModal />
+                : view === 'optimizer' ? <ChatPanel />
                 : <OverviewPanel routes={routes} />}
             </div>
           </aside>
-          {(isMobile || chatOpen) && <ChatPanel onClose={closeChat} />}
         </div>
         {isMobile && <ViewBar />}
         <DetailModal />
         {newTripOpen && <NewTripModal onClose={() => setNewTripOpen(false)} />}
         {rideOpen && <RideMode onClose={() => setRideOpen(false)} />}
-        {packingOpen && <PackingList onClose={() => setPackingOpen(false)} />}
-        {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       </div>
     </TripContext.Provider>
   );
