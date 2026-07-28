@@ -387,6 +387,7 @@ const ES = {
   'Ride menu': 'Menú de ruta',
   'Leg': 'Tramo',
   'Voice': 'Voz',
+  'then': 'luego',
   'Route overview': 'Vista de la ruta',
   'Re-center': 'Recentrar',
   'End navigation': 'Terminar navegación',

@@ -38,6 +38,46 @@ function TurnArrow({ step }) {
   );
 }
 
+
+// ---------- lane guidance ----------
+// The arrows painted on the road before a junction, the way Google and Apple
+// draw them: every lane at the intersection, with the ones that carry you
+// through the next maneuver lit and the rest dimmed. The data rides on the step
+// (see attachLanes in routing.js) and comes from OSM turn:lanes tags, so it is
+// there on interstates and big junctions and absent on rural two-lanes — absent
+// is fine, the strip simply does not render and the maneuver arrow stands alone.
+const LANE_DEG = {
+  'sharp left': -135, 'left': -90, 'slight left': -45, 'merge to left': -30,
+  'straight': 0, 'none': 0,
+  'merge to right': 30, 'slight right': 45, 'right': 90, 'sharp right': 135,
+};
+
+function LaneArrow({ ind }) {
+  if (ind === 'uturn') return <span className="lane-glyph">\u21B6</span>;
+  const deg = LANE_DEG[ind] ?? 0;
+  // 'none' is an unmarked lane: a bare shaft, no head, so it does not read as
+  // an instruction to go straight.
+  const d = ind === 'none' ? 'M12 21 V5' : 'M12 21 V8 M12 3 L5.5 11 M12 3 L18.5 11';
+  return (
+    <svg viewBox="0 0 24 24" className="lane-arrow" style={{ transform: `rotate(${deg}deg)` }}>
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LaneStrip({ lanes }) {
+  if (!lanes?.length) return null;
+  return (
+    <div className="lane-strip" aria-hidden="true">
+      {lanes.map((l, i) => (
+        <span key={i} className={`lane${l.v ? ' on' : ''}`}>
+          {(l.i.length ? l.i : ['none']).map((ind, j) => <LaneArrow key={j} ind={ind} />)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 const fmtStepDist = (mi) => {
   if (mi >= 10) return `${Math.round(mi)} mi`;
   if (mi >= 0.19) return `${mi.toFixed(1)} mi`;
@@ -848,12 +888,15 @@ export default function RideMode({ onClose }) {
 
         {nav && !offRoute && (
           <div className="turn-card">
-            <div className="turn-icon"><TurnArrow step={nav.next} /></div>
-            <div className="turn-body">
-              <div className="t-dist">{fmtStepDist(nav.toNext)}</div>
-              <div className="t-instr">{nav.next.instr}</div>
-              {nav.after && <div className="t-then">then <TurnArrow step={nav.after} /> {nav.after.instr}</div>}
+            <div className="turn-head">
+              <div className="turn-icon"><TurnArrow step={nav.next} /></div>
+              <div className="turn-body">
+                <div className="t-dist">{fmtStepDist(nav.toNext)}</div>
+                <div className="t-instr">{nav.next.instr}</div>
+              </div>
             </div>
+            <LaneStrip lanes={nav.next.lanes} />
+            {nav.after && <div className="t-then">{t('then')} <TurnArrow step={nav.after} /> {nav.after.instr}</div>}
           </div>
         )}
         {steps === null && fix && <div className="turn-card loading"><div className="t-instr">loading turn-by-turn…</div></div>}
