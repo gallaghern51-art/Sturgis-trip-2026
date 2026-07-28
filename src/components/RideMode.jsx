@@ -161,6 +161,8 @@ const navStyleFor = (key) => (
 const MQ_GAP = 44; // px between the two copies — must match .mq-ink gap
 const MQ_SPEED = 26; // px per second, so long and short names read the same
 
+const SCRUB_POP_W = 256; // must match .scrub-pop width
+
 function Marquee({ className, label, text }) {
   const boxRef = useRef(null);
   const segRef = useRef(null);
@@ -629,17 +631,32 @@ export default function RideMode({ onClose }) {
     }).filter(Boolean);
   }, [tl, day, totalMiles]);
 
+  // Only the stops that actually get a dot on the bar. Scrubbing has to snap to
+  // this set, not to every waypoint — otherwise the card anchors to a stop with
+  // no dot under it and appears to be pointing at nothing.
+  const barStops = useMemo(() => stopMarks.filter((m) => !m.minor), [stopMarks]);
+
   // Drag along the bar to read the day ahead: the nearest stop to the finger,
   // with what it is, where it is, and how far off. Pointer events so it works
   // the same under a glove on glass as under a mouse.
   const scrubAt = (clientX) => {
     const el = barRef.current;
-    if (!el || !stopMarks.length) return;
+    if (!el || !barStops.length) return;
     const r = el.getBoundingClientRect();
     const pct = Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100));
-    let best = stopMarks[0];
-    for (const m of stopMarks) if (Math.abs(m.pct - pct) < Math.abs(best.pct - pct)) best = m;
-    setScrub({ pct, stop: best });
+    let best = barStops[0];
+    for (const m of barStops) if (Math.abs(m.pct - pct) < Math.abs(best.pct - pct)) best = m;
+
+    // Snap to the stop, not the finger: the card describes one stop, so parking
+    // it mid-leg made it look like it was describing a stretch of empty road.
+    // The card is wider than the gap between the end stops and the screen edge,
+    // so it cannot always sit centred on its dot — it gets pushed inboard to
+    // stay readable, and a tail points back at the dot it belongs to.
+    const host = el.offsetParent?.getBoundingClientRect() ?? { left: 0, width: window.innerWidth };
+    const dotX = r.left + (r.width * best.pct) / 100 - host.left;
+    const w = Math.min(SCRUB_POP_W, window.innerWidth * 0.88);
+    const left = Math.max(4, Math.min(dotX - w / 2, host.width - w - 4));
+    setScrub({ stop: best, pct: best.pct, left, tail: Math.max(14, Math.min(dotX - left, w - 14)) });
   };
   const onScrubDown = (e) => {
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -792,15 +809,20 @@ export default function RideMode({ onClose }) {
             <div className="rm-row">
               <span className="rm-label">{t('Voice')}</span>
               {/* A switch, not a pair of yes/no buttons — it is one binary thing
-                  and the segmented version read as "Sí / No" in Spanish. */}
-              <button
-                className={`toggle rm-toggle${muted ? '' : ' on'}`}
-                role="switch"
-                aria-checked={!muted}
-                aria-label={t('Voice')}
-                onClick={() => setMuted((m) => !m)}
-              />
-              <SpeakerIcon muted={muted} />
+                  and the segmented version read as "Sí / No" in Spanish. It
+                  rides in a full-width bar so the row is built like the leg
+                  select and the map segments above it, rather than a small
+                  control floating alone against the left edge. */}
+              <div className="rm-switch">
+                <SpeakerIcon muted={muted} />
+                <button
+                  className={`toggle rm-toggle${muted ? '' : ' on'}`}
+                  role="switch"
+                  aria-checked={!muted}
+                  aria-label={t('Voice')}
+                  onClick={() => setMuted((m) => !m)}
+                />
+              </div>
             </div>
 
             {/* The thing a rider actually needs to find, so it gets the weight
@@ -858,7 +880,8 @@ export default function RideMode({ onClose }) {
         </div>
         {/* clamped so dragging to either end keeps the card fully on screen */}
         {scrub && (
-          <div className="scrub-pop" style={{ left: `clamp(134px, ${scrub.pct}%, calc(100% - 134px))` }}>
+          <div className="scrub-pop" style={{ left: `${scrub.left}px` }}>
+            <span className="sp-arrow" style={{ left: `${scrub.tail}px` }} />
             <div className="sp-name">{tt(scrub.stop.name)}</div>
             <div className="sp-meta">
               {scrub.stop.letter && <span className={`sp-tag ${scrub.stop.kind}`}>{scrub.stop.letter}</span>}
@@ -878,15 +901,20 @@ export default function RideMode({ onClose }) {
           onPointerLeave={endScrub}
         >
           <div className="rp-fill" style={{ width: `${proj ? Math.min(100, (proj.doneMiles / Math.max(1, totalMiles)) * 100) : 0}%` }} />
-          {stopMarks.filter((m) => !m.minor).map((m, i) => (
-            <span key={i} className={`rp-stop ${m.kind}`} style={{ left: `${m.pct}%` }} title={m.name} />
+          {barStops.map((m, i) => (
+            <span
+              key={i}
+              className={`rp-stop ${m.kind}${scrub?.stop === m ? ' active' : ''}`}
+              style={{ left: `${m.pct}%` }}
+              title={m.name}
+            />
           ))}
           {scrub && <span className="rp-cursor" style={{ left: `${scrub.pct}%` }} />}
         </div>
         {/* Letters under the marks: F fuel, M meal, P photo. Self-describing, so
             there is no key to hunt for at speed. */}
         <div className="rp-keys">
-          {stopMarks.filter((m) => m.letter && !m.minor).map((m, i) => (
+          {barStops.filter((m) => m.letter).map((m, i) => (
             <span key={i} className={`rp-key ${m.kind}`} style={{ left: `${m.pct}%` }} title={m.name}>{m.letter}</span>
           ))}
         </div>

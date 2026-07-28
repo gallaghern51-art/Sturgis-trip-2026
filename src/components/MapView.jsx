@@ -365,13 +365,17 @@ export default function MapView() {
     const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
     const ordered = [...labelsRef.current].sort((a, b) => a.priority - b.priority || a.order - b.order);
     const kept = [];
-    for (const { el } of ordered) el.style.visibility = 'visible'; // measure unhidden
+    // `display`, not `visibility`: visibility is inherited, so setting a label
+    // to `visible` here overrode the `visibility: hidden` that parks the whole
+    // map pane off-screen on mobile — the stop names floated over the day panel
+    // in the next tab. display is not inherited and cannot leak that way.
+    for (const { el } of ordered) el.style.display = ''; // measure unhidden
     for (const { el } of ordered) {
       const r = el.getBoundingClientRect();
       if (!r.width) continue;
       // 3px breathing room so kept labels never look kerned together
       const box = { left: r.left - 3, right: r.right + 3, top: r.top - 3, bottom: r.bottom + 3 };
-      if (kept.some((k) => overlaps(box, k))) el.style.visibility = 'hidden';
+      if (kept.some((k) => overlaps(box, k))) el.style.display = 'none';
       else kept.push(box);
     }
   }
