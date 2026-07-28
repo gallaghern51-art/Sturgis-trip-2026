@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useTrip } from '../engine/store.js';
-import { dayTimeline, fmtTime, fmtDur, parseTime } from '../engine/timeline.js';
+import { dayTimeline, fmtTime, fmtDur, parseTime, planTargetAt } from '../engine/timeline.js';
 import { haversineMiles } from '../engine/tripEngine.js';
 import { routeDaySteps, routeFrom } from '../engine/routing.js';
 import { STYLE_SATELLITE, STYLE_STREETS, STYLE_DARK, STYLE_LIGHT, warmTilesAhead, cachedGoogleStyle, googleStyle, GOOGLE_KEY } from '../engine/basemaps.js';
@@ -500,10 +500,18 @@ export default function RideMode({ onClose }) {
   }).filter(Boolean);
 
   const deltaChip = delta == null ? null : Math.abs(delta) < 5
-    ? { cls: 'on-time', text: 'ON PLAN' }
+    ? { cls: 'on-time', text: t('ON PLAN') }
     : delta > 0
-      ? { cls: 'behind', text: `${fmtDur(delta)} ${t('behind plan').toUpperCase()}` }
-      : { cls: 'ahead', text: `${fmtDur(-delta)} ${t('ahead of plan').toUpperCase()}` };
+      ? { cls: 'behind', text: `${fmtDur(delta)} ${t('BEHIND')}` }
+      : { cls: 'ahead', text: `${fmtDur(-delta)} ${t('AHEAD')}` };
+
+  // "Behind" on its own is not actionable. This is where the plan says you
+  // should be at this minute — which leg, and how far off in ground terms —
+  // read straight off the timeline, so moving a stop or retiming a departure
+  // changes it with nothing to invalidate.
+  const target = proj ? planTargetAt(day, tl, clock) : null;
+  const targetWp = target ? day.waypoints[target.stopIndex] : null;
+  const milesOff = target && proj ? proj.doneMiles - target.miles : null;
 
   const showOverview = () => {
     setFollow(false);
@@ -621,9 +629,22 @@ export default function RideMode({ onClose }) {
             <div className="l">{u.metric ? 'KM/H' : 'MPH'}</div>
           </div>
           <div className={`rb-delta ${deltaChip?.cls ?? ''}`}>
-            <div className="n">{deltaChip?.text ?? (fix ? 'LOCATING…' : 'WAITING FOR GPS')}</div>
+            <div className="n">{deltaChip?.text ?? (fix ? t('LOCATING…') : t('WAITING FOR GPS'))}</div>
+            {target && targetWp && (
+              <div className="l plan-line">
+                {t('Plan:')} {u.miNum(target.miles)} {u.miUnit} · {target.atStop ? t('at') : t('nearing')} {tt(targetWp.name)}
+                {milesOff != null && Math.abs(milesOff) >= 1 && (
+                  <b className={milesOff < 0 ? 'short' : 'past'}>
+                    {' '}{u.miNum(Math.abs(milesOff))} {u.miUnit} {milesOff < 0 ? t('short') : t('past')}
+                  </b>
+                )}
+              </div>
+            )}
             {nextWp && nextSched && (
-              <div className="l">next: {nextWp.name.slice(0, 26)} · {proj.remainToNext.toFixed(0)} mi · plan {fmtTime(nextSched.arrive)}{delta != null ? ` → ${fmtTime(nextSched.arrive + delta)}` : ''}</div>
+              <div className="l">
+                {t('Next:')} {tt(nextWp.name)} · {u.miNum(proj.remainToNext)} {u.miUnit} · {fmtTime(nextSched.arrive)}
+                {delta != null ? ` → ${fmtTime(nextSched.arrive + delta)}` : ''}
+              </div>
             )}
           </div>
           <div className="rb-eta">

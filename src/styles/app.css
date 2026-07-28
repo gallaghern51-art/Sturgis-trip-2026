@@ -885,21 +885,21 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .ride-leg {
   flex: 1; min-width: 0; text-align: left;
   display: flex; flex-direction: column; gap: 1px;
-  padding: 6px 11px; min-height: 42px; justify-content: center;
+  padding: 8px 13px; min-height: 58px; justify-content: center;
   background: rgba(0, 0, 0, 0.82);
   border: 1px solid var(--line); border-radius: 8px;
   backdrop-filter: blur(6px);
 }
 .ride-leg .rl-day {
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em;
+  font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--ink-faint);
 }
 .ride-leg .rl-title {
-  font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--ink);
+  font-family: var(--display); font-size: 23px; font-weight: 700; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ride-menu-btn.on { border-color: var(--outbound); color: var(--outbound); }
-.ride-topbar .hamb { width: 19px; height: 19px; display: block; }
+.ride-topbar .hamb { width: 26px; height: 26px; display: block; }
 
 /* The hub: semi-transparent so the road stays visible behind it, and blurred so
    the controls stay legible over moving imagery. */
@@ -915,25 +915,25 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 }
 .ride-menu .rm-row { display: flex; align-items: center; gap: 10px; }
 .ride-menu .rm-label {
-  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+  font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--ink-faint);
-  width: 58px; flex: none;
+  width: 74px; flex: none;
 }
-.ride-menu select { flex: 1; min-width: 0; min-height: 38px; background: rgba(0, 0, 0, 0.6); }
+.ride-menu select { flex: 1; min-width: 0; min-height: 50px; font-size: 17px; background: rgba(0, 0, 0, 0.6); }
 .ride-menu .rm-seg {
   flex: 1; display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
 }
 .ride-menu .rm-seg button {
-  flex: 1; padding: 8px 4px;
-  font-family: var(--display); font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em;
+  flex: 1; padding: 13px 4px;
+  font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em;
   color: var(--ink-dim); border-right: 1px solid var(--line);
 }
 .ride-menu .rm-seg button:last-child { border-right: none; }
 .ride-menu .rm-seg button.active { background: var(--outbound); color: #000; }
 .ride-menu .end-nav {
-  min-height: 46px; margin-top: 2px;
+  min-height: 60px; margin-top: 4px;
   background: var(--danger); border-color: var(--danger); color: #000;
-  font-size: 15px; letter-spacing: 0.1em;
+  font-size: 20px; letter-spacing: 0.1em;
 }
 .ride-menu .end-nav:hover { background: #f76a4a; border-color: #f76a4a; color: #000; }
 
@@ -945,8 +945,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   flex: 1; font-family: var(--mono); font-size: 12px; min-height: 42px;
   background: rgba(0, 0, 0, 0.92);
 }
-.ride-clock { font-family: var(--display); font-size: 21px; font-weight: 700; color: var(--ink); text-shadow: 0 1px 4px #000; }
-.ride-topbar .btn { min-height: 42px; background: rgba(0, 0, 0, 0.92); }
+.ride-clock { font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--ink); text-shadow: 0 1px 4px #000; }
+.ride-topbar .btn { min-height: 58px; background: rgba(0, 0, 0, 0.92); }
 
 .turn-card {
   display: flex; gap: 14px; align-items: center;
@@ -957,45 +957,69 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 }
 .turn-card.loading { border-color: var(--line); }
 .turn-icon { color: var(--rally); display: flex; align-items: center; }
-.turn-arrow { width: 58px; height: 58px; }
+.turn-arrow { width: 70px; height: 70px; }
 .turn-glyph { font-size: 46px; line-height: 1; color: var(--rally); }
 .turn-body { min-width: 0; }
-.t-dist { font-family: var(--display); font-size: 34px; font-weight: 700; line-height: 1; color: var(--rally); font-variant-numeric: tabular-nums; }
-.t-instr { font-family: var(--display); font-size: 22px; font-weight: 600; line-height: 1.15; color: var(--ink); margin-top: 2px; }
-.t-then { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+.t-dist { font-family: var(--display); font-size: 48px; font-weight: 700; line-height: 1; color: var(--rally); font-variant-numeric: tabular-nums; }
+.t-instr { font-family: var(--display); font-size: 31px; font-weight: 700; line-height: 1.12; color: var(--ink); margin-top: 2px; }
+.t-then { font-family: var(--mono); font-size: 16px; color: var(--ink-dim); margin-top: 5px; display: flex; align-items: center; gap: 5px; }
 .t-then .turn-arrow { width: 16px; height: 16px; }
 .t-then .turn-glyph { font-size: 14px; }
 
 .nav-puck {
   width: 0; height: 0;
   border-left: 13px solid transparent; border-right: 13px solid transparent;
-  border-bottom: 30px solid #3aa4ff;
-  filter: drop-shadow(0 0 6px rgba(58, 164, 255, 0.9)) drop-shadow(0 2px 3px rgba(0,0,0,0.7));
+  border-bottom: 30px solid var(--outbound);
+  filter: drop-shadow(0 0 7px rgba(244, 131, 34, 0.85)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.85));
 }
 .nav-puck::after {
   content: ''; position: absolute; left: -13px; top: 30px;
   border-left: 13px solid transparent; border-right: 13px solid transparent;
-  border-top: 10px solid #1c6cc0;
+  border-top: 10px solid #8f4406;
 }
 
 .recenter { align-self: center; box-shadow: 0 4px 18px rgba(0,0,0,0.5); }
 .ride-quick { display: flex; gap: 8px; justify-content: center; align-items: center; }
 .ride-quick .overview { background: rgba(0, 0, 0, 0.92); box-shadow: 0 4px 18px rgba(0,0,0,0.5); }
 
-.ride-bottombar { display: flex; gap: 10px; align-items: stretch; }
+/* Phone screens are short on width, not height, and the schedule readout is the
+   longest string on the HUD — so it gets its own full-width row above the two
+   numeric tiles rather than being squeezed between them and ellipsised away. */
+.ride-bottombar {
+  display: grid; gap: 10px;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'delta delta' 'speed eta';
+}
+.rb-delta { grid-area: delta; }
+.rb-speed { grid-area: speed; }
+.rb-eta { grid-area: eta; }
+@media (min-width: 760px) {
+  /* room for one row again */
+  .ride-bottombar { grid-template-columns: auto 1fr auto; grid-template-areas: 'speed delta eta'; }
+}
 .rb-speed {
   background: rgba(0, 0, 0, 0.94); border: 1px solid var(--line); border-radius: 12px;
   padding: 8px 18px; text-align: center; min-width: 108px;
 }
-.rb-speed .n { font-family: var(--display); font-size: 54px; font-weight: 700; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
-.rb-speed .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; color: var(--ink-faint); }
+.rb-speed .n { font-family: var(--display); font-size: 64px; font-weight: 700; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.rb-speed .l { font-family: var(--mono); font-size: 14px; letter-spacing: 0.16em; color: var(--ink-faint); }
 .rb-delta {
   flex: 1; min-width: 0; border-radius: 12px; border: 1px solid var(--line);
   display: flex; flex-direction: column; justify-content: center; padding: 8px 16px;
   background: rgba(0, 0, 0, 0.94);
 }
-.rb-delta .n { font-family: var(--display); font-size: 30px; font-weight: 700; line-height: 1.05; }
-.rb-delta .l { font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rb-delta .n { font-family: var(--display); font-size: 38px; font-weight: 700; line-height: 1.02; white-space: nowrap; }
+.rb-delta .l {
+  font-family: var(--mono); font-size: 15px; line-height: 1.35; color: var(--ink-dim);
+  margin-top: 5px;
+  /* two lines beats one ellipsised line when the content is the whole point */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* how far off the plan's position you are — the number a rider acts on */
+.rb-delta .plan-line b { font-weight: 600; }
+.rb-delta .plan-line b.short { color: var(--danger); }
+.rb-delta .plan-line b.past { color: var(--ok); }
 .rb-delta.ahead { border-color: var(--ok); } .rb-delta.ahead .n { color: var(--ok); }
 .rb-delta.behind { border-color: var(--danger); } .rb-delta.behind .n { color: var(--danger); }
 .rb-delta.on-time { border-color: var(--rally); } .rb-delta.on-time .n { color: var(--rally); }
@@ -1004,14 +1028,14 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   padding: 8px 14px; text-align: center; min-width: 96px;
   display: flex; flex-direction: column; justify-content: center;
 }
-.rb-eta .n { font-family: var(--display); font-size: 28px; font-weight: 700; line-height: 1.05; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rb-eta .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--ink-faint); margin-top: 3px; white-space: nowrap; }
+.rb-eta .n { font-family: var(--display); font-size: 34px; font-weight: 700; line-height: 1.05; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rb-eta .l { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: var(--ink-faint); margin-top: 3px; white-space: nowrap; }
 
 .ride-mode .rp-bar { background: rgba(26, 26, 26, 0.9); }
 .ride-mode .rp-meta { text-shadow: 0 1px 3px #000; }
 .ride-gates { display: flex; gap: 6px; flex-wrap: wrap; }
 .ride-gate {
-  font-family: var(--mono); font-size: 11px; padding: 4px 9px; border-radius: 5px;
+  font-family: var(--mono); font-size: 14px; padding: 6px 11px; border-radius: 5px;
   border: 1px solid var(--line); background: rgba(0, 0, 0, 0.92);
 }
 .ride-gate.ok { color: var(--ok); border-color: rgba(127, 176, 105, 0.4); }
