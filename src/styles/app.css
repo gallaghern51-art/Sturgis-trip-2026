@@ -1027,7 +1027,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 }
 /* the shield rides in the text, at cap height, like it does on a real sign */
 .t-instr .t-shield { height: 23px; vertical-align: -5px; margin-right: 5px; }
-.t-instr i.t-shield { height: auto; font-size: 13px; padding: 2px 5px; vertical-align: 1px; }
+.t-instr i.t-shield { height: auto; font-size: 13px; vertical-align: 1px; }
 /* Its own strip, full bleed to the card edges — the next maneuver is a second
    thought, not a second line of the first one. */
 .t-then {
@@ -1251,17 +1251,14 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 /* real signage, resolved from Commons — sized to sit with the mono numbers */
 .shield-img { height: 19px; width: auto; flex: none; }
 .shield-img.inherited { opacity: 0.45; }
-.shield {
-  font-family: var(--mono); font-style: normal; font-size: 8.5px; font-weight: 500;
-  letter-spacing: 0.02em; line-height: 1; padding: 2px 3px; border-radius: 2px;
-  border: 1px solid; white-space: nowrap;
+/* No drawn shield. When Commons has nothing for a route the number is set as
+   plain type — a lozenge in roughly the right colours reads as signage while
+   being wrong, which is worse than no signage at all. */
+.shield-text {
+  font-family: var(--mono); font-style: normal; font-size: 10px; font-weight: 500;
+  letter-spacing: 0.04em; line-height: 1; color: var(--ink-dim); white-space: nowrap;
 }
-/* blue/red interstate, white US escutcheon, plain state square */
-.shield.interstate { background: #123a8c; border-color: #123a8c; color: #fff; }
-.shield.us { background: #f2f2f2; border-color: #b9b9b9; color: #141414; }
-.shield.state { background: transparent; border-color: var(--ink-faint); color: var(--ink-dim); }
-/* inherited = the guide never named the road here, we carried the last one */
-.shield.inherited { opacity: 0.5; }
+.shield-text.inherited { opacity: 0.5; }
 
 /* ---------- rider roster ---------- */
 
