@@ -1,15 +1,29 @@
 import React, { useEffect, useState } from 'react';
 
-// Real signage, downloaded, for every route. One source and no artwork in the
-// repo: the `shield` function resolves the route on Wikimedia Commons and the
-// answer is cached immutably for a year at the CDN and in the browser, so a
-// road is fetched once and is then available offline like any other asset.
-// See netlify/functions/shield.mjs.
+// Real signage for every route, downloaded — with a local override.
 //
-// If Commons genuinely has nothing, the route number renders as plain type.
-// It is deliberately NOT drawn into a shield shape — a hand-made lozenge in
-// roughly the right colours is worse than honest text, because it reads as
-// signage while being wrong.
+// Order, first hit wins:
+//
+//   1. public/shields/<ROUTE>.svg|png|webp — the override folder. Anything
+//      dropped in there beats the download, no code change and no list: the
+//      filename IS the route key. For routes where Commons is wrong, missing,
+//      or has a worse drawing than one you sourced yourself.
+//   2. the `shield` function — resolves the route on Wikimedia Commons and
+//      caches it immutably for a year at the CDN and in the browser, so a road
+//      is fetched once and is offline after that. This already returns the real
+//      state designs: Wyoming's bucking horse, South Dakota's state outline,
+//      Idaho's silhouette, Montana's square.
+//
+// If both miss, the route number is set as plain type. It is deliberately NOT
+// drawn into a shield shape — a hand-made lozenge in roughly the right colours
+// reads as signage while being wrong, which is worse than honest text.
+const SOURCES = (label) => [
+  `/shields/${label}.svg`,
+  `/shields/${label}.png`,
+  `/shields/${label}.webp`,
+  `/.netlify/functions/shield?route=${encodeURIComponent(label)}`,
+];
+
 export default function RoadShield({ road, className = '' }) {
   const label = `${road.prefix}-${road.num}`;
   const [art, setArt] = useState(null);
@@ -18,10 +32,14 @@ export default function RoadShield({ road, className = '' }) {
   useEffect(() => {
     let alive = true;
     setArt(null);
-    const src = `/.netlify/functions/shield?route=${encodeURIComponent(label)}`;
-    const img = new Image();
-    img.onload = () => { if (alive && img.naturalWidth > 0) setArt(src); };
-    img.src = src;
+    const tryNext = ([src, ...rest]) => {
+      if (!alive || !src) return;
+      const img = new Image();
+      img.onload = () => { if (alive) (img.naturalWidth > 0 ? setArt(src) : tryNext(rest)); };
+      img.onerror = () => tryNext(rest);
+      img.src = src;
+    };
+    tryNext(SOURCES(label));
     return () => { alive = false; };
   }, [label]);
 
