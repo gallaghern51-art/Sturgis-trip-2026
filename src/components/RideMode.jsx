@@ -916,11 +916,14 @@ export default function RideMode({ onClose }) {
       </div>
 
       <div className="ride-overlay ride-overlay-bottom">
-        <div className="ride-quick">
-          {!follow && fix && (
+        {/* Rendered only when it holds something. As an always-present empty
+            div it still drew the column's 8px gap — an invisible row of dead
+            space above the card the whole time you were following the route. */}
+        {!follow && fix && (
+          <div className="ride-quick">
             <button className="btn gold recenter" onClick={() => setFollow(true)}>◉ {t('Re-center')}</button>
-          )}
-        </div>
+          </div>
+        )}
         {/* One card. Speed came off — a bike has a speedometer six inches away
             and it was the least useful number here. */}
         <div className={`rb-delta ${deltaChip?.cls ?? ''}${lean ? ' lean' : ''}`}>
