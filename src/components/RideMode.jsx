@@ -288,6 +288,7 @@ export default function RideMode({ onClose }) {
   const [follow, setFollow] = useState(true);
   const [muted, setMuted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mapSetOpen, setMapSetOpen] = useState(false); // map settings, its own sheet
   const [navStyle, setNavStyle] = useState('hybrid');
   const [ahead, setAhead] = useState(null); // conditions a few miles up the road
   const wpMarkersRef = useRef([]);
@@ -811,7 +812,7 @@ export default function RideMode({ onClose }) {
           )}
           <button
             className={`btn icon-btn ride-menu-btn${menuOpen ? ' on' : ''}`}
-            onClick={() => setMenuOpen((v) => !v)}
+            onClick={() => { setMenuOpen((v) => !v); setMapSetOpen(false); }}
             aria-expanded={menuOpen}
             aria-label={t('Ride menu')}
             title={t('Ride menu')}
@@ -822,7 +823,8 @@ export default function RideMode({ onClose }) {
           </button>
         </div>
 
-        {menuOpen && (
+        {/* One sheet at a time — showing both stacked is busier than either. */}
+        {menuOpen && !mapSetOpen && (
           <div className="ride-menu" role="dialog" aria-label={t('Ride menu')}>
             <label className="rm-row">
               <span className="rm-label">{t('Leg')}</span>
@@ -833,61 +835,60 @@ export default function RideMode({ onClose }) {
               </select>
             </label>
 
-            {/* Map settings live here rather than in the app's Settings modal:
-                these three only mean anything while navigating, and a rider
-                changing them is wearing gloves on the side of a road, not
-                sitting in the planner. */}
-            <div className="rm-group">
-              <span className="rm-group-label">{t('Map settings')}</span>
-
-              <div className="rm-row">
-                <span className="rm-label">{t('Basemap')}</span>
-                <div className="rm-seg">
-                  {NAV_STYLES.map((o) => (
-                    <button
-                      key={o.key}
-                      className={navStyle === o.key ? 'active' : ''}
-                      onClick={() => setNavStyle(o.key)}
-                    >{t(o.label)}</button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rm-row">
-                <span className="rm-label">{t('Density')}</span>
-                <div className="rm-seg">
-                  <button className={lean ? 'active' : ''} onClick={() => set({ density: 'minimal' })}>{t('Minimalist')}</button>
-                  <button className={!lean ? 'active' : ''} onClick={() => set({ density: 'detailed' })}>{t('Detailed')}</button>
-                </div>
-              </div>
-
-              <div className="rm-row">
-                <span className="rm-label">{t('Voice')}</span>
-                {/* A switch, not a pair of yes/no buttons — it is one binary
-                    thing and the segmented version read as "Sí / No" in
-                    Spanish. It rides in a full-width bar so the row is built
-                    like the segments above it. */}
-                <div className="rm-switch">
-                  <SpeakerIcon muted={muted} />
-                  <button
-                    className={`toggle rm-toggle${muted ? '' : ' on'}`}
-                    role="switch"
-                    aria-checked={!muted}
-                    aria-label={t('Voice')}
-                    onClick={() => setMuted((m) => !m)}
-                  />
-                </div>
-              </div>
-            </div>
+            {/* Three things. Basemap, density and voice are a settings screen
+                of their own — stacked inline they turned a menu you open at
+                60 mph into a form. */}
+            <button className="btn rm-open-settings" onClick={() => setMapSetOpen(true)}>
+              {t('Map settings')}
+              <span className="rm-chev">›</span>
+            </button>
 
             {/* The thing a rider actually needs to find, so it gets the weight
                 and sits alone at the bottom. */}
             <button className="btn end-nav" onClick={onClose}>{t('End navigation')}</button>
+          </div>
+        )}
 
-            {/* Tile credit still has to appear somewhere — it just has no place
-                on a HUD read at speed, so it lives here. */}
-            <div className="rm-attrib">
-              {navStyle === 'hybrid' ? 'Imagery © Esri, Maxar, Earthstar Geographics' : '© OpenFreeMap · OpenMapTiles · OpenStreetMap'}
+        {menuOpen && mapSetOpen && (
+          <div className="ride-menu ride-subsheet" role="dialog" aria-label={t('Map settings')}>
+            <div className="rm-sub-head">
+              <button className="btn rm-back" onClick={() => setMapSetOpen(false)}>‹</button>
+              <span className="rm-sub-title">{t('Map settings')}</span>
+            </div>
+
+            <div className="rm-row">
+              <span className="rm-label">{t('Basemap')}</span>
+              <div className="rm-seg">
+                {NAV_STYLES.map((o) => (
+                  <button
+                    key={o.key}
+                    className={navStyle === o.key ? 'active' : ''}
+                    onClick={() => setNavStyle(o.key)}
+                  >{t(o.label)}</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rm-row">
+              <span className="rm-label">{t('Density')}</span>
+              <div className="rm-seg">
+                <button className={lean ? 'active' : ''} onClick={() => set({ density: 'minimal' })}>{t('Minimalist')}</button>
+                <button className={!lean ? 'active' : ''} onClick={() => set({ density: 'detailed' })}>{t('Detailed')}</button>
+              </div>
+            </div>
+
+            <div className="rm-row">
+              <span className="rm-label">{t('Voice')}</span>
+              <div className="rm-switch">
+                <SpeakerIcon muted={muted} />
+                <button
+                  className={`toggle rm-toggle${muted ? '' : ' on'}`}
+                  role="switch"
+                  aria-checked={!muted}
+                  aria-label={t('Voice')}
+                  onClick={() => setMuted((m) => !m)}
+                />
+              </div>
             </div>
           </div>
         )}

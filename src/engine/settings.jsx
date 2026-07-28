@@ -390,6 +390,7 @@ const ES = {
   'Leg': 'Tramo',
   'Voice': 'Voz',
   'Map settings': 'Ajustes del mapa',
+  'Credits': 'Créditos',
   'Basemap': 'Mapa base',
   'Density': 'Densidad',
   'Minimalist': 'Minimalista',

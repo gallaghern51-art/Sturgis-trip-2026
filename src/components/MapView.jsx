@@ -99,10 +99,11 @@ export default function MapView() {
       style: cachedGoogleStyle('hybrid') ?? STYLE_SATELLITE,
       center: [-108.5, 45.9],
       zoom: 5.4,
-      // compact, and actually collapsed: MapLibre renders `compact` with its
-      // -show class already on, so the credit sits open across the map until
-      // someone clicks it away. Stripped on load, below.
-      attributionControl: { compact: true },
+      // No credit pill on the map at all. Esri and OpenMapTiles require the
+      // attribution to be *displayed*, not to be displayed on the map surface —
+      // so it moves to Settings, where it is one tap away and permanent, and
+      // the map keeps its corner. See CREDITS in SettingsModal.
+      attributionControl: false,
     });
     mapRef.current = map;
     if (import.meta.env.DEV) window.__map = map; // console access while developing
@@ -135,12 +136,6 @@ export default function MapView() {
     });
     map.on('load', () => {
       readyRef.current = true;
-      // MapLibre ships compact attribution with its -show class already on, so
-      // the credit sits open across the bottom of the map until someone clicks
-      // it shut. Start it behind its own (i), where a legal credit belongs.
-      containerRef.current
-        ?.querySelectorAll('.maplibregl-ctrl-attrib.maplibregl-compact-show')
-        .forEach((el) => el.classList.remove('maplibregl-compact-show'));
       drawAllRef.current();
     });
     map.on('styledata', () => {

@@ -887,10 +887,18 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
    transparent, so every pixel of its padding is map the card is standing on
    top of for no reason. Only the safe area is kept, because that is a real
    obstruction rather than a design choice. */
+/* Flush to the bottom edge. Sitting the card ABOVE the home-indicator inset
+   left a band of map under it that reads as a gap; the card now runs into that
+   band with its own background and pads its text clear of the indicator. */
 .ride-overlay-bottom {
-  bottom: env(safe-area-inset-bottom, 0);
+  bottom: 0;
   align-items: stretch;
   padding-top: 0; padding-bottom: 0;
+}
+.ride-overlay-bottom .rb-delta {
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+  border-bottom: none;
+  padding-bottom: calc(3px + env(safe-area-inset-bottom, 0px));
 }
 
 .ride-topbar { display: flex; gap: 8px; align-items: center; }
@@ -933,16 +941,24 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .ride-menu .rm-row { display: flex; align-items: center; gap: 7px; }
 /* Map settings are a set, so they are drawn as one: a titled block rather than
    three loose rows that happen to sit next to each other. */
-.ride-menu .rm-group {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 7px 7px 8px; border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.045);
-}
-.ride-menu .rm-group-label {
-  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+/* Map settings open as their own sheet over the menu, so the menu stays three
+   things you can hit without reading. */
+.ride-subsheet { position: relative; }
+.rm-sub-head { display: flex; align-items: center; gap: 8px; }
+.rm-sub-title {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--outbound);
 }
+.btn.rm-back {
+  min-height: 34px; min-width: 34px; padding: 0 10px; flex: none;
+  font-size: 20px; line-height: 1; background: rgba(0, 0, 0, 0.5);
+}
+.btn.rm-open-settings {
+  display: flex; align-items: center; justify-content: space-between;
+  min-height: 44px; font-size: 16px; letter-spacing: 0.04em;
+  background: rgba(0, 0, 0, 0.4);
+}
+.rm-chev { color: var(--ink-faint); font-size: 20px; line-height: 1; }
 .ride-menu .rm-label {
   font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--ink-faint);
@@ -1546,3 +1562,11 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   display: none;
 }
 .maplibregl-ctrl-attrib.maplibregl-compact { min-height: 24px; }
+
+
+/* Map credits. Required to be displayed — not required to be displayed across
+   the corner of every map — so they live here, permanently, one tap away. */
+.set-credits { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.set-credits p {
+  font-size: 11px; line-height: 1.55; color: var(--ink-faint); margin-top: 5px;
+}

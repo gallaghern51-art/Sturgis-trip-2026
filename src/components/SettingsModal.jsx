@@ -47,6 +47,18 @@ export default function SettingsModal({ onClose }) {
             {t('Applies on this device only. Trip text and AI answers stay in the language they were written in — ask the optimizer in Spanish and it answers in Spanish.')}
           </p>
 
+          {/* The map credits. Esri and OpenMapTiles require these to be shown;
+              they do not require them to be shown on the map, so they live here
+              rather than as a pill across the corner of every view. */}
+          <div className="set-credits">
+            <span className="set-label">{t('Credits')}</span>
+            <p>
+              Map imagery © Esri, Maxar, Earthstar Geographics · Street data ©
+              {' '}OpenStreetMap contributors, © OpenMapTiles · Routing by OSRM
+              {' '}· Highway shields from Wikimedia Commons · Weather by Open-Meteo
+            </p>
+          </div>
+
           {/* Experiments live behind a fold so the everyday settings stay to
               three choices. Anything in here can be pulled without ceremony. */}
           <div className="set-dev">
