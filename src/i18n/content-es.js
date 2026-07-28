@@ -270,7 +270,7 @@ export const CONTENT_ES = {
   // ---- d6 · Thu 8/13 ----
   'Spearfish Canyon + Devils Tower · Final Sturgis Night': 'Cañón Spearfish + Devils Tower · Última noche de Sturgis',
   'Spearfish Canyon starts at your back door in Lead — ride it downhill in morning shade, run west to Devils Tower (867 ft of columnar rock), and come back through Sturgis for the last night of the rally.': 'El cañón Spearfish empieza en la puerta trasera de Lead — bajarlo con la sombra de la mañana, correr al oeste hasta Devils Tower (867 ft de roca columnar), y volver por Sturgis para la última noche del rally.',
-  'Depart 8:00 AM. SD-14A North, canyon starts here': 'Salida 8:00 AM. SD-14A Norte, el cañón empieza aquí',
+  'Depart 8:00 AM. US-14A North, canyon starts here': 'Salida 8:00 AM. US-14A Norte, el cañón empieza aquí',
   'Savoy / Roughlock Falls turnoff': 'Desvío a Savoy / Roughlock Falls',
   'Short gravel spur to the falls, worth it': 'Ramal corto de ripio hasta la cascada, vale la pena',
   'Bridal Veil Falls': 'Cascada Bridal Veil',
