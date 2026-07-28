@@ -976,9 +976,15 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .turn-card.loading { border-color: var(--line); }
 .turn-icon { color: var(--rally); display: flex; align-items: center; flex: none; }
 .turn-arrow { width: 44px; height: 44px; }
-.turn-glyph { font-size: 32px; line-height: 1; color: var(--rally); }
 .turn-body { min-width: 0; }
-.t-dist { font-family: var(--display); font-size: 32px; font-weight: 700; line-height: 1; color: var(--rally); font-variant-numeric: tabular-nums; }
+.t-dist {
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--display); font-size: 32px; font-weight: 700; line-height: 1;
+  color: var(--rally); font-variant-numeric: tabular-nums;
+}
+/* the sign you are looking for, at the size it is useful glanced at */
+.t-dist .t-shield { height: 26px; }
+.t-dist i.t-shield { height: auto; font-size: 13px; padding: 2px 5px; }
 .t-instr {
   font-family: var(--display); font-size: 21px; font-weight: 700; line-height: 1.1;
   color: var(--ink); margin-top: 1px;
@@ -991,24 +997,28 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .t-then .turn-arrow { width: 13px; height: 13px; vertical-align: -2px; margin: 0 2px; }
-.t-then .turn-glyph { font-size: 12px; }
 
 /* ---------- lane guidance ----------
-   One cell per lane at the junction, in road order. Lit lanes are the ones that
-   take you through the next maneuver; the rest are there so you can count
-   across from the shoulder and know which one you are in. */
+   Apple/Google read: arrows painted on a dark road surface, no boxes drawn
+   around each lane. Lit lanes are white — the colour real lane paint is, and
+   the highest contrast available through a visor — and unlit lanes stay
+   visible but recede, because the count is half the information. */
 .lane-strip {
-  display: flex; gap: 3px; margin-top: 7px;
-  padding-top: 7px; border-top: 1px solid rgba(255, 255, 255, 0.13);
+  display: flex; gap: 3px; margin-top: 7px; justify-content: center;
+  padding: 5px 8px 4px; border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
 }
+/* Sized to the arrows, not stretched across the card: four lanes spread over a
+   full phone width stop reading as adjacent lanes of one road. */
 .lane {
-  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 1px;
-  padding: 3px 0; border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05); color: var(--ink-faint);
+  min-width: 34px; display: flex; align-items: center; justify-content: center; gap: 0;
+  color: rgba(255, 255, 255, 0.26);
 }
-.lane.on { background: rgba(245, 63, 31, 0.18); color: var(--rally); }
-.lane-arrow { width: 19px; height: 19px; flex: none; }
-.lane-glyph { font-size: 15px; line-height: 1; }
+.lane.on { color: #ffffff; }
+.lane-arrow { width: 26px; height: 26px; flex: none; margin: 0 -3px; }
+/* two indications on one lane (a shared straight/right) overlap slightly, the
+   way they are actually painted, instead of sitting apart like two lanes */
+.lane.on .lane-arrow { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
 
 .nav-puck {
   width: 0; height: 0;

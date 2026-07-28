@@ -8,6 +8,8 @@ import { STYLE_SATELLITE, STYLE_STREETS, STYLE_DARK, STYLE_LIGHT, warmTilesAhead
 import { fmtDayDate } from '../engine/dates.js';
 import { fetchConditionsAhead } from '../engine/conditions.js';
 import WeatherIcon from './WeatherIcon.jsx';
+import RoadShield from './RoadShield.jsx';
+import { roadShields } from '../engine/roads.js';
 import { useT, useTT, useUnits } from '../engine/settings.jsx';
 
 // Ride Mode: a navigation HUD over a live map. Projects your GPS position onto
@@ -21,48 +23,72 @@ const nowMin = () => {
 };
 
 // Maneuver → arrow rotation (an up-arrow SVG rotated in place).
-const ARROW_DEG = {
-  'uturn': 180, 'sharp left': -135, 'left': -90, 'slight left': -45,
-  'straight': 0, 'slight right': 45, 'right': 90, 'sharp right': 135,
-};
+// ---------- lane guidance ----------
+// Road-paint arrows, not rotated clip-art. A real lane arrow has a shaft that
+// rises in the direction of travel and *bends* into the turn, ending in a solid
+// head — rotating one straight arrow 90 degrees is what makes nav UIs look
+// homemade. Each glyph below is a bent shaft (thick round stroke) plus a filled
+// triangular head placed at the end of that bend.
+//
+// Lit lanes are the ones that carry you through the next maneuver; unlit lanes
+// are drawn dim rather than hidden, because the count is the information — you
+// need to know you want the second of four, not just "a left lane".
+const HEAD = 'M0 -4.9 L4.3 3.1 L-4.3 3.1 Z'; // tip at origin, pointing up
 
-function TurnArrow({ step }) {
-  if (!step) return null;
-  if (step.type === 'arrive') return <span className="turn-glyph">⚑</span>;
-  if (step.type === 'roundabout' || step.type === 'rotary') return <span className="turn-glyph">⟳</span>;
-  const deg = ARROW_DEG[step.mod ?? 'straight'] ?? 0;
+// shaft path + where the head sits at the end of it, per OSRM indication
+const LANE_GLYPH = {
+  'none': { d: 'M12 21 V5', head: null },
+  'straight': { d: 'M12 21 V10.6', head: [12, 8.2, 0] },
+  'slight right': { d: 'M12 21 V15.5 Q12 11.6 15.3 9.6', head: [17.2, 8.4, 45] },
+  'right': { d: 'M12 21 V14.5 Q12 9.8 16.7 9.8', head: [19.1, 9.8, 90] },
+  'sharp right': { d: 'M12 21 V14.5 Q12 8.6 16.4 10.9', head: [18.3, 12.0, 135] },
+  'slight left': { d: 'M12 21 V15.5 Q12 11.6 8.7 9.6', head: [6.8, 8.4, -45] },
+  'left': { d: 'M12 21 V14.5 Q12 9.8 7.3 9.8', head: [4.9, 9.8, -90] },
+  'sharp left': { d: 'M12 21 V14.5 Q12 8.6 7.6 10.9', head: [5.7, 12.0, -135] },
+  'uturn': { d: 'M15.4 21 V12.6 A3.4 3.4 0 0 0 8.6 12.6 V15.4', head: [8.6, 17.8, 180] },
+};
+// merges read as the shallow version of the same move
+LANE_GLYPH['merge to right'] = LANE_GLYPH['slight right'];
+LANE_GLYPH['merge to left'] = LANE_GLYPH['slight left'];
+
+function LaneArrow({ ind, className = 'lane-arrow' }) {
+  const g = LANE_GLYPH[ind] ?? LANE_GLYPH.straight;
   return (
-    <svg viewBox="0 0 48 48" className="turn-arrow" style={{ transform: `rotate(${deg}deg)` }}>
-      <path d="M24 42 V16 M24 10 L13 24 M24 10 L35 24" fill="none" stroke="currentColor" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 24 24" className={className}>
+      <path d={g.d} fill="none" stroke="currentColor" strokeWidth="3.1" strokeLinecap="butt" />
+      {g.head && (
+        <path d={HEAD} fill="currentColor" transform={`translate(${g.head[0]} ${g.head[1]}) rotate(${g.head[2]})`} />
+      )}
     </svg>
   );
 }
 
-
-// ---------- lane guidance ----------
-// The arrows painted on the road before a junction, the way Google and Apple
-// draw them: every lane at the intersection, with the ones that carry you
-// through the next maneuver lit and the rest dimmed. The data rides on the step
-// (see attachLanes in routing.js) and comes from OSM turn:lanes tags, so it is
-// there on interstates and big junctions and absent on rural two-lanes — absent
-// is fine, the strip simply does not render and the maneuver arrow stands alone.
-const LANE_DEG = {
-  'sharp left': -135, 'left': -90, 'slight left': -45, 'merge to left': -30,
-  'straight': 0, 'none': 0,
-  'merge to right': 30, 'slight right': 45, 'right': 90, 'sharp right': 135,
-};
-
-function LaneArrow({ ind }) {
-  if (ind === 'uturn') return <span className="lane-glyph">\u21B6</span>;
-  const deg = LANE_DEG[ind] ?? 0;
-  // 'none' is an unmarked lane: a bare shaft, no head, so it does not read as
-  // an instruction to go straight.
-  const d = ind === 'none' ? 'M12 21 V5' : 'M12 21 V8 M12 3 L5.5 11 M12 3 L18.5 11';
-  return (
-    <svg viewBox="0 0 24 24" className="lane-arrow" style={{ transform: `rotate(${deg}deg)` }}>
-      <path d={d} fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+// The maneuver arrow speaks the same language as the lane arrows — same bent
+// shafts, same solid heads — so the banner reads as one drawing rather than a
+// road marking sitting beside a rotated clip-art arrow. Roundabout and arrive
+// are drawn too: they used to be the characters U+27F3 and U+2691, which render
+// as whatever the platform feels like, up to and including colour emoji.
+function TurnArrow({ step }) {
+  if (!step) return null;
+  if (step.type === 'arrive') {
+    return (
+      <svg viewBox="0 0 24 24" className="turn-arrow">
+        <path d="M6.4 21.8 V2.6" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" />
+        <path d="M7.8 3.4 H19.6 L16.5 8 L19.6 12.6 H7.8 Z" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (step.type === 'roundabout' || step.type === 'rotary') {
+    return (
+      <svg viewBox="0 0 24 24" className="turn-arrow">
+        <circle cx="11" cy="10.8" r="4.8" fill="none" stroke="currentColor" strokeWidth="3" />
+        <path d="M11 21.6 V16.4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="butt" />
+        <path d="M14.6 8.2 L17.4 6.2" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="butt" />
+        <path d={HEAD} fill="currentColor" transform="translate(19.2 5) rotate(55)" />
+      </svg>
+    );
+  }
+  return <LaneArrow ind={step.mod ?? 'straight'} className="turn-arrow" />;
 }
 
 function LaneStrip({ lanes }) {
@@ -76,6 +102,13 @@ function LaneStrip({ lanes }) {
       ))}
     </div>
   );
+}
+
+// OSRM writes route refs as "I 90" or "I 90;US 191"; roadShields() reads the
+// hyphenated form the trip notes use.
+function stepShields(step) {
+  if (!step?.road) return [];
+  return roadShields(step.road.replace(/\b([A-Z]{1,2})\s+(\d)/g, '$1-$2').replace(/;/g, ' ')).slice(0, 2);
 }
 
 const fmtStepDist = (mi) => {
@@ -891,7 +924,10 @@ export default function RideMode({ onClose }) {
             <div className="turn-head">
               <div className="turn-icon"><TurnArrow step={nav.next} /></div>
               <div className="turn-body">
-                <div className="t-dist">{fmtStepDist(nav.toNext)}</div>
+                <div className="t-dist">
+                  {fmtStepDist(nav.toNext)}
+                  {stepShields(nav.next).map((r) => <RoadShield key={r.key} road={r} className="t-shield" />)}
+                </div>
                 <div className="t-instr">{nav.next.instr}</div>
               </div>
             </div>
