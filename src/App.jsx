@@ -194,10 +194,14 @@ export default function App() {
   // Which seat in the bottom bar is lit. Packing and Settings are modals over
   // the current view, so they never take the light; an open day belongs to the
   // Planner.
-  const seatActive = mobileTab === 'map' ? 'map'
-    : mobileTab === 'chat' ? 'optimizer'
-    : selectedDay ? 'plan'
-    : view;
+  // Desktop shows map + panel + optimizer at once, so its lit seat is about
+  // what the panel holds, not which pane is on screen.
+  const seatActive = !isMobile
+    ? (chatOpen ? 'optimizer' : selectedDay ? 'plan' : view)
+    : mobileTab === 'map' ? 'map'
+      : mobileTab === 'chat' ? 'optimizer'
+        : selectedDay ? 'plan'
+          : view;
   const activeSeatRef = useRef(null);
   useEffect(() => {
     activeSeatRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
@@ -222,6 +226,23 @@ export default function App() {
   // Full-bleed map is the map tab's posture only: every other tab scrolls text,
   // which needs an opaque bar to scroll under rather than glass to read through.
   const mapFull = isMobile && mobileTab === 'map';
+
+  // ONE navigation surface, rendered where each layout puts it: a fixed bottom
+  // bar on the phone, a row under the masthead on desktop. Same list, same
+  // handlers, so a destination can never exist on one and not the other.
+  const ViewBar = () => (
+    <nav className={`tabnav${isMobile ? '' : ' deskbar'}`} aria-label="Views">
+      {SEATS.filter(([key]) => isMobile || key !== 'map').map(([key, label]) => (
+        <button
+          key={key}
+          ref={seatActive === key ? activeSeatRef : null}
+          className={seatActive === key ? 'active' : ''}
+          aria-current={seatActive === key}
+          onClick={() => (key === 'map' ? setMobileTab('map') : openTarget(key))}
+        >{t(label)}</button>
+      ))}
+    </nav>
+  );
 
   return (
     <TripContext.Provider value={{ state, dispatch, routes, routedLegsByDay, summary, ui }}>
@@ -254,7 +275,6 @@ export default function App() {
                 <TranslationStatus />
               </span>
             </div>
-            <span className="spacer" />
             {/* Navigation lives on the dashboard, not here. Five view tabs up top
                 duplicated five dashboard cards; the brand is the way home and the
                 hub is the switcher. What is left is contextual: Undo appears only
@@ -264,22 +284,16 @@ export default function App() {
               {state.history.length > 0 && (
                 <button className="btn" onClick={() => dispatch({ type: 'undo' })}>{t('Undo')}</button>
               )}
-              {/* Desktop only. On a phone the bottom bar owns Dashboard, and a
-                  second one up here was the same destination twice — clicking
-                  it while already on the hub did nothing, which read as broken.
-                  Desktop has no bottom bar, so it keeps its way to the hub. */}
-              {!isMobile && (
-                <button
-                  className={`btn mast-dash${view === 'dash' && !selectedDay ? ' on' : ''}`}
-                  onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
-                >{t('Dashboard')}</button>
-              )}
               <button className="btn primary ride-btn" onClick={() => setRideOpen(true)}>
                 <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
                 {t('Ride')}
               </button>
             </div>
           </header>
+          {/* Desktop has no bottom bar, so the same seats render here. Without
+              this, removing the dashboard's launcher cards left Feasibility,
+              Budget, Optimizer, Packing and Settings unreachable on a laptop. */}
+          {!isMobile && <ViewBar />}
           <Ribbon />
         </div>
         <div className={`main${!isMobile && chatOpen ? ' chat-open' : ''}`} data-tab={mobileTab}>
@@ -289,14 +303,6 @@ export default function App() {
               {/* The hub has to be reachable from anywhere it sent you. On a
                   phone the bottom tab renames itself to the current view, so
                   without this there is no way back to the dashboard at all. */}
-              {/* Desktop only: the phone has the hub in its tab bar, so this
-                  would be a second way to the same place in a smaller target. */}
-              {!isMobile && (view !== 'dash' || selectedDay) && (
-                <button
-                  className="back-to-dash"
-                  onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
-                >‹ {t('Dashboard')}</button>
-              )}
               {selectedDay ? <DayPanel day={selectedDay} />
                 : view === 'dash' ? <Dashboard onOpen={openTarget} />
                 : view === 'feas' ? <FeasibilityPanel />
@@ -306,24 +312,7 @@ export default function App() {
           </aside>
           {(isMobile || chatOpen) && <ChatPanel onClose={closeChat} />}
         </div>
-        {isMobile && (
-          /* The phone's ONE navigation surface. Every destination appears here
-             exactly once and nowhere else — the dashboard is the trip's status
-             board and file drawer, not a second copy of this list, and the
-             masthead RIDE button is the one way into navigation. Seats scroll
-             sideways; the active one is kept in view. */
-          <nav className="tabnav" aria-label="Views">
-            {SEATS.map(([key, label]) => (
-              <button
-                key={key}
-                ref={seatActive === key ? activeSeatRef : null}
-                className={seatActive === key ? 'active' : ''}
-                aria-current={seatActive === key}
-                onClick={() => (key === 'map' ? setMobileTab('map') : openTarget(key))}
-              >{t(label)}</button>
-            ))}
-          </nav>
-        )}
+        {isMobile && <ViewBar />}
         <DetailModal />
         {newTripOpen && <NewTripModal onClose={() => setNewTripOpen(false)} />}
         {rideOpen && <RideMode onClose={() => setRideOpen(false)} />}

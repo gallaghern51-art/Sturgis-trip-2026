@@ -71,11 +71,15 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   display: flex;
   align-items: baseline;
   gap: 16px;
-  padding: 12px 20px 8px;
+  padding: 10px 20px 8px;
   border-bottom: 1px solid var(--line);
   background: var(--asphalt-1);
-  flex-wrap: wrap;
+  /* One line on desktop. Wrapping put RIDE alone on a second row — a full-width
+     strip of empty masthead — so the stats line gives up space instead. The
+     phone layout re-enables wrapping below. */
+  flex-wrap: nowrap;
 }
+.masthead .sub { min-width: 0; }
 .masthead h1 {
   font-family: var(--display);
   font-weight: 700;
@@ -99,10 +103,15 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 }
 .mast-trip, .mast-stats { white-space: nowrap; }
 .mast-trip::after { content: ' · '; }
-.masthead .spacer { flex: 1; }
 /* the title block only becomes its own column on small screens */
 .mast-id { display: contents; }
-.masthead .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+/* Ride is the only thing left in here, so it rides up on the title line rather
+   than claiming a row of its own — that row was ~47px of empty masthead across
+   the full width once the duplicate Dashboard button came out of it. */
+.masthead .actions {
+  display: flex; gap: 10px; align-items: center; justify-content: flex-end;
+  margin-left: auto; flex: none;
+}
 /* Says where you are, since the tab row that used to say it is gone. Not a
    control — the dashboard is the switcher. */
 .mast-where {
@@ -682,10 +691,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
     padding-left: max(12px, env(safe-area-inset-left));
     padding-right: max(12px, env(safe-area-inset-right));
   }
+  .masthead { flex-wrap: wrap; }
   .mast-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-  /* the spacer also carries flex:1, so on a phone it split the row with the
-     title block and squeezed it to half the available width */
-  .masthead .spacer { display: none; }
   .masthead h1 { font-size: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* The stats line plus the flags need ~460px and a phone gives it ~250, so
      nowrap+ellipsis clipped the flags off the screen entirely. Let it wrap and
@@ -1693,3 +1700,25 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .datebar .chip.link:hover { border-color: var(--ink-faint); }
 .datebar .chip.ok { color: var(--ok); }
 .datebar .chip.warn { color: var(--danger); border-color: rgba(245, 63, 31, 0.5); }
+
+
+/* ---------- desktop view bar ----------
+   The same seats as the phone's bottom bar, in the row under the masthead.
+   Sized to its type: 8px of padding around a 13px label, no min-height padding
+   it out to a slab, because a mouse does not need a 44px target. */
+.tabnav.deskbar {
+  display: flex; gap: 2px; align-items: stretch;
+  padding: 0 14px; background: var(--asphalt-1);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto; scrollbar-width: none;
+}
+.tabnav.deskbar::-webkit-scrollbar { display: none; }
+.tabnav.deskbar button {
+  flex: 0 0 auto;
+  font-family: var(--display); font-size: 13px; font-weight: 600;
+  letter-spacing: 0.09em; text-transform: uppercase; line-height: 1;
+  color: var(--ink-faint); padding: 8px 12px;
+  border-bottom: 2px solid transparent; border-radius: 0;
+}
+.tabnav.deskbar button:hover { color: var(--ink-dim); }
+.tabnav.deskbar button.active { color: var(--rally); border-bottom-color: var(--rally); }
