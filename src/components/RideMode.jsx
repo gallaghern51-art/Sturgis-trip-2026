@@ -6,7 +6,8 @@ import { haversineMiles } from '../engine/tripEngine.js';
 import { routeDaySteps, routeFrom } from '../engine/routing.js';
 import { STYLE_SATELLITE, STYLE_STREETS, STYLE_DARK, STYLE_LIGHT, warmTilesAhead, cachedGoogleStyle, googleStyle, GOOGLE_KEY } from '../engine/basemaps.js';
 import { fmtDayDate } from '../engine/dates.js';
-import { fetchConditionsAhead, conditionKind, conditionColor } from '../engine/conditions.js';
+import { fetchConditionsAhead } from '../engine/conditions.js';
+import WeatherIcon from './WeatherIcon.jsx';
 import { useT, useTT, useUnits } from '../engine/settings.jsx';
 
 // Ride Mode: a navigation HUD over a live map. Projects your GPS position onto
@@ -583,15 +584,29 @@ export default function RideMode({ onClose }) {
   // far along you are.
   const stopMarks = useMemo(() => {
     if (!totalMiles) return [];
+    // Meals are day-level, not waypoint-level, so a stop counts as a meal when a
+    // meal's venue name turns up in it — "Our Place (breakfast)" and the like.
+    const mealNames = (day.meals ?? [])
+      .map((m) => (m.name || '').toLowerCase().replace(/\s*\(.*$/, '').trim())
+      .filter((n) => n.length > 3);
     let acc = 0;
     return tl.stops.map((st, i) => {
       acc += st.legMiles;
       const w = day.waypoints[i];
       if (!w) return null;
-      const kind = w.fuel ? 'fuel' : w.kind === 'photo' ? 'photo' : (w.kind === 'end' || w.kind === 'start') ? 'end' : 'via';
-      // a via with real time on the ground is a stop worth marking; a pass-through is not
+      const lower = (w.name || '').toLowerCase();
+      // A stop is often more than one thing — breakfast at Our Place is also the
+      // fuel top-off next door — so these are flags, not a single category.
+      const isFuel = !!w.fuel;
+      const isMeal = mealNames.some((n) => lower.includes(n));
+      const isPhoto = w.kind === 'photo';
+      const isEnd = w.kind === 'end' || w.kind === 'start';
+      const letter = `${isFuel ? 'F' : ''}${isMeal ? 'M' : ''}${isPhoto ? 'P' : ''}`;
+      // the dot takes the most safety-critical of them
+      const kind = isFuel ? 'fuel' : isMeal ? 'meal' : isPhoto ? 'photo' : isEnd ? 'end' : 'via';
+      // a via with real time on the ground is worth marking; a pass-through is not
       if (kind === 'via' && !(st.dwell > 0)) return null;
-      return { pct: Math.max(0, Math.min(100, (acc / totalMiles) * 100)), kind, name: w.name };
+      return { pct: Math.max(0, Math.min(100, (acc / totalMiles) * 100)), kind, letter, name: w.name };
     }).filter(Boolean);
   }, [tl, day, totalMiles]);
 
@@ -628,7 +643,8 @@ export default function RideMode({ onClose }) {
               get it. No clock — the phone shows one an inch above this. */}
           {ahead && (
             <div className="ride-chip wx" title={`${ahead.summary} · ${t('ahead')}`}>
-              <span className="wxc-dot" style={{ background: conditionColor(ahead.code) }} />
+              {/* same glyph the day panel uses, so one sky reads one way */}
+              <WeatherIcon code={ahead.code} className="wxc-icon" />
               <span className="wxc-temp">{u.temp(ahead.temp)}</span>
             </div>
           )}
@@ -748,6 +764,13 @@ export default function RideMode({ onClose }) {
           <div className="rp-fill" style={{ width: `${proj ? Math.min(100, (proj.doneMiles / Math.max(1, totalMiles)) * 100) : 0}%` }} />
           {stopMarks.map((m, i) => (
             <span key={i} className={`rp-stop ${m.kind}`} style={{ left: `${m.pct}%` }} title={m.name} />
+          ))}
+        </div>
+        {/* Letters under the marks: F fuel, M meal, P photo. Self-describing, so
+            there is no key to hunt for at speed. */}
+        <div className="rp-keys">
+          {stopMarks.filter((m) => m.letter).map((m, i) => (
+            <span key={i} className={`rp-key ${m.kind}`} style={{ left: `${m.pct}%` }} title={m.name}>{m.letter}</span>
           ))}
         </div>
         {gateReads.length > 0 && (

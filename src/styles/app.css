@@ -863,7 +863,15 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 .ride-mode {
   position: fixed; inset: 0; z-index: 80;
-  background: var(--asphalt-0);
+  background: #000;
+  /* The HUD is light-on-dark whatever the app theme is, so it pins its own ink
+     rather than inheriting. In light mode --ink is near-black, which was being
+     painted onto these dark translucent panels and disappearing. Deliberate:
+     a white HUD is unreadable in direct sun and blinding at night. */
+  --ink: #ffffff;
+  --ink-dim: rgba(255, 255, 255, 0.86);
+  --ink-faint: rgba(255, 255, 255, 0.66);
+  --line: rgba(255, 255, 255, 0.18);
 }
 .ride-map { position: absolute; inset: 0; }
 
@@ -888,9 +896,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   flex: 1; min-width: 0; text-align: left;
   display: flex; flex-direction: column; gap: 1px;
   padding: 4px 10px; min-height: 44px; justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255,255,255,0.14); border-radius: 8px;
-  backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.58);
+  border: 1px solid rgba(255,255,255,0.16); border-radius: 8px;
+  backdrop-filter: blur(14px);
 }
 .ride-leg .rl-day {
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
@@ -912,8 +920,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   /* genuinely see-through: the previous 0.4 black still stacked with a dark blur
      and read as solid, so the tint is now a fraction of that and the blur alone
      does the separating. */
-  background: rgba(10, 10, 10, 0.16);
-  backdrop-filter: blur(18px) saturate(1.2);
+  background: rgba(10, 10, 10, 0.3);
+  backdrop-filter: blur(20px) saturate(1.2);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 14px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
@@ -993,16 +1001,16 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
    equally is what left the speed tile mostly empty. */
 .ride-bottombar { display: grid; grid-template-columns: minmax(96px, 0.5fr) 1fr; gap: 8px; }
 .rb-speed {
-  background: rgba(0, 0, 0, 0.55); border: 1px solid var(--line); border-radius: 12px;
-  padding: 0 4px 3px; text-align: center; backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.62); border: 1px solid var(--line); border-radius: 12px;
+  padding: 0 4px 3px; text-align: center; backdrop-filter: blur(14px);
 }
 .rb-speed .n { font-family: var(--display); font-size: 60px; font-weight: 700; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
 .rb-speed .l { font-family: var(--mono); font-size: 14px; letter-spacing: 0.16em; color: var(--ink-faint); }
 .rb-delta {
   border-radius: 12px; border: 1px solid var(--line);
   padding: 2px 10px 5px; margin-bottom: 8px;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(14px);
 }
 /* the type is the box — nothing is centred in dead space */
 .rb-delta .n {
@@ -1022,8 +1030,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .rb-delta.behind { border-color: var(--danger); } .rb-delta.behind .n { color: var(--danger); }
 .rb-delta.on-time { border-color: var(--rally); } .rb-delta.on-time .n { color: var(--rally); }
 .rb-eta {
-  background: rgba(0, 0, 0, 0.55); border: 1px solid var(--line); border-radius: 12px;
-  padding: 0 6px 3px; text-align: center; backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.62); border: 1px solid var(--line); border-radius: 12px;
+  padding: 0 6px 3px; text-align: center; backdrop-filter: blur(14px);
   display: flex; flex-direction: column; justify-content: center;
 }
 .rb-eta .n { font-family: var(--display); font-size: 42px; font-weight: 700; line-height: 1.05; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -1341,6 +1349,18 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .rp-stop.photo { background: var(--return); border-radius: 1px; transform: translate(-50%, -50%) rotate(45deg); }
 .rp-stop.end { background: var(--ink); width: 7px; height: 14px; border-radius: 2px; }
 .rp-stop.via { background: var(--ink-faint); width: 7px; height: 7px; }
+.rp-stop.meal { background: var(--ok); }
+
+/* the letter is the key — colour-matched to its mark so the pairing is obvious */
+.rp-keys { position: relative; height: 13px; margin-top: 2px; }
+.rp-key {
+  position: absolute; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; font-weight: 600; line-height: 1;
+  letter-spacing: 0.04em; text-shadow: 0 1px 3px #000, 0 0 3px #000;
+}
+.rp-key.fuel { color: var(--outbound); }
+.rp-key.meal { color: var(--ok); }
+.rp-key.photo { color: var(--return); }
 
 
 /* ---------- scrolling stop name ----------
@@ -1376,10 +1396,10 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .ride-chip {
   flex: none; display: flex; align-items: center; justify-content: center; gap: 5px;
   min-height: 44px; padding: 0 9px; border-radius: 8px;
-  background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.58); border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(14px);
 }
-.ride-chip .wxc-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+.ride-chip .wxc-icon { width: 26px; height: 28px; flex: none; }
 .ride-chip .wxc-temp {
   font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--ink);
   font-variant-numeric: tabular-nums;
