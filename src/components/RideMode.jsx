@@ -513,6 +513,23 @@ export default function RideMode({ onClose }) {
   const targetWp = target ? day.waypoints[target.stopIndex] : null;
   const milesOff = target && proj ? proj.doneMiles - target.miles : null;
 
+  // Stops placed along the progress bar by their share of the day's distance, so
+  // the bar shows what is coming (fuel, a photo stop, the end) and not just how
+  // far along you are.
+  const stopMarks = useMemo(() => {
+    if (!totalMiles) return [];
+    let acc = 0;
+    return tl.stops.map((st, i) => {
+      acc += st.legMiles;
+      const w = day.waypoints[i];
+      if (!w) return null;
+      const kind = w.fuel ? 'fuel' : w.kind === 'photo' ? 'photo' : (w.kind === 'end' || w.kind === 'start') ? 'end' : 'via';
+      // a via with real time on the ground is a stop worth marking; a pass-through is not
+      if (kind === 'via' && !(st.dwell > 0)) return null;
+      return { pct: Math.max(0, Math.min(100, (acc / totalMiles) * 100)), kind, name: w.name };
+    }).filter(Boolean);
+  }, [tl, day, totalMiles]);
+
   const showOverview = () => {
     setFollow(false);
     const map = mapRef.current;
@@ -542,7 +559,7 @@ export default function RideMode({ onClose }) {
             <span className="rl-day">{day.dow} {fmtDayDate(day.date)}</span>
             <span className="rl-title">{tt(day.title)}</span>
           </button>
-          <span className="ride-clock">{fmtTime(clock)}</span>
+          {/* No clock: every phone shows one in its status bar, an inch above this. */}
           <button
             className={`btn icon-btn ride-menu-btn${menuOpen ? ' on' : ''}`}
             onClick={() => setMenuOpen((v) => !v)}
@@ -623,39 +640,43 @@ export default function RideMode({ onClose }) {
           )}
           <button className="btn overview" onClick={showOverview}>⤢ Overview</button>
         </div>
+        {/* Schedule first and full width: it is the longest line and the reason
+            to look down. Then the two numbers you glance at. Nothing repeated. */}
+        <div className={`rb-delta ${deltaChip?.cls ?? ''}`}>
+          <div className="n">{deltaChip?.text ?? (fix ? t('LOCATING…') : t('WAITING FOR GPS'))}</div>
+          {milesOff != null && Math.abs(milesOff) >= 1 && (
+            <div className={`l off-line ${milesOff < 0 ? 'short' : 'past'}`}>
+              {u.miNum(Math.abs(milesOff))} {u.miUnit} {milesOff < 0 ? t('short of plan') : t('past plan')}
+              {targetWp && ` · ${t('plan:')} ${tt(targetWp.name)}`}
+            </div>
+          )}
+          <div className="rb-grid">
+            {nextWp && (
+              <span className="rb-next">
+                <i>{t('Next')}</i> {tt(nextWp.name)}
+                {proj && <b> {u.miNum(proj.remainToNext)} {u.miUnit}</b>}
+              </span>
+            )}
+            <span className="rb-odo">
+              <b>{u.miNum(proj ? proj.doneMiles : 0)}</b>/{u.miNum(totalMiles)} {u.miUnit}
+            </span>
+          </div>
+        </div>
         <div className="ride-bottombar">
           <div className="rb-speed">
             <div className="n">{fix?.speedMph != null ? (u.metric ? Math.round(fix.speedMph * 1.609344) : Math.round(fix.speedMph)) : '—'}</div>
             <div className="l">{u.metric ? 'KM/H' : 'MPH'}</div>
           </div>
-          <div className={`rb-delta ${deltaChip?.cls ?? ''}`}>
-            <div className="n">{deltaChip?.text ?? (fix ? t('LOCATING…') : t('WAITING FOR GPS'))}</div>
-            {target && targetWp && (
-              <div className="l plan-line">
-                {t('Plan:')} {u.miNum(target.miles)} {u.miUnit} · {target.atStop ? t('at') : t('nearing')} {tt(targetWp.name)}
-                {milesOff != null && Math.abs(milesOff) >= 1 && (
-                  <b className={milesOff < 0 ? 'short' : 'past'}>
-                    {' '}{u.miNum(Math.abs(milesOff))} {u.miUnit} {milesOff < 0 ? t('short') : t('past')}
-                  </b>
-                )}
-              </div>
-            )}
-            {nextWp && nextSched && (
-              <div className="l">
-                {t('Next:')} {tt(nextWp.name)} · {u.miNum(proj.remainToNext)} {u.miUnit} · {fmtTime(nextSched.arrive)}
-                {delta != null ? ` → ${fmtTime(nextSched.arrive + delta)}` : ''}
-              </div>
-            )}
-          </div>
           <div className="rb-eta">
             <div className="n">{eta != null ? fmtTime(eta) : '—'}</div>
-            <div className="l">{nav ? `${u.miNum(nav.remMi)} ${u.miUnit.toUpperCase()} · ${fmtDur(nav.remMin)}` : 'ETA'}</div>
+            <div className="l">{nav ? `${fmtDur(nav.remMin)} ${t('left')}` : t('ETA')}</div>
           </div>
         </div>
-        <div className="rp-bar"><div className="rp-fill" style={{ width: `${proj ? Math.min(100, (proj.doneMiles / Math.max(1, totalMiles)) * 100) : 0}%` }} /></div>
-        <div className="rp-meta">
-          <span>{proj ? Math.round(proj.doneMiles) : 0} / {Math.round(totalMiles)} mi · session {statsRef.current.miles.toFixed(1)} mi</span>
-          <span>ends ~{projectedEnd != null ? fmtTime(projectedEnd) : fmtTime(tl.endMin)}</span>
+        <div className="rp-bar">
+          <div className="rp-fill" style={{ width: `${proj ? Math.min(100, (proj.doneMiles / Math.max(1, totalMiles)) * 100) : 0}%` }} />
+          {stopMarks.map((m, i) => (
+            <span key={i} className={`rp-stop ${m.kind}`} style={{ left: `${m.pct}%` }} title={m.name} />
+          ))}
         </div>
         {gateReads.length > 0 && (
           <div className="ride-gates">
