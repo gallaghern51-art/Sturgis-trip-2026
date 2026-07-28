@@ -4,7 +4,7 @@ import { useTrip } from '../engine/store.js';
 import { dayTimeline, fmtTime, fmtDur, parseTime } from '../engine/timeline.js';
 import { haversineMiles } from '../engine/tripEngine.js';
 import { routeDaySteps, routeFrom } from '../engine/routing.js';
-import { STYLE_SATELLITE, warmTilesAhead, cachedGoogleStyle, googleStyle, GOOGLE_KEY } from '../engine/basemaps.js';
+import { STYLE_SATELLITE, STYLE_STREETS, STYLE_DARK, STYLE_LIGHT, warmTilesAhead, cachedGoogleStyle, googleStyle, GOOGLE_KEY } from '../engine/basemaps.js';
 import { fmtDayDate } from '../engine/dates.js';
 import { useT, useTT, useUnits } from '../engine/settings.jsx';
 
@@ -134,6 +134,22 @@ function SpeakerIcon({ muted }) {
   );
 }
 
+// Nav map looks. Satellite is the default because terrain reads better at speed;
+// streets is the fallback when imagery is too busy, and dark suits night riding.
+const NAV_STYLES = [
+  { key: 'hybrid', label: 'Satellite' },
+  { key: 'streets', label: 'Streets' },
+  { key: 'dark', label: 'Dark' },
+  { key: 'light', label: 'Light' },
+];
+
+const navStyleFor = (key) => (
+  key === 'streets' ? STYLE_STREETS
+    : key === 'dark' ? STYLE_DARK
+      : key === 'light' ? STYLE_LIGHT
+        : cachedGoogleStyle('hybrid') ?? STYLE_SATELLITE
+);
+
 export default function RideMode({ onClose }) {
   const { state, routes, routedLegsByDay } = useTrip();
   const { trip } = state;
@@ -149,6 +165,8 @@ export default function RideMode({ onClose }) {
   const [rerouteFailed, setRerouteFailed] = useState(false);
   const [follow, setFollow] = useState(true);
   const [muted, setMuted] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [navStyle, setNavStyle] = useState('hybrid');
   const t = useT();
   const tt = useTT();
   const u = useUnits();
@@ -221,23 +239,49 @@ export default function RideMode({ onClose }) {
   }, [day.id, routes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // reroute line: draw it bright, drop the planned line to a ghost underneath
+  const applyLiveRef = useRef(() => {});
+  applyLiveRef.current = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    ensureNavLayers(map);
+    map.getSource('ride-live').setData(reroute
+      ? { type: 'Feature', geometry: { type: 'LineString', coordinates: reroute.geometry } }
+      : EMPTY_LINE);
+    const dim = !!reroute;
+    map.setPaintProperty('ride-route-line', 'line-opacity', dim ? 0.3 : 0.95);
+    map.setPaintProperty('ride-route-casing', 'line-opacity', dim ? 0.2 : 0.85);
+    map.setPaintProperty('ride-route-glow', 'line-opacity', dim ? 0.08 : 0.3);
+    if (dim) map.setPaintProperty('ride-route-line', 'line-gradient', SOLID_AHEAD);
+  };
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const apply = () => {
-      ensureNavLayers(map);
-      map.getSource('ride-live').setData(reroute
-        ? { type: 'Feature', geometry: { type: 'LineString', coordinates: reroute.geometry } }
-        : EMPTY_LINE);
-      const dim = !!reroute;
-      map.setPaintProperty('ride-route-line', 'line-opacity', dim ? 0.3 : 0.95);
-      map.setPaintProperty('ride-route-casing', 'line-opacity', dim ? 0.2 : 0.85);
-      map.setPaintProperty('ride-route-glow', 'line-opacity', dim ? 0.08 : 0.3);
-      if (dim) map.setPaintProperty('ride-route-line', 'line-gradient', SOLID_AHEAD);
-    };
-    if (map.isStyleLoaded()) apply();
-    else map.once('load', apply);
+    if (map.isStyleLoaded()) applyLiveRef.current();
+    else map.once('load', () => applyLiveRef.current());
   }, [reroute]);
+
+  // Changing the basemap calls setStyle, which drops every source and layer we
+  // added — so the route has to be laid back down once the new style settles.
+  const drawPlannedRef = useRef(() => {});
+  drawPlannedRef.current = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    ensureNavLayers(map);
+    const geom = routes[day.id]?.geometry ?? day.waypoints.map((w) => [w.lng, w.lat]);
+    map.getSource('ride-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: geom } });
+    applyLiveRef.current();
+  };
+  const firstStyle = useRef(true);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return undefined;
+    // the map is constructed with the initial style already applied
+    if (firstStyle.current) { firstStyle.current = false; return undefined; }
+    map.setStyle(navStyleFor(navStyle));
+    const redraw = () => drawPlannedRef.current();
+    map.once('styledata', redraw);
+    return () => map.off('styledata', redraw);
+  }, [navStyle]);
 
   // turn-by-turn maneuvers for the selected day
   useEffect(() => {
@@ -477,25 +521,70 @@ export default function RideMode({ onClose }) {
       <div ref={mapDivRef} className="ride-map" />
 
       <div className="ride-overlay ride-overlay-top">
+        {/* A day <select> used to sit here and eat the whole row, which pushed
+            the sound and exit controls off a phone screen. The bar is now just
+            the leg you are on plus one way in; everything else is in the hub. */}
         <div className="ride-topbar">
-          {/* Full leg name, translated. It used to be sliced to 30 chars, which
-              cut "Fly In · Bike Pickup · Missoula" mid-word and never followed
-              the language setting. CSS ellipsizes if the select is narrow. */}
-          <select value={dayId} onChange={(e) => setDayId(e.target.value)}>
-            {trip.days.map((d) => (
-              <option key={d.id} value={d.id}>{d.dow} {fmtDayDate(d.date)} — {tt(d.title)}</option>
-            ))}
-          </select>
+          <button
+            className="ride-leg"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-expanded={menuOpen}
+            title={t('Ride menu')}
+          >
+            <span className="rl-day">{day.dow} {fmtDayDate(day.date)}</span>
+            <span className="rl-title">{tt(day.title)}</span>
+          </button>
           <span className="ride-clock">{fmtTime(clock)}</span>
           <button
-            className={`btn icon-btn${muted ? ' off' : ''}`}
-            title={muted ? t('Unmute') : t('Mute')}
-            aria-label={muted ? t('Unmute') : t('Mute')}
-            aria-pressed={muted}
-            onClick={() => setMuted((m) => !m)}
-          ><SpeakerIcon muted={muted} /></button>
-          <button className="btn" onClick={onClose}>{t('Exit')}</button>
+            className={`btn icon-btn ride-menu-btn${menuOpen ? ' on' : ''}`}
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-expanded={menuOpen}
+            aria-label={t('Ride menu')}
+            title={t('Ride menu')}
+          >
+            <svg viewBox="0 0 22 22" aria-hidden="true" className="hamb">
+              <path d="M3 6h16M3 11h16M3 16h16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
+
+        {menuOpen && (
+          <div className="ride-menu" role="dialog" aria-label={t('Ride menu')}>
+            <label className="rm-row">
+              <span className="rm-label">{t('Leg')}</span>
+              <select value={dayId} onChange={(e) => setDayId(e.target.value)}>
+                {trip.days.map((d) => (
+                  <option key={d.id} value={d.id}>{d.dow} {fmtDayDate(d.date)} — {tt(d.title)}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="rm-row">
+              <span className="rm-label">{t('Map')}</span>
+              <div className="rm-seg">
+                {NAV_STYLES.map((o) => (
+                  <button
+                    key={o.key}
+                    className={navStyle === o.key ? 'active' : ''}
+                    onClick={() => setNavStyle(o.key)}
+                  >{t(o.label)}</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rm-row">
+              <span className="rm-label">{t('Voice')}</span>
+              <div className="rm-seg">
+                <button className={!muted ? 'active' : ''} onClick={() => setMuted(false)}>{t('On')}</button>
+                <button className={muted ? 'active' : ''} onClick={() => setMuted(true)}>{t('Off')}</button>
+              </div>
+            </div>
+
+            {/* The thing a rider actually needs to find, so it gets the weight
+                and sits alone at the bottom. */}
+            <button className="btn end-nav" onClick={onClose}>{t('End navigation')}</button>
+          </div>
+        )}
 
         {geoErr && <div className="warning danger">⚠ {geoErr}</div>}
         {offRoute && !geoErr && (

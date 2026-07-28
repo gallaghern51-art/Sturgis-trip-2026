@@ -880,6 +880,67 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .ride-overlay-bottom { bottom: env(safe-area-inset-bottom, 0); align-items: stretch; }
 
 .ride-topbar { display: flex; gap: 8px; align-items: center; }
+/* The leg you are on, and the way into the hub. Two lines so a long leg name
+   stays readable at a glance instead of being cut. */
+.ride-leg {
+  flex: 1; min-width: 0; text-align: left;
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 6px 11px; min-height: 42px; justify-content: center;
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid var(--line); border-radius: 8px;
+  backdrop-filter: blur(6px);
+}
+.ride-leg .rl-day {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.ride-leg .rl-title {
+  font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ride-menu-btn.on { border-color: var(--outbound); color: var(--outbound); }
+.ride-topbar .hamb { width: 19px; height: 19px; display: block; }
+
+/* The hub: semi-transparent so the road stays visible behind it, and blurred so
+   the controls stay legible over moving imagery. */
+.ride-menu {
+  margin-top: 8px;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.74);
+  backdrop-filter: blur(14px) saturate(1.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+}
+.ride-menu .rm-row { display: flex; align-items: center; gap: 10px; }
+.ride-menu .rm-label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-faint);
+  width: 58px; flex: none;
+}
+.ride-menu select { flex: 1; min-width: 0; min-height: 38px; background: rgba(0, 0, 0, 0.6); }
+.ride-menu .rm-seg {
+  flex: 1; display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+}
+.ride-menu .rm-seg button {
+  flex: 1; padding: 8px 4px;
+  font-family: var(--display); font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--ink-dim); border-right: 1px solid var(--line);
+}
+.ride-menu .rm-seg button:last-child { border-right: none; }
+.ride-menu .rm-seg button.active { background: var(--outbound); color: #000; }
+.ride-menu .end-nav {
+  min-height: 46px; margin-top: 2px;
+  background: var(--danger); border-color: var(--danger); color: #000;
+  font-size: 15px; letter-spacing: 0.1em;
+}
+.ride-menu .end-nav:hover { background: #f76a4a; border-color: #f76a4a; color: #000; }
+
+@media (max-width: 420px) {
+  .ride-menu .rm-row { flex-wrap: wrap; }
+  .ride-menu .rm-label { width: 100%; }
+}
 .ride-topbar select {
   flex: 1; font-family: var(--mono); font-size: 12px; min-height: 42px;
   background: rgba(0, 0, 0, 0.92);

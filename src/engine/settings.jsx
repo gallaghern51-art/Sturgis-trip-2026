@@ -372,6 +372,13 @@ const ES = {
   'Why': 'Por qué',
   'Trade-off': 'Costo',
   'Logistics': 'Logística',
+  // ride mode hub
+  'Ride menu': 'Menú de ruta',
+  'Leg': 'Tramo',
+  'Voice': 'Voz',
+  'Route overview': 'Vista de la ruta',
+  'Re-center': 'Recentrar',
+  'End navigation': 'Terminar navegación',
   // ride mode
   'Exit': 'Salir',
   'Overview': 'Vista general',
