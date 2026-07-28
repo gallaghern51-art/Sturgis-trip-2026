@@ -759,12 +759,15 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   /* Ride is the app's one action and it is pressed with a glove on, so it is
      sized like a button and not like a link. */
   /* out-specifies the .btn.ride-btn base further down the sheet */
+  /* Sized to its own type plus a glove's worth of margin, not padded out to a
+     slab: it was 100x54 around 58x21 of ink. Bigger text, less air, still a
+     44px touch target. */
   .masthead .btn.ride-btn {
-    font-size: 17px; letter-spacing: 0.1em; gap: 9px;
-    padding: 13px 20px; min-height: 54px; border-radius: 10px;
+    font-size: 19px; letter-spacing: 0.08em; gap: 7px; line-height: 1;
+    padding: 12px 14px; min-height: 44px; border-radius: 9px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.42);
   }
-  .masthead .btn.ride-btn .play-tri { width: 15px; height: 15px; }
+  .masthead .btn.ride-btn .play-tri { width: 14px; height: 14px; }
 
   /* ---- map tab: full-bleed map, floating chrome (the Apple Maps posture) ----
      The header and the day ribbon stop being opaque bars that own the top of

@@ -264,15 +264,16 @@ export default function App() {
               {state.history.length > 0 && (
                 <button className="btn" onClick={() => dispatch({ type: 'undo' })}>{t('Undo')}</button>
               )}
-              {/* Was a static "you are here" label that renamed itself to the
-                  current view. Sitting in a row of buttons it read as a tab and
-                  got clicked, so it is one: always the way to the hub, lit when
-                  you are already on it. The view's own name is its panel
-                  heading — the masthead does not need to say it twice. */}
-              <button
-                className={`btn mast-dash${view === 'dash' && !selectedDay ? ' on' : ''}`}
-                onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
-              >{t('Dashboard')}</button>
+              {/* Desktop only. On a phone the bottom bar owns Dashboard, and a
+                  second one up here was the same destination twice — clicking
+                  it while already on the hub did nothing, which read as broken.
+                  Desktop has no bottom bar, so it keeps its way to the hub. */}
+              {!isMobile && (
+                <button
+                  className={`btn mast-dash${view === 'dash' && !selectedDay ? ' on' : ''}`}
+                  onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
+                >{t('Dashboard')}</button>
+              )}
               <button className="btn primary ride-btn" onClick={() => setRideOpen(true)}>
                 <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
                 {t('Ride')}
