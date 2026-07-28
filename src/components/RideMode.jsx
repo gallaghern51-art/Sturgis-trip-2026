@@ -233,7 +233,6 @@ const navStyleFor = (key) => (
 const MQ_GAP = 44; // px between the two copies — must match .mq-ink gap
 const MQ_SPEED = 26; // px per second, so long and short names read the same
 
-const SCRUB_POP_W = 256; // must match .scrub-pop width
 
 function Marquee({ className, label, text }) {
   const boxRef = useRef(null);
@@ -291,8 +290,6 @@ export default function RideMode({ onClose }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [navStyle, setNavStyle] = useState('hybrid');
   const [ahead, setAhead] = useState(null); // conditions a few miles up the road
-  const [scrub, setScrub] = useState(null); // {pct, stop} while dragging the bar
-  const barRef = useRef(null);
   const wpMarkersRef = useRef([]);
   // Posted limits are not in what we route with: OSRM's steps carry no maxspeed
   // and Google's limits sit behind a separately-licensed Roads API. The chip is
@@ -703,39 +700,6 @@ export default function RideMode({ onClose }) {
     }).filter(Boolean);
   }, [tl, day, totalMiles]);
 
-  // Only the stops that actually get a dot on the bar. Scrubbing has to snap to
-  // this set, not to every waypoint — otherwise the card anchors to a stop with
-  // no dot under it and appears to be pointing at nothing.
-  const barStops = useMemo(() => stopMarks.filter((m) => !m.minor), [stopMarks]);
-
-  // Drag along the bar to read the day ahead: the nearest stop to the finger,
-  // with what it is, where it is, and how far off. Pointer events so it works
-  // the same under a glove on glass as under a mouse.
-  const scrubAt = (clientX) => {
-    const el = barRef.current;
-    if (!el || !barStops.length) return;
-    const r = el.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100));
-    let best = barStops[0];
-    for (const m of barStops) if (Math.abs(m.pct - pct) < Math.abs(best.pct - pct)) best = m;
-
-    // Snap to the stop, not the finger: the card describes one stop, so parking
-    // it mid-leg made it look like it was describing a stretch of empty road.
-    // The card is wider than the gap between the end stops and the screen edge,
-    // so it cannot always sit centred on its dot — it gets pushed inboard to
-    // stay readable, and a tail points back at the dot it belongs to.
-    const host = el.offsetParent?.getBoundingClientRect() ?? { left: 0, width: window.innerWidth };
-    const dotX = r.left + (r.width * best.pct) / 100 - host.left;
-    const w = Math.min(SCRUB_POP_W, window.innerWidth * 0.88);
-    const left = Math.max(4, Math.min(dotX - w / 2, host.width - w - 4));
-    setScrub({ stop: best, pct: best.pct, left, tail: Math.max(14, Math.min(dotX - left, w - 14)) });
-  };
-  const onScrubDown = (e) => {
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    scrubAt(e.clientX);
-  };
-  const onScrubMove = (e) => { if (scrub) scrubAt(e.clientX); };
-  const endScrub = () => setScrub(null);
 
   const showOverview = () => {
     setFollow(false);
@@ -965,46 +929,6 @@ export default function RideMode({ onClose }) {
             <b>{eta != null ? fmtTime(eta) : '—'}</b> <i>{t('ETA')}</i>
           </div>
           {nextWp && <Marquee className="rb-next" label={t('Next')} text={tt(nextWp.name)} />}
-        </div>
-        {/* clamped so dragging to either end keeps the card fully on screen */}
-        {scrub && (
-          <div className="scrub-pop" style={{ left: `${scrub.left}px` }}>
-            <span className="sp-arrow" style={{ left: `${scrub.tail}px` }} />
-            <div className="sp-name">{tt(scrub.stop.name)}</div>
-            <div className="sp-meta">
-              {scrub.stop.letter && <span className={`sp-tag ${scrub.stop.kind}`}>{scrub.stop.letter}</span>}
-              <span>{u.miNum(Math.max(0, scrub.stop.miles - (proj?.doneMiles ?? 0)))} {u.miUnit} {t('away')}</span>
-              <span>· {fmtTime(scrub.stop.arrive)}</span>
-            </div>
-            {scrub.stop.note && <div className="sp-note">{tt(scrub.stop.note)}</div>}
-          </div>
-        )}
-        <div
-          className="rp-bar"
-          ref={barRef}
-          onPointerDown={onScrubDown}
-          onPointerMove={onScrubMove}
-          onPointerUp={endScrub}
-          onPointerCancel={endScrub}
-          onPointerLeave={endScrub}
-        >
-          <div className="rp-fill" style={{ width: `${proj ? Math.min(100, (proj.doneMiles / Math.max(1, totalMiles)) * 100) : 0}%` }} />
-          {barStops.map((m, i) => (
-            <span
-              key={i}
-              className={`rp-stop ${m.kind}${scrub?.stop === m ? ' active' : ''}`}
-              style={{ left: `${m.pct}%` }}
-              title={m.name}
-            />
-          ))}
-          {scrub && <span className="rp-cursor" style={{ left: `${scrub.pct}%` }} />}
-        </div>
-        {/* Letters under the marks: F fuel, M meal, P photo. Self-describing, so
-            there is no key to hunt for at speed. */}
-        <div className="rp-keys">
-          {barStops.filter((m) => m.letter).map((m, i) => (
-            <span key={i} className={`rp-key ${m.kind}`} style={{ left: `${m.pct}%` }} title={m.name}>{m.letter}</span>
-          ))}
         </div>
         {gateReads.length > 0 && (
           <div className="ride-gates">

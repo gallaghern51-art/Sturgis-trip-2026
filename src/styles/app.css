@@ -1071,7 +1071,6 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .rb-delta.behind { border-color: var(--danger); } .rb-delta.behind .n { color: var(--danger); }
 .rb-delta.on-time { border-color: var(--rally); } .rb-delta.on-time .n { color: var(--rally); }
 
-.ride-mode .rp-bar { background: rgba(26, 26, 26, 0.9); }
 .ride-mode .rp-meta { text-shadow: 0 1px 3px #000; }
 .ride-gates { display: flex; gap: 6px; flex-wrap: wrap; }
 .ride-gate {
@@ -1085,8 +1084,6 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 /* No overflow clip: the stop marks sit ON the bar and are taller than it, and
    hiding overflow was slicing the end markers down to the bar's own 9px. The
    fill keeps its own rounded left cap instead. */
-.rp-bar { height: 9px; border-radius: 5px; background: rgba(26, 26, 26, 0.9); border: 1px solid var(--line); }
-.rp-fill { height: 100%; border-radius: 5px 0 0 5px; background: linear-gradient(90deg, var(--outbound), var(--rally)); transition: width 0.6s; }
 .rp-meta { display: flex; justify-content: space-between; gap: 14px; font-family: var(--mono); font-size: 12px; color: var(--ink-dim); margin-top: 4px; }
 
 /* ---------- masthead flags ---------- */
@@ -1207,7 +1204,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
    group decides it is clutter it comes off without touching the layout. */
 
 .leg-roads { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; align-items: center; }
-/* real signage from public/shields — sized to sit with the mono numbers */
+/* real signage, resolved from Commons — sized to sit with the mono numbers */
 .shield-img { height: 19px; width: auto; flex: none; }
 .shield-img.inherited { opacity: 0.45; }
 .shield {
@@ -1376,31 +1373,10 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 /* ---------- ride progress bar: the day's stops along it ---------- */
 
-.ride-mode .rp-bar { position: relative; overflow: visible; }
-.rp-stop {
-  position: absolute; top: 50%; width: 9px; height: 9px;
-  transform: translate(-50%, -50%); border-radius: 50%;
-  border: 1.5px solid rgba(0, 0, 0, 0.9); pointer-events: none;
-}
-.rp-stop.fuel { background: var(--outbound); }
-.rp-stop.photo { background: var(--return); border-radius: 1px; transform: translate(-50%, -50%) rotate(45deg); }
-.rp-stop.end { background: var(--ink); width: 7px; height: 14px; border-radius: 2px; }
-.rp-stop.via { background: var(--ink-faint); width: 7px; height: 7px; }
-.rp-stop.meal { background: var(--ok); }
 /* the stop the scrub card is describing — the card is anchored over this dot,
    so the dot has to say which one it is */
-.rp-stop.active { box-shadow: 0 0 0 2.5px rgba(255, 255, 255, 0.95), 0 0 10px rgba(0, 0, 0, 0.9); z-index: 2; }
 
 /* the letter is the key — colour-matched to its mark so the pairing is obvious */
-.rp-keys { position: relative; height: 13px; margin-top: 2px; }
-.rp-key {
-  position: absolute; transform: translateX(-50%);
-  font-family: var(--mono); font-size: 10px; font-weight: 600; line-height: 1;
-  letter-spacing: 0.04em; text-shadow: 0 1px 3px #000, 0 0 3px #000;
-}
-.rp-key.fuel { color: var(--outbound); }
-.rp-key.meal { color: var(--ok); }
-.rp-key.photo { color: var(--return); }
 
 
 /* ---------- scrolling stop name ----------
@@ -1463,49 +1439,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 /* ---------- dragging the progress bar ----------
    Scrub it like a scroll bar to read the day ahead: nearest stop to the finger,
    what it is, how far off, and when the plan has you there. */
-.rp-bar { touch-action: none; cursor: pointer; }
-.rp-cursor {
-  position: absolute; top: 50%; width: 2px; height: 18px;
-  transform: translate(-50%, -50%); background: var(--ink);
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.9); pointer-events: none;
-}
-.scrub-pop {
-  /* `left` is computed in px by scrubAt — it centres on the dot where there is
-     room and slides inboard where there is not, with .sp-arrow pointing back. */
-  position: absolute; bottom: 34px;
-  width: 256px; max-width: 88vw; padding: 7px 10px;
-  background: rgba(0, 0, 0, 0.82); backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 10px;
-  pointer-events: none; z-index: 6;
-}
 /* the tail: always over the dot, even when the card itself cannot be */
-.sp-arrow {
-  position: absolute; bottom: -5px; width: 10px; height: 10px;
-  transform: translateX(-50%) rotate(45deg);
-  background: rgba(0, 0, 0, 0.82);
-  border-right: 1px solid rgba(255, 255, 255, 0.18);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-}
-.sp-name {
-  font-family: var(--display); font-size: 17px; font-weight: 700; color: var(--ink);
-  line-height: 1.15;
-}
-.sp-meta {
-  display: flex; align-items: center; gap: 5px; margin-top: 2px;
-  font-family: var(--mono); font-size: 12px; color: var(--ink-dim);
-}
-.sp-tag {
-  font-family: var(--mono); font-size: 10px; font-weight: 600;
-  padding: 1px 4px; border-radius: 3px; color: #000;
-}
-.sp-tag.fuel { background: var(--outbound); }
-.sp-tag.meal { background: var(--ok); }
-.sp-tag.photo { background: var(--return); }
-.sp-note {
-  font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint);
-  margin-top: 3px; line-height: 1.3;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
 
 /* Voice reads as one bar like the rows above it — same height, border and
    corner as the leg select and the map segments — instead of a small switch
