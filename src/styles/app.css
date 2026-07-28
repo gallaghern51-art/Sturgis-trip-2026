@@ -152,8 +152,10 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   overflow-x: auto;
 }
 .ribbon .seg {
-  flex: 1 0 88px;
-  min-width: 88px;
+  /* wide enough that "Fri 8/7" stays on one line at the larger type — at 88px
+     the date wrapped and every card grew a third row */
+  flex: 1 0 132px;
+  min-width: 132px;
   text-align: left;
   padding: 7px 9px 6px;
   border-radius: 5px;
@@ -167,11 +169,11 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .ribbon .seg .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px; background: var(--seg-color); }
 .ribbon .seg.anchor .bar { box-shadow: 0 0 8px var(--seg-color); }
 .ribbon .seg .dw {
-  font-family: var(--mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.05em;
+  font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: 0.04em;
   display: block; padding-right: 26px; /* keeps D# clear of the warning dot */
 }
-.ribbon .seg .ttl { font-family: var(--display); font-size: 14.5px; font-weight: 600; letter-spacing: 0.02em; line-height: 1.1; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ribbon .seg .mi { font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); margin-top: 2px; }
+.ribbon .seg .ttl { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.02em; line-height: 1.1; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ribbon .seg .mi { font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); margin-top: 2px; }
 /* The dot and the day number both want the top-right corner. Dot outermost,
    number tucked inside it, and a ring so the dot reads on any seg background. */
 .ribbon .seg .warn-dot {
@@ -180,17 +182,18 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 }
 .ribbon .seg.active .warn-dot { box-shadow: 0 0 0 2px var(--asphalt-3); }
 .ribbon .seg .warn-dot.w { background: var(--rally); }
-.ribbon .overview-seg { flex: 0 0 64px; min-width: 64px; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); }
+.ribbon .overview-seg { flex: 0 0 64px; min-width: 64px; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); }
 .ribbon .overview-seg.active { color: var(--rally); border-color: var(--rally); }
 
 /* ---------- main split ---------- */
 
 .main { display: grid; grid-template-columns: minmax(0, 1fr) 460px; min-height: 0; }
 .main.chat-open { grid-template-columns: minmax(0, 1fr) 460px 380px; }
-/* tablet: map over panel, optimizer docked to the bottom edge */
-@media (min-width: 821px) and (max-width: 1100px) and (min-height: 521px) {
-  .main, .main.chat-open { grid-template-columns: 1fr; grid-template-rows: 320px minmax(0, 1fr); }
-  .chat-panel { position: fixed; inset: auto 0 0 0; height: 60vh; z-index: 40; }
+/* Narrow desktop keeps the panel BESIDE the map, just narrower. It used to
+   stack map-over-panel here, which is why pages appeared "on the bottom" on a
+   half-width window. */
+@media (min-width: 821px) and (max-width: 1240px) {
+  .main { grid-template-columns: minmax(0, 1fr) 380px; }
 }
 
 .map-wrap { position: relative; min-height: 0; }
@@ -732,7 +735,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
     scrollbar-width: none;
   }
   .ribbon::-webkit-scrollbar { display: none; }
-  .ribbon .seg { flex: 0 0 118px; min-width: 118px; scroll-snap-align: center; padding: 8px 10px 7px; }
+  .ribbon .seg { flex: 0 0 140px; min-width: 140px; scroll-snap-align: center; padding: 8px 10px 7px; }
   .ribbon .overview-seg { flex: 0 0 60px; min-width: 60px; }
 
   /* The map is the floor, always drawn. Pages slide in over it from the side
@@ -1471,10 +1474,15 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 /* Ride is the end cap of the action row — the play mark carries the attention
    so the label does not have to shout. */
+/* Same treatment the phone button got, which I had only ever applied inside the
+   phone media query: sized to its type, with the touch/click target hung off it
+   invisibly rather than built out of padding. */
 .btn.ride-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 16px; padding: 8px 18px;
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px; line-height: 1;
+  font-size: 18px; padding: 5px 8px;
 }
+.btn.ride-btn::before { content: ''; position: absolute; inset: -9px -8px; }
 .play-tri { width: 13px; height: 13px; flex: none; }
 
 /* ---------- trip translation panel ---------- */
@@ -1735,7 +1743,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .tabnav.deskbar::-webkit-scrollbar { display: none; }
 .tabnav.deskbar button {
   flex: 0 0 auto;
-  font-family: var(--display); font-size: 13px; font-weight: 600;
+  font-family: var(--display); font-size: 15px; font-weight: 600;
   letter-spacing: 0.09em; text-transform: uppercase; line-height: 1;
   color: var(--ink-faint); padding: 8px 12px;
   border-bottom: 2px solid transparent; border-radius: 0;
