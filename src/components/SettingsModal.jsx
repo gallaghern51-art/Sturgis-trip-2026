@@ -6,7 +6,7 @@ import { clearTranslateFailure } from '../engine/autoTranslate.js';
 
 // Language + theme, per device. Both apply instantly; nothing to save.
 export default function SettingsModal({ onClose }) {
-  const { lang, theme, units, shields, density, set } = useSettings();
+  const { lang, theme, units, shields, set } = useSettings();
   const t = useT();
   const [devOpen, setDevOpen] = useState(false);
   const { state } = useTrip();
@@ -43,17 +43,6 @@ export default function SettingsModal({ onClose }) {
             </div>
           </div>
 
-          {/* Ride Mode reads at 70 mph through a visor, and how much belongs on
-              that screen is a rider preference, not a fact — some want the
-              numbers labelled, some want the map. */}
-          <div className="set-row">
-            <span className="set-label">{t('Data density')}</span>
-            <div className="set-seg">
-              <button className={density === 'minimal' ? 'active' : ''} onClick={() => set({ density: 'minimal' })}>{t('Minimalist')}</button>
-              <button className={density === 'detailed' ? 'active' : ''} onClick={() => set({ density: 'detailed' })}>{t('Detailed')}</button>
-            </div>
-          </div>
-          <p className="set-note">{t('How much the Ride Mode HUD shows')}</p>
           <p className="set-note">
             {t('Applies on this device only. Trip text and AI answers stay in the language they were written in — ask the optimizer in Spanish and it answers in Spanish.')}
           </p>

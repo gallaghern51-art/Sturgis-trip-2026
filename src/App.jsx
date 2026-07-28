@@ -176,6 +176,12 @@ export default function App() {
     : view === 'budget' ? 'Budget'
     : 'Planner';
   const panelLabel = selectedDay ? selectedDay.dow : viewLabel;
+  // Is the hub what is currently on screen? Drives the middle tab's state, and
+  // the third tab's label, which names the work rather than the hub.
+  const onDash = mobileTab === 'panel' && view === 'dash' && !selectedDay;
+  const workLabel = selectedDay ? selectedDay.dow
+    : view === 'dash' ? 'Planner'
+    : viewLabel;
 
   return (
     <TripContext.Provider value={{ state, dispatch, routes, routedLegsByDay, summary, ui }}>
@@ -232,7 +238,9 @@ export default function App() {
               {/* The hub has to be reachable from anywhere it sent you. On a
                   phone the bottom tab renames itself to the current view, so
                   without this there is no way back to the dashboard at all. */}
-              {(view !== 'dash' || selectedDay) && (
+              {/* Desktop only: the phone has the hub in its tab bar, so this
+                  would be a second way to the same place in a smaller target. */}
+              {!isMobile && (view !== 'dash' || selectedDay) && (
                 <button
                   className="back-to-dash"
                   onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
@@ -248,10 +256,27 @@ export default function App() {
           {(isMobile || chatOpen) && <ChatPanel onClose={closeChat} />}
         </div>
         {isMobile && (
+          /* The hub is a fixed seat in the middle, not a link you have to find:
+             it is the one destination every other view is reached from, so it
+             cannot be the thing that scrolls away. The Optimizer used to hold
+             this row's third seat despite being one card on the hub among a
+             dozen; the third seat now follows whatever you are working on. */
           <nav className="tabnav" aria-label="Views">
-            <button className={mobileTab === 'map' ? 'active' : ''} onClick={() => setMobileTab('map')} aria-current={mobileTab === 'map'}>{t('Map')}</button>
-            <button className={mobileTab === 'panel' ? 'active' : ''} onClick={() => setMobileTab('panel')} aria-current={mobileTab === 'panel'}>{t(panelLabel)}</button>
-            <button className={mobileTab === 'chat' ? 'active' : ''} onClick={() => setMobileTab('chat')} aria-current={mobileTab === 'chat'}>{t('Optimizer')}</button>
+            <button
+              className={mobileTab === 'map' ? 'active' : ''}
+              onClick={() => setMobileTab('map')}
+              aria-current={mobileTab === 'map'}
+            >{t('Map')}</button>
+            <button
+              className={onDash ? 'active' : ''}
+              onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); setMobileTab('panel'); }}
+              aria-current={onDash}
+            >{t('Dashboard')}</button>
+            <button
+              className={mobileTab === 'panel' && !onDash ? 'active' : ''}
+              onClick={() => { if (view === 'dash' && !selectedDay) setView('plan'); setMobileTab('panel'); }}
+              aria-current={mobileTab === 'panel' && !onDash}
+            >{t(workLabel)}</button>
           </nav>
         )}
         <DetailModal />

@@ -99,6 +99,9 @@ export default function MapView() {
       style: cachedGoogleStyle('hybrid') ?? STYLE_SATELLITE,
       center: [-108.5, 45.9],
       zoom: 5.4,
+      // compact, and actually collapsed: MapLibre renders `compact` with its
+      // -show class already on, so the credit sits open across the map until
+      // someone clicks it away. Stripped on load, below.
       attributionControl: { compact: true },
     });
     mapRef.current = map;
@@ -132,6 +135,12 @@ export default function MapView() {
     });
     map.on('load', () => {
       readyRef.current = true;
+      // MapLibre ships compact attribution with its -show class already on, so
+      // the credit sits open across the bottom of the map until someone clicks
+      // it shut. Start it behind its own (i), where a legal credit belongs.
+      containerRef.current
+        ?.querySelectorAll('.maplibregl-ctrl-attrib.maplibregl-compact-show')
+        .forEach((el) => el.classList.remove('maplibregl-compact-show'));
       drawAllRef.current();
     });
     map.on('styledata', () => {

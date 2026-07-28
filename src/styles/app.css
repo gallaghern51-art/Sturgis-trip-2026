@@ -931,6 +931,18 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
 }
 .ride-menu .rm-row { display: flex; align-items: center; gap: 7px; }
+/* Map settings are a set, so they are drawn as one: a titled block rather than
+   three loose rows that happen to sit next to each other. */
+.ride-menu .rm-group {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 7px 7px 8px; border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.045);
+}
+.ride-menu .rm-group-label {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--outbound);
+}
 .ride-menu .rm-label {
   font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--ink-faint);
@@ -1502,3 +1514,35 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   text-shadow: 0 1px 3px #000, 0 0 4px #000, 0 0 8px #000;
   pointer-events: none;
 }
+
+
+/* ---------- map chrome on a phone ----------
+   The basemap switch is 300px of buttons; on a 375px screen it ran under the
+   zoom control and straight over the editing hint, which sat at the same top.
+   They get their own rows, and the switch spends the full width instead of
+   pretending it fits beside something. */
+@media (max-width: 720px) {
+  .basemap-switch {
+    left: 12px; right: 12px; top: 12px;
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  }
+  .basemap-switch button { padding: 7px 2px; font-size: 10px; text-align: center; }
+  .map-hint {
+    top: 52px; left: 12px; right: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* clear the switch's row so the zoom buttons stop landing on top of it */
+  .maplibregl-ctrl-top-right { margin-top: 44px; }
+  /* the legend runs the full width down there — put the scale and the credit
+     above it rather than through it */
+  .maplibregl-ctrl-bottom-right { margin-bottom: 62px; }
+  .map-legend { right: 12px; }
+}
+
+/* Attribution is a legal credit, not a caption: it belongs behind its own (i)
+   until someone asks. MapLibre ships `compact` already expanded, so collapse
+   it and let its own toggle class be the only thing that opens it. */
+.maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-inner {
+  display: none;
+}
+.maplibregl-ctrl-attrib.maplibregl-compact { min-height: 24px; }

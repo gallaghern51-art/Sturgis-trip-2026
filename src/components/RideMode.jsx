@@ -299,7 +299,7 @@ export default function RideMode({ onClose }) {
   const t = useT();
   const tt = useTT();
   const u = useUnits();
-  const { density } = useSettings();
+  const { density, set } = useSettings();
   const lean = density === 'minimal';
   const statsRef = useRef({ miles: 0, maxMph: 0, last: null });
   const wakeRef = useRef(null);
@@ -833,35 +833,50 @@ export default function RideMode({ onClose }) {
               </select>
             </label>
 
-            <div className="rm-row">
-              <span className="rm-label">{t('Map')}</span>
-              <div className="rm-seg">
-                {NAV_STYLES.map((o) => (
-                  <button
-                    key={o.key}
-                    className={navStyle === o.key ? 'active' : ''}
-                    onClick={() => setNavStyle(o.key)}
-                  >{t(o.label)}</button>
-                ))}
-              </div>
-            </div>
+            {/* Map settings live here rather than in the app's Settings modal:
+                these three only mean anything while navigating, and a rider
+                changing them is wearing gloves on the side of a road, not
+                sitting in the planner. */}
+            <div className="rm-group">
+              <span className="rm-group-label">{t('Map settings')}</span>
 
-            <div className="rm-row">
-              <span className="rm-label">{t('Voice')}</span>
-              {/* A switch, not a pair of yes/no buttons — it is one binary thing
-                  and the segmented version read as "Sí / No" in Spanish. It
-                  rides in a full-width bar so the row is built like the leg
-                  select and the map segments above it, rather than a small
-                  control floating alone against the left edge. */}
-              <div className="rm-switch">
-                <SpeakerIcon muted={muted} />
-                <button
-                  className={`toggle rm-toggle${muted ? '' : ' on'}`}
-                  role="switch"
-                  aria-checked={!muted}
-                  aria-label={t('Voice')}
-                  onClick={() => setMuted((m) => !m)}
-                />
+              <div className="rm-row">
+                <span className="rm-label">{t('Basemap')}</span>
+                <div className="rm-seg">
+                  {NAV_STYLES.map((o) => (
+                    <button
+                      key={o.key}
+                      className={navStyle === o.key ? 'active' : ''}
+                      onClick={() => setNavStyle(o.key)}
+                    >{t(o.label)}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rm-row">
+                <span className="rm-label">{t('Density')}</span>
+                <div className="rm-seg">
+                  <button className={lean ? 'active' : ''} onClick={() => set({ density: 'minimal' })}>{t('Minimalist')}</button>
+                  <button className={!lean ? 'active' : ''} onClick={() => set({ density: 'detailed' })}>{t('Detailed')}</button>
+                </div>
+              </div>
+
+              <div className="rm-row">
+                <span className="rm-label">{t('Voice')}</span>
+                {/* A switch, not a pair of yes/no buttons — it is one binary
+                    thing and the segmented version read as "Sí / No" in
+                    Spanish. It rides in a full-width bar so the row is built
+                    like the segments above it. */}
+                <div className="rm-switch">
+                  <SpeakerIcon muted={muted} />
+                  <button
+                    className={`toggle rm-toggle${muted ? '' : ' on'}`}
+                    role="switch"
+                    aria-checked={!muted}
+                    aria-label={t('Voice')}
+                    onClick={() => setMuted((m) => !m)}
+                  />
+                </div>
               </div>
             </div>
 
