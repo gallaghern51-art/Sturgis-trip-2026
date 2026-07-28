@@ -154,24 +154,33 @@ const navStyleFor = (key) => (
 
 
 // A stop name is often longer than a phone is wide. Rather than truncate it,
-// this scrolls it — but only when it actually overflows, so short names sit
-// still instead of drifting for no reason.
+// this scrolls it — one direction, looping, not ping-ponging back and forth.
+// The text is rendered twice and shifted by exactly one copy plus the gap, so
+// the second copy lands where the first began and the seam is invisible.
+// Only overflowing text moves; short names sit still.
+const MQ_GAP = 44; // px between the two copies — must match .mq-ink gap
+const MQ_SPEED = 26; // px per second, so long and short names read the same
+
 function Marquee({ className, label, text }) {
   const boxRef = useRef(null);
+  const segRef = useRef(null);
   const inkRef = useRef(null);
   const [runs, setRuns] = useState(false);
 
   useEffect(() => {
     const box = boxRef.current;
+    const seg = segRef.current;
     const ink = inkRef.current;
-    if (!box || !ink) return;
-    const over = ink.scrollWidth - box.clientWidth;
-    setRuns(over > 4);
-    // distance and duration are set from the actual overflow so the speed is
-    // constant regardless of how long the name is
-    if (over > 4) {
-      ink.style.setProperty('--shift', `${-over - 12}px`);
-      ink.style.setProperty('--dur', `${Math.max(6, (over + 12) / 22)}s`);
+    if (!box || !seg || !ink) return;
+    const segW = seg.scrollWidth;
+    // Any overflow at all clips a character, so scroll on 1px — a name that
+    // ends in a sliced "a" reads as a typo at 70 mph.
+    const over = segW - box.clientWidth > 1;
+    setRuns(over);
+    if (over) {
+      const shift = segW + MQ_GAP;
+      ink.style.setProperty('--shift', `${-shift}px`);
+      ink.style.setProperty('--dur', `${shift / MQ_SPEED}s`);
     }
   }, [text]);
 
@@ -181,7 +190,10 @@ function Marquee({ className, label, text }) {
     <div className={`${className} mq-row`}>
       {label && <i className="mq-label">{label}</i>}
       <div className="mq-box" ref={boxRef}>
-        <span className={`mq-ink${runs ? ' runs' : ''}`} ref={inkRef}>{text}</span>
+        <span className={`mq-ink${runs ? ' runs' : ''}`} ref={inkRef}>
+          <span className="mq-seg" ref={segRef}>{text}</span>
+          {runs && <span className="mq-seg" aria-hidden="true">{text}</span>}
+        </span>
       </div>
     </div>
   );
@@ -207,6 +219,7 @@ export default function RideMode({ onClose }) {
   const [ahead, setAhead] = useState(null); // conditions a few miles up the road
   const [scrub, setScrub] = useState(null); // {pct, stop} while dragging the bar
   const barRef = useRef(null);
+  const wpMarkersRef = useRef([]);
   // Posted limits are not in what we route with: OSRM's steps carry no maxspeed
   // and Google's limits sit behind a separately-licensed Roads API. The chip is
   // wired and will render the moment a source is plumbed in — it just will not
@@ -643,8 +656,68 @@ export default function RideMode({ onClose }) {
     if (coords.length < 2) return;
     const b = coords.reduce((acc, c) => acc.extend(c), new maplibregl.LngLatBounds(coords[0], coords[0]));
     map.setPitch(0);
-    map.fitBounds(b, { padding: 60, bearing: 0, duration: 800 });
+    // Padding leaves room for the HUD, which covers the top and bottom of the
+    // screen — without it the first and last stops sit under the panels.
+    map.fitBounds(b, {
+      bearing: 0,
+      duration: 800,
+      padding: { top: 120, bottom: 190, left: 60, right: 60 },
+    });
   };
+
+  // Named stops, but only while the whole day is on screen. During navigation
+  // they would be noise on top of the turn card; in overview they are the point.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return undefined;
+    wpMarkersRef.current.forEach((m) => m.remove());
+    wpMarkersRef.current = [];
+    if (follow) return undefined;
+
+    const labels = [];
+    day.waypoints.forEach((w, i) => {
+      if (!Number.isFinite(w.lat) || !Number.isFinite(w.lng)) return;
+      const mark = stopMarks.find((m) => m.name === w.name);
+      const el = document.createElement('div');
+      el.className = `ov-wp ${mark?.kind ?? 'via'}`;
+      const dot = document.createElement('span');
+      dot.className = 'ov-dot';
+      const label = document.createElement('span');
+      label.className = 'ov-label';
+      label.textContent = tt(w.name);
+      // alternate sides so consecutive labels along a line do not stack
+      el.classList.add(i % 2 ? 'below' : 'above');
+      el.append(dot, label);
+      labels.push(label);
+      wpMarkersRef.current.push(new maplibregl.Marker({ element: el }).setLngLat([w.lng, w.lat]).addTo(map));
+    });
+
+    // A label is centred on its stop, so a stop near the edge of the screen
+    // hangs half its name off it — the first and last stop of a day, every
+    // time. Slide those back inside instead of letting them get cut.
+    const clamp = () => {
+      const box = map.getContainer().getBoundingClientRect();
+      labels.forEach((el) => {
+        const prev = Number(el.dataset.dx || 0);
+        const r = el.getBoundingClientRect();
+        const left = r.left - box.left - prev; // where it would sit untranslated
+        const dx = left < 6 ? 6 - left
+          : left + r.width > box.width - 6 ? box.width - 6 - (left + r.width)
+            : 0;
+        if (dx !== prev) {
+          el.dataset.dx = String(dx);
+          el.style.transform = dx ? `translateX(${dx}px)` : '';
+        }
+      });
+    };
+    clamp();
+    map.on('move', clamp);
+    return () => {
+      map.off('move', clamp);
+      wpMarkersRef.current.forEach((m) => m.remove());
+      wpMarkersRef.current = [];
+    };
+  }, [follow, day, stopMarks, tt]);
 
   return (
     <div className="ride-mode nav">
@@ -718,10 +791,16 @@ export default function RideMode({ onClose }) {
 
             <div className="rm-row">
               <span className="rm-label">{t('Voice')}</span>
-              <div className="rm-seg">
-                <button className={!muted ? 'active' : ''} onClick={() => setMuted(false)}>{t('On')}</button>
-                <button className={muted ? 'active' : ''} onClick={() => setMuted(true)}>{t('Off')}</button>
-              </div>
+              {/* A switch, not a pair of yes/no buttons — it is one binary thing
+                  and the segmented version read as "Sí / No" in Spanish. */}
+              <button
+                className={`toggle rm-toggle${muted ? '' : ' on'}`}
+                role="switch"
+                aria-checked={!muted}
+                aria-label={t('Voice')}
+                onClick={() => setMuted((m) => !m)}
+              />
+              <SpeakerIcon muted={muted} />
             </div>
 
             {/* The thing a rider actually needs to find, so it gets the weight
@@ -777,8 +856,9 @@ export default function RideMode({ onClose }) {
           </div>
           {nextWp && <Marquee className="rb-next" label={t('Next')} text={tt(nextWp.name)} />}
         </div>
+        {/* clamped so dragging to either end keeps the card fully on screen */}
         {scrub && (
-          <div className="scrub-pop" style={{ left: `${scrub.pct}%` }}>
+          <div className="scrub-pop" style={{ left: `clamp(134px, ${scrub.pct}%, calc(100% - 134px))` }}>
             <div className="sp-name">{tt(scrub.stop.name)}</div>
             <div className="sp-meta">
               {scrub.stop.letter && <span className={`sp-tag ${scrub.stop.kind}`}>{scrub.stop.letter}</span>}

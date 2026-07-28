@@ -973,8 +973,10 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .turn-body { min-width: 0; }
 .t-dist { font-family: var(--display); font-size: 48px; font-weight: 700; line-height: 1; color: var(--rally); font-variant-numeric: tabular-nums; }
 .t-instr { font-family: var(--display); font-size: 31px; font-weight: 700; line-height: 1.12; color: var(--ink); margin-top: 2px; }
-.t-then { font-family: var(--mono); font-size: 16px; color: var(--ink-dim); margin-top: 5px; display: flex; align-items: center; gap: 5px; }
-.t-then .turn-arrow { width: 16px; height: 16px; }
+/* Not flex: the arrow is a word in a sentence, and as a flex item it let the
+   wrapping instruction shove "then" into the middle of its own second line. */
+.t-then { font-family: var(--mono); font-size: 16px; color: var(--ink-dim); margin-top: 5px; }
+.t-then .turn-arrow { width: 16px; height: 16px; vertical-align: -3px; margin: 0 2px; }
 .t-then .turn-glyph { font-size: 14px; }
 
 .nav-puck {
@@ -1358,13 +1360,21 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   flex: none;
 }
 .mq-box { flex: 1; min-width: 0; overflow: hidden; }
+/* Only fade the edge when something is actually scrolling past it — a short
+   name that fits should end in a letter, not in a gradient. */
+.mq-box:has(.mq-ink.runs) {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
+}
 .mq-ink {
-  display: inline-block;
+  display: inline-flex; gap: 44px; /* MQ_GAP in RideMode.jsx */
   font-family: var(--mono); font-size: 17px; color: var(--ink);
   white-space: nowrap;
 }
-.mq-ink.runs { animation: mq-slide var(--dur, 9s) linear infinite alternate; }
-@keyframes mq-slide { from { transform: translateX(0); } to { transform: translateX(var(--shift, 0)); } }
+.mq-seg { flex: none; }
+/* one direction, looping — the second copy arrives as the first leaves */
+.mq-ink.runs { animation: mq-loop var(--dur, 9s) linear infinite; }
+@keyframes mq-loop { from { transform: translateX(0); } to { transform: translateX(var(--shift, 0)); } }
 @media (prefers-reduced-motion: reduce) { .mq-ink.runs { animation: none; } }
 
 /* tile credit, parked in the hub so it is off the riding view */
@@ -1406,7 +1416,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 }
 .scrub-pop {
   position: absolute; bottom: 34px; transform: translateX(-50%);
-  min-width: 150px; max-width: 76vw; padding: 7px 10px;
+  width: 256px; max-width: 88vw; padding: 7px 10px;
   background: rgba(0, 0, 0, 0.82); backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 10px;
   pointer-events: none; z-index: 6;
@@ -1430,4 +1440,33 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint);
   margin-top: 3px; line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* voice switch sits with its glyph so the state is readable at a glance */
+.ride-menu .rm-toggle { flex: none; margin-right: 2px; }
+.ride-menu .rm-row .spk-icon { width: 20px; height: 20px; color: var(--ink-dim); }
+
+
+/* ---------- overview: named stops ----------
+   Only drawn when the whole day is framed. Labels alternate above and below so
+   consecutive stops along a straight leg do not stack on each other, and they
+   are capped in width so a long name cannot run off the screen. */
+.ov-wp { position: relative; display: flex; flex-direction: column; align-items: center; }
+.ov-wp.below { flex-direction: column-reverse; }
+.ov-dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--ink); border: 2px solid #000; flex: none;
+}
+.ov-wp.fuel .ov-dot { background: var(--outbound); }
+.ov-wp.meal .ov-dot { background: var(--ok); }
+.ov-wp.photo .ov-dot { background: var(--return); border-radius: 2px; transform: rotate(45deg); }
+.ov-wp.end .ov-dot { width: 9px; height: 15px; border-radius: 3px; }
+.ov-label {
+  max-width: 148px; margin: 3px 0;
+  font-family: var(--mono); font-size: 11px; line-height: 1.15; color: #fff;
+  text-align: center; overflow: hidden;
+  /* two lines rather than an ellipsis: the point of overview is reading the name */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  text-shadow: 0 1px 3px #000, 0 0 4px #000, 0 0 8px #000;
+  pointer-events: none;
 }
