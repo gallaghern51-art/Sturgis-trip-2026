@@ -205,6 +205,8 @@ export default function RideMode({ onClose }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [navStyle, setNavStyle] = useState('hybrid');
   const [ahead, setAhead] = useState(null); // conditions a few miles up the road
+  const [scrub, setScrub] = useState(null); // {pct, stop} while dragging the bar
+  const barRef = useRef(null);
   // Posted limits are not in what we route with: OSRM's steps carry no maxspeed
   // and Google's limits sit behind a separately-licensed Roads API. The chip is
   // wired and will render the moment a source is plumbed in — it just will not
@@ -605,10 +607,33 @@ export default function RideMode({ onClose }) {
       // the dot takes the most safety-critical of them
       const kind = isFuel ? 'fuel' : isMeal ? 'meal' : isPhoto ? 'photo' : isEnd ? 'end' : 'via';
       // a via with real time on the ground is worth marking; a pass-through is not
-      if (kind === 'via' && !(st.dwell > 0)) return null;
-      return { pct: Math.max(0, Math.min(100, (acc / totalMiles) * 100)), kind, letter, name: w.name };
+      const minor = kind === 'via' && !(st.dwell > 0);
+      return {
+        pct: Math.max(0, Math.min(100, (acc / totalMiles) * 100)),
+        kind, letter, name: w.name, note: w.note || '', miles: acc,
+        arrive: st.arrive, minor,
+      };
     }).filter(Boolean);
   }, [tl, day, totalMiles]);
+
+  // Drag along the bar to read the day ahead: the nearest stop to the finger,
+  // with what it is, where it is, and how far off. Pointer events so it works
+  // the same under a glove on glass as under a mouse.
+  const scrubAt = (clientX) => {
+    const el = barRef.current;
+    if (!el || !stopMarks.length) return;
+    const r = el.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100));
+    let best = stopMarks[0];
+    for (const m of stopMarks) if (Math.abs(m.pct - pct) < Math.abs(best.pct - pct)) best = m;
+    setScrub({ pct, stop: best });
+  };
+  const onScrubDown = (e) => {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    scrubAt(e.clientX);
+  };
+  const onScrubMove = (e) => { if (scrub) scrubAt(e.clientX); };
+  const endScrub = () => setScrub(null);
 
   const showOverview = () => {
     setFollow(false);
@@ -630,14 +655,15 @@ export default function RideMode({ onClose }) {
             the sound and exit controls off a phone screen. The bar is now just
             the leg you are on plus one way in; everything else is in the hub. */}
         <div className="ride-topbar">
+          {/* Tapping the leg frames the whole day — the standalone Overview
+              button was a second control for the same thing. */}
           <button
             className="ride-leg"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-expanded={menuOpen}
-            title={t('Ride menu')}
+            onClick={showOverview}
+            title={t('Route overview')}
           >
             <span className="rl-day">{day.dow} {fmtDayDate(day.date)}</span>
-            <span className="rl-title">{tt(day.title)}</span>
+            <Marquee className="rl-title" text={tt(day.title)} />
           </button>
           {/* Weather a dozen miles up the road, and the posted limit when we can
               get it. No clock — the phone shows one an inch above this. */}
@@ -735,41 +761,52 @@ export default function RideMode({ onClose }) {
       <div className="ride-overlay ride-overlay-bottom">
         <div className="ride-quick">
           {!follow && fix && (
-            <button className="btn gold recenter" onClick={() => setFollow(true)}>◉ Re-center</button>
+            <button className="btn gold recenter" onClick={() => setFollow(true)}>◉ {t('Re-center')}</button>
           )}
-          <button className="btn overview" onClick={showOverview}>⤢ Overview</button>
         </div>
-        {/* Schedule first and full width: it is the longest line and the reason
-            to look down. Then the two numbers you glance at. Nothing repeated. */}
+        {/* One card. Speed came off — a bike has a speedometer six inches away
+            and it was the least useful number here. */}
         <div className={`rb-delta ${deltaChip?.cls ?? ''}`}>
           <div className="n">{deltaChip?.text ?? (fix ? t('LOCATING…') : t('WAITING FOR GPS'))}</div>
-          {/* Distance to the next stop, bare. The big line already said late or
-              early, so labelling this "short of plan" only repeated it. */}
-          {proj && nextWp && (
-            <div className="rb-togo">{u.miNum(proj.remainToNext)} <i>{u.miUnit}</i></div>
-          )}
+          <div className="rb-line">
+            {proj && nextWp && <><b>{u.miNum(proj.remainToNext)}</b> <i>{u.miUnit}</i></>}
+            {nav && <><b className="sep">{fmtDur(nav.remMin)}</b> <i>{t('left')}</i></>}
+          </div>
+          <div className="rb-line eta">
+            <b>{eta != null ? fmtTime(eta) : '—'}</b> <i>{t('ETA')}</i>
+          </div>
           {nextWp && <Marquee className="rb-next" label={t('Next')} text={tt(nextWp.name)} />}
         </div>
-        <div className="ride-bottombar">
-          <div className="rb-speed">
-            <div className="n">{fix?.speedMph != null ? (u.metric ? Math.round(fix.speedMph * 1.609344) : Math.round(fix.speedMph)) : '—'}</div>
-            <div className="l">{u.metric ? 'KM/H' : 'MPH'}</div>
+        {scrub && (
+          <div className="scrub-pop" style={{ left: `${scrub.pct}%` }}>
+            <div className="sp-name">{tt(scrub.stop.name)}</div>
+            <div className="sp-meta">
+              {scrub.stop.letter && <span className={`sp-tag ${scrub.stop.kind}`}>{scrub.stop.letter}</span>}
+              <span>{u.miNum(Math.max(0, scrub.stop.miles - (proj?.doneMiles ?? 0)))} {u.miUnit} {t('away')}</span>
+              <span>· {fmtTime(scrub.stop.arrive)}</span>
+            </div>
+            {scrub.stop.note && <div className="sp-note">{tt(scrub.stop.note)}</div>}
           </div>
-          <div className="rb-eta">
-            <div className="n">{eta != null ? fmtTime(eta) : '—'}</div>
-            <div className="l">{nav ? `${fmtDur(nav.remMin)} ${t('left')}` : t('ETA')}</div>
-          </div>
-        </div>
-        <div className="rp-bar">
+        )}
+        <div
+          className="rp-bar"
+          ref={barRef}
+          onPointerDown={onScrubDown}
+          onPointerMove={onScrubMove}
+          onPointerUp={endScrub}
+          onPointerCancel={endScrub}
+          onPointerLeave={endScrub}
+        >
           <div className="rp-fill" style={{ width: `${proj ? Math.min(100, (proj.doneMiles / Math.max(1, totalMiles)) * 100) : 0}%` }} />
-          {stopMarks.map((m, i) => (
+          {stopMarks.filter((m) => !m.minor).map((m, i) => (
             <span key={i} className={`rp-stop ${m.kind}`} style={{ left: `${m.pct}%` }} title={m.name} />
           ))}
+          {scrub && <span className="rp-cursor" style={{ left: `${scrub.pct}%` }} />}
         </div>
         {/* Letters under the marks: F fuel, M meal, P photo. Self-describing, so
             there is no key to hunt for at speed. */}
         <div className="rp-keys">
-          {stopMarks.filter((m) => m.letter).map((m, i) => (
+          {stopMarks.filter((m) => m.letter && !m.minor).map((m, i) => (
             <span key={i} className={`rp-key ${m.kind}`} style={{ left: `${m.pct}%` }} title={m.name}>{m.letter}</span>
           ))}
         </div>

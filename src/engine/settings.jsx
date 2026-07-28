@@ -378,6 +378,7 @@ const ES = {
   'ON PLAN': 'SEGÚN EL PLAN',
   'LATE': 'TARDE',
   'ahead': 'adelante',
+  'away': 'de distancia',
   'Speed limit': 'Límite de velocidad',
   'EARLY': 'TEMPRANO',
   'LOCATING…': 'UBICANDO…',

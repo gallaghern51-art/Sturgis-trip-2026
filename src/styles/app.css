@@ -656,9 +656,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .maplibregl-popup-close-button { padding: 4px 8px; font-size: 20px !important; }
 
   /* The HUD is read at speed on the smallest screen, so a phone is exactly where
-     the type must NOT shrink. These used to cut it to 24px and undo the sizing. */
-  .rb-speed { padding: 0 3px 3px; }
-  .rb-eta { padding: 0 5px 3px; }
+     the type must NOT shrink — no size overrides live here on purpose. */
 }
 
 /* ---------- phone: one pane at a time, driven by the bottom tab bar ----------
@@ -904,9 +902,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--ink-faint);
 }
-.ride-leg .rl-title {
+.ride-leg .rl-title { min-width: 0; }
+.ride-leg .rl-title .mq-ink {
   font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ride-menu-btn.on { border-color: var(--outbound); color: var(--outbound); }
 .ride-topbar .hamb { width: 26px; height: 26px; display: block; }
@@ -997,45 +995,30 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 /* Two equal tiles. They were fixed-width with the schedule squeezed between
    them, which left the ETA tile half empty on a phone. */
-/* MPH is three characters; ETA carries a time and a duration. Sizing them
-   equally is what left the speed tile mostly empty. */
-.ride-bottombar { display: grid; grid-template-columns: minmax(96px, 0.5fr) 1fr; gap: 8px; }
-.rb-speed {
-  background: rgba(0, 0, 0, 0.62); border: 1px solid var(--line); border-radius: 12px;
-  padding: 0 4px 3px; text-align: center; backdrop-filter: blur(14px);
-}
-.rb-speed .n { font-family: var(--display); font-size: 60px; font-weight: 700; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
-.rb-speed .l { font-family: var(--mono); font-size: 14px; letter-spacing: 0.16em; color: var(--ink-faint); }
 .rb-delta {
   border-radius: 12px; border: 1px solid var(--line);
-  padding: 2px 10px 5px; margin-bottom: 8px;
+  padding: 2px 10px 6px;
   background: rgba(0, 0, 0, 0.62);
   backdrop-filter: blur(14px);
 }
-/* the type is the box — nothing is centred in dead space */
 .rb-delta .n {
   font-family: var(--display); font-size: 44px; font-weight: 700;
   line-height: 1.0; white-space: nowrap;
 }
-/* miles to the next stop, bare */
-.rb-delta .rb-togo {
-  font-family: var(--display); font-size: 30px; font-weight: 700;
-  line-height: 1.05; color: var(--ink);
+/* number-then-unit rows: the figures carry the weight, the words stay out of it */
+.rb-line { display: flex; align-items: baseline; gap: 5px; line-height: 1.1; }
+.rb-line b {
+  font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
-.rb-delta .rb-togo i {
-  font-style: normal; font-family: var(--mono); font-size: 14px;
-  color: var(--ink-faint); margin-left: 2px;
+.rb-line b.sep { margin-left: 10px; }
+.rb-line i {
+  font-style: normal; font-family: var(--mono); font-size: 14px; color: var(--ink-faint);
 }
+.rb-line.eta b { font-size: 34px; }
 .rb-delta.ahead { border-color: var(--ok); } .rb-delta.ahead .n { color: var(--ok); }
 .rb-delta.behind { border-color: var(--danger); } .rb-delta.behind .n { color: var(--danger); }
 .rb-delta.on-time { border-color: var(--rally); } .rb-delta.on-time .n { color: var(--rally); }
-.rb-eta {
-  background: rgba(0, 0, 0, 0.62); border: 1px solid var(--line); border-radius: 12px;
-  padding: 0 6px 3px; text-align: center; backdrop-filter: blur(14px);
-  display: flex; flex-direction: column; justify-content: center;
-}
-.rb-eta .n { font-family: var(--display); font-size: 42px; font-weight: 700; line-height: 1.05; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rb-eta .l { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: var(--ink-faint); margin-top: 3px; white-space: nowrap; }
 
 .ride-mode .rp-bar { background: rgba(26, 26, 26, 0.9); }
 .ride-mode .rp-meta { text-shadow: 0 1px 3px #000; }
@@ -1409,4 +1392,42 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .ride-chip.limit .sl-num {
   font-family: var(--display); font-size: 24px; font-weight: 700; color: #111;
   font-variant-numeric: tabular-nums;
+}
+
+
+/* ---------- dragging the progress bar ----------
+   Scrub it like a scroll bar to read the day ahead: nearest stop to the finger,
+   what it is, how far off, and when the plan has you there. */
+.rp-bar { touch-action: none; cursor: pointer; }
+.rp-cursor {
+  position: absolute; top: 50%; width: 2px; height: 18px;
+  transform: translate(-50%, -50%); background: var(--ink);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.9); pointer-events: none;
+}
+.scrub-pop {
+  position: absolute; bottom: 34px; transform: translateX(-50%);
+  min-width: 150px; max-width: 76vw; padding: 7px 10px;
+  background: rgba(0, 0, 0, 0.82); backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 10px;
+  pointer-events: none; z-index: 6;
+}
+.sp-name {
+  font-family: var(--display); font-size: 17px; font-weight: 700; color: var(--ink);
+  line-height: 1.15;
+}
+.sp-meta {
+  display: flex; align-items: center; gap: 5px; margin-top: 2px;
+  font-family: var(--mono); font-size: 12px; color: var(--ink-dim);
+}
+.sp-tag {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  padding: 1px 4px; border-radius: 3px; color: #000;
+}
+.sp-tag.fuel { background: var(--outbound); }
+.sp-tag.meal { background: var(--ok); }
+.sp-tag.photo { background: var(--return); }
+.sp-note {
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint);
+  margin-top: 3px; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
