@@ -735,13 +735,32 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .ribbon .seg { flex: 0 0 118px; min-width: 118px; scroll-snap-align: center; padding: 8px 10px 7px; }
   .ribbon .overview-seg { flex: 0 0 60px; min-width: 60px; }
 
-  /* three stacked panes, one visible at a time */
-  .main, .main.chat-open { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  /* The map is the floor, always drawn. Pages slide in over it from the side
+     rather than replacing it, so you never lose your place on the route to
+     read something about it. Tapping the seat you are on slides it back off. */
+  .main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
   .main > * { grid-area: 1 / 1; min-width: 0; min-height: 0; }
-  .main > .map-wrap, .main > .side, .main > .chat-panel { visibility: hidden; pointer-events: none; }
-  .main[data-tab="map"] > .map-wrap,
-  .main[data-tab="panel"] > .side,
-  .main[data-tab="chat"] > .chat-panel { visibility: visible; pointer-events: auto; }
+  .main > .map-wrap { visibility: visible; pointer-events: auto; }
+  .main > .side {
+    /* .map-wrap is position:relative and this was static, so the map painted
+       over the panel even though the panel comes later in the DOM. The z has to
+       clear the map's own overlays too — the basemap switch sits at z-index 5
+       and was punching through the panel's header. */
+    position: relative; z-index: 10;
+    justify-self: end;
+    width: min(94vw, 460px);
+    border-left: 1px solid var(--line);
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.55);
+    transform: translateX(100%);
+    transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.3, 1);
+    visibility: hidden; pointer-events: none;
+  }
+  .main[data-panel="open"] > .side {
+    transform: none; visibility: visible; pointer-events: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .main > .side { transition: none; }
+  }
 
   /* One row, every page once. Scrolls sideways with snap; App keeps the
      active seat in view. */

@@ -26,7 +26,6 @@ import { useT, useTT, useUnits } from './engine/settings.jsx';
 // masthead's one action.
 const SEATS = [
   ['dash', 'Dashboard'],
-  ['map', 'Map'],
   ['plan', 'Planner'],
   ['optimizer', 'Optimizer'],
   ['feas', 'Feasibility'],
@@ -73,7 +72,7 @@ export default function App() {
   const tt = useTT();
   const u = useUnits();
   const isMobile = useIsMobile();
-  const [mobileTab, setMobileTab] = useState('map'); // map | panel | chat
+  const [panelOpen, setPanelOpen] = useState(false); // the side panel over the map
   const fileRef = useRef(null);
 
   // Route every day whenever its waypoint sequence changes.
@@ -107,8 +106,8 @@ export default function App() {
   const openChat = () => openTarget('optimizer');
   // Anything that jumps the reader into the side panel (a modal's "open this
   // day", a feasibility row) has to bring the panel on screen on mobile.
-  const showPanel = () => { if (isMobile) setMobileTab('panel'); };
-  const ui = { isMobile, mobileTab, setMobileTab, showPanel };
+  const showPanel = () => setPanelOpen(true);
+  const ui = { isMobile, panelOpen, setPanelOpen, showPanel };
 
 
   // A queued optimizer question (from a feasibility recommendation) opens the chat.
@@ -194,10 +193,11 @@ export default function App() {
   // Planner.
   // Desktop shows map + panel + optimizer at once, so its lit seat is about
   // what the panel holds, not which pane is on screen.
-  const seatActive = !isMobile ? (selectedDay ? 'plan' : view)
-    : mobileTab === 'map' ? 'map'
-      : selectedDay ? 'plan'
-        : view;
+  // On a phone the panel slides over the map, so a seat is only "lit" while
+  // its page is actually showing.
+  const seatActive = !isMobile
+    ? (selectedDay ? 'plan' : view)
+    : panelOpen ? (selectedDay ? 'plan' : view) : null;
   const activeSeatRef = useRef(null);
   useEffect(() => {
     activeSeatRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
@@ -219,23 +219,27 @@ export default function App() {
     return () => ro.disconnect();
   }, []);
 
-  // Full-bleed map is the map tab's posture only: every other tab scrolls text,
-  // which needs an opaque bar to scroll under rather than glass to read through.
-  const mapFull = isMobile && mobileTab === 'map';
+  // The map is always underneath now, so the chrome floats on it whenever the
+  // panel is not covering it.
+  const mapFull = isMobile && !panelOpen;
 
   // ONE navigation surface, rendered where each layout puts it: a fixed bottom
   // bar on the phone, a row under the masthead on desktop. Same list, same
   // handlers, so a destination can never exist on one and not the other.
   const ViewBar = () => (
     <nav className={`tabnav${isMobile ? '' : ' deskbar'}`} aria-label="Views">
-      {SEATS.filter(([key]) => isMobile || key !== 'map').map(([key, label], i) => (
+      {SEATS.map(([key, label], i) => (
         <button
           key={key}
           style={{ '--i': i }}
           ref={seatActive === key ? activeSeatRef : null}
           className={seatActive === key ? 'active' : ''}
           aria-current={seatActive === key}
-          onClick={() => (key === 'map' ? setMobileTab('map') : openTarget(key))}
+          onClick={() => {
+            // tapping the page you are on closes the panel back to bare map
+            if (isMobile && seatActive === key) setPanelOpen(false);
+            else openTarget(key);
+          }}
         >{t(label)}</button>
       ))}
     </nav>
@@ -293,7 +297,7 @@ export default function App() {
           {!isMobile && <ViewBar />}
           <Ribbon />
         </div>
-        <div className="main" data-tab={mobileTab}>
+        <div className="main" data-panel={isMobile && panelOpen ? 'open' : 'closed'}>
           <MapView />
           <aside className="side">
             <div className="side-inner">
