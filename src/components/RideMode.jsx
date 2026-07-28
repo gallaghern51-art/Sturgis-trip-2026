@@ -10,7 +10,7 @@ import { fetchConditionsAhead } from '../engine/conditions.js';
 import WeatherIcon from './WeatherIcon.jsx';
 import RoadShield from './RoadShield.jsx';
 import { roadShields } from '../engine/roads.js';
-import { useT, useTT, useUnits } from '../engine/settings.jsx';
+import { useT, useTT, useUnits, useSettings } from '../engine/settings.jsx';
 
 // Ride Mode: a navigation HUD over a live map. Projects your GPS position onto
 // the planned route and answers the questions that matter at 70 mph: where do I
@@ -299,6 +299,8 @@ export default function RideMode({ onClose }) {
   const t = useT();
   const tt = useTT();
   const u = useUnits();
+  const { density } = useSettings();
+  const lean = density === 'minimal';
   const statsRef = useRef({ miles: 0, maxMph: 0, last: null });
   const wakeRef = useRef(null);
   const mapDivRef = useRef(null);
@@ -651,11 +653,13 @@ export default function RideMode({ onClose }) {
     return { label: g.label, by: g.by, projected, ok: projected <= parseTime(g.by) };
   }).filter(Boolean);
 
+  // Minimalist drops the word: a signed figure in green or red says early or
+  // late without spending a line on saying it, and it needs no translating.
   const deltaChip = delta == null ? null : Math.abs(delta) < 5
-    ? { cls: 'on-time', text: t('ON PLAN') }
+    ? { cls: 'on-time', text: lean ? '±0' : t('ON PLAN') }
     : delta > 0
-      ? { cls: 'behind', text: `${fmtDur(delta)} ${t('LATE')}` }
-      : { cls: 'ahead', text: `${fmtDur(-delta)} ${t('EARLY')}` };
+      ? { cls: 'behind', text: lean ? `+${fmtDur(delta)}` : `${fmtDur(delta)} ${t('LATE')}` }
+      : { cls: 'ahead', text: lean ? `−${fmtDur(-delta)}` : `${fmtDur(-delta)} ${t('EARLY')}` };
 
   // "Behind" on its own is not actionable. This is where the plan says you
   // should be at this minute — which leg, and how far off in ground terms —
@@ -793,7 +797,7 @@ export default function RideMode({ onClose }) {
           </button>
           {/* Weather a dozen miles up the road, and the posted limit when we can
               get it. No clock — the phone shows one an inch above this. */}
-          {ahead && (
+          {ahead && !lean && (
             <div className="ride-chip wx" title={`${ahead.summary} · ${t('ahead')}`}>
               {/* same glyph the day panel uses, so one sky reads one way */}
               <WeatherIcon code={ahead.code} className="wxc-icon" />
@@ -919,16 +923,29 @@ export default function RideMode({ onClose }) {
         </div>
         {/* One card. Speed came off — a bike has a speedometer six inches away
             and it was the least useful number here. */}
-        <div className={`rb-delta ${deltaChip?.cls ?? ''}`}>
+        <div className={`rb-delta ${deltaChip?.cls ?? ''}${lean ? ' lean' : ''}`}>
           <div className="n">{deltaChip?.text ?? (fix ? t('LOCATING…') : t('WAITING FOR GPS'))}</div>
-          <div className="rb-line">
-            {proj && nextWp && <><b>{u.miNum(proj.remainToNext)}</b> <i>{u.miUnit}</i></>}
-            {nav && <><b className="sep">{fmtDur(nav.remMin)}</b> <i>{t('left')}</i></>}
-          </div>
-          <div className="rb-line eta">
-            <b>{eta != null ? fmtTime(eta) : '—'}</b> <i>{t('ETA')}</i>
-          </div>
-          {nextWp && <Marquee className="rb-next" label={t('Next')} text={tt(nextWp.name)} />}
+          {lean ? (
+            /* One row of figures, no labels: distance to the next stop, time
+               left in the leg, arrival. The units and the clock format already
+               say which is which. */
+            <div className="rb-line lean-row">
+              {proj && nextWp && <b>{u.miNum(proj.remainToNext)}<u>{u.miUnit}</u></b>}
+              {nav && <b>{fmtDur(nav.remMin)}</b>}
+              <b>{eta != null ? fmtTime(eta) : '—'}</b>
+            </div>
+          ) : (
+            <>
+              <div className="rb-line">
+                {proj && nextWp && <><b>{u.miNum(proj.remainToNext)}</b> <i>{u.miUnit}</i></>}
+                {nav && <><b className="sep">{fmtDur(nav.remMin)}</b> <i>{t('left')}</i></>}
+              </div>
+              <div className="rb-line eta">
+                <b>{eta != null ? fmtTime(eta) : '—'}</b> <i>{t('ETA')}</i>
+              </div>
+            </>
+          )}
+          {nextWp && <Marquee className="rb-next" label={lean ? null : t('Next')} text={tt(nextWp.name)} />}
         </div>
         {gateReads.length > 0 && (
           <div className="ride-gates">

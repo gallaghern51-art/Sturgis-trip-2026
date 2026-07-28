@@ -23,7 +23,9 @@ import { resolveContent } from '../i18n/resolve.js';
 import { TripContext } from './store.js';
 
 const KEY = 'moto.settings.v1';
-const DEFAULTS = { lang: 'en', theme: 'dark', units: 'imperial', shields: true };
+// `density` is the Ride Mode HUD's information budget: 'detailed' shows the
+// labels and the weather, 'minimal' strips it to numbers only.
+const DEFAULTS = { lang: 'en', theme: 'dark', units: 'imperial', shields: true, density: 'detailed' };
 
 function load() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...DEFAULTS }; }
@@ -387,6 +389,10 @@ const ES = {
   'Ride menu': 'Menú de ruta',
   'Leg': 'Tramo',
   'Voice': 'Voz',
+  'Data density': 'Densidad de datos',
+  'Minimalist': 'Minimalista',
+  'Detailed': 'Detallado',
+  'How much the Ride Mode HUD shows': 'Cuánto muestra el HUD del modo ruta',
   'then': 'luego',
   'Route overview': 'Vista de la ruta',
   'Re-center': 'Recentrar',
