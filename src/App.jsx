@@ -19,6 +19,20 @@ import Dashboard from './components/Dashboard.jsx';
 import { useAutoTranslate } from './engine/autoTranslate.js';
 import { useT, useTT, useUnits } from './engine/settings.jsx';
 
+// The phone's bottom bar: every page once, related work adjacent. Map first,
+// the hub, then planning (Planner and Optimizer share an elbow), then the
+// checks, then prep. Ride is NOT here — it is the masthead's one action.
+const SEATS = [
+  ['map', 'Map'],
+  ['dash', 'Dashboard'],
+  ['plan', 'Planner'],
+  ['optimizer', 'Optimizer'],
+  ['feas', 'Feasibility'],
+  ['budget', 'Budget'],
+  ['packing', 'Packing'],
+  ['settings', 'Settings'],
+];
+
 // Masthead flags: the crew (US ride, Chilean riders) plus the four states the
 // route crosses. Assets live in public/flags — the user supplied them.
 const CREW_FLAGS = [
@@ -54,7 +68,6 @@ export default function App() {
   const [view, setView] = useState('dash'); // dash | plan | feas | budget
   const [newTripOpen, setNewTripOpen] = useState(false);
   const [rideOpen, setRideOpen] = useState(false);
-  const [wheelOpen, setWheelOpen] = useState(false); // bottom page wheel
   const [packingOpen, setPackingOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const t = useT();
@@ -176,13 +189,17 @@ export default function App() {
     : view === 'feas' ? 'Feasibility'
     : view === 'budget' ? 'Budget'
     : 'Planner';
-  const panelLabel = selectedDay ? selectedDay.dow : viewLabel;
-  // Is the hub what is currently on screen? Drives the middle tab's state, and
-  // the third tab's label, which names the work rather than the hub.
-  const onDash = mobileTab === 'panel' && view === 'dash' && !selectedDay;
-  const workLabel = selectedDay ? selectedDay.dow
-    : view === 'dash' ? 'Planner'
-    : viewLabel;
+  // Which seat in the bottom bar is lit. Packing and Settings are modals over
+  // the current view, so they never take the light; an open day belongs to the
+  // Planner.
+  const seatActive = mobileTab === 'map' ? 'map'
+    : mobileTab === 'chat' ? 'optimizer'
+    : selectedDay ? 'plan'
+    : view;
+  const activeSeatRef = useRef(null);
+  useEffect(() => {
+    activeSeatRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [seatActive]);
 
   return (
     <TripContext.Provider value={{ state, dispatch, routes, routedLegsByDay, summary, ui }}>
@@ -257,49 +274,22 @@ export default function App() {
           {(isMobile || chatOpen) && <ChatPanel onClose={closeChat} />}
         </div>
         {isMobile && (
-          /* The hub is a fixed seat in the middle, not a link you have to find:
-             it is the one destination every other view is reached from, so it
-             cannot be the thing that scrolls away. The Optimizer used to hold
-             this row's third seat despite being one card on the hub among a
-             dozen; the third seat now follows whatever you are working on. */
-          <>
-          {/* Every page, one thumb-swipe away, without leaving what you are on.
-              The tab bar can only ever hold three things; this holds all of
-              them and stays out of the way until asked. */}
-          {wheelOpen && (
-            <div className="dash-wheel" role="menu" aria-label={t('Dashboard')}>
-              {[
-                ['dash', 'Dashboard'], ['plan', 'Planner'], ['feas', 'Feasibility'],
-                ['budget', 'Budget'], ['optimizer', 'Optimizer'], ['packing', 'Packing list'],
-                ['bookings', 'Reserve these now'], ['save-scenario', 'Scenarios'], ['settings', 'Settings'],
-              ].map(([target, label]) => (
-                <button
-                  key={target}
-                  role="menuitem"
-                  className={target === 'dash' && onDash ? 'active' : ''}
-                  onClick={() => { setWheelOpen(false); openTarget(target); }}
-                >{t(label)}</button>
-              ))}
-            </div>
-          )}
+          /* The phone's ONE navigation surface. Every destination appears here
+             exactly once and nowhere else — the dashboard is the trip's status
+             board and file drawer, not a second copy of this list, and the
+             masthead RIDE button is the one way into navigation. Seats scroll
+             sideways; the active one is kept in view. */
           <nav className="tabnav" aria-label="Views">
-            <button
-              className={mobileTab === 'map' ? 'active' : ''}
-              onClick={() => setMobileTab('map')}
-              aria-current={mobileTab === 'map'}
-            >{t('Map')}</button>
-            <button
-              className={onDash || wheelOpen ? 'active' : ''}
-              onClick={() => setWheelOpen((v) => !v)}
-              aria-expanded={wheelOpen}
-            >{t('Dashboard')}</button>
-            <button
-              className={mobileTab === 'panel' && !onDash ? 'active' : ''}
-              onClick={() => { if (view === 'dash' && !selectedDay) setView('plan'); setMobileTab('panel'); }}
-              aria-current={mobileTab === 'panel' && !onDash}
-            >{t(workLabel)}</button>
+            {SEATS.map(([key, label]) => (
+              <button
+                key={key}
+                ref={seatActive === key ? activeSeatRef : null}
+                className={seatActive === key ? 'active' : ''}
+                aria-current={seatActive === key}
+                onClick={() => (key === 'map' ? setMobileTab('map') : openTarget(key))}
+              >{t(label)}</button>
+            ))}
           </nav>
-          </>
         )}
         <DetailModal />
         {newTripOpen && <NewTripModal onClose={() => setNewTripOpen(false)} />}

@@ -2,13 +2,15 @@ import React from 'react';
 import { useTrip } from '../engine/store.js';
 import { tripFeasibility } from '../engine/timeline.js';
 import { fmtLongDate } from '../engine/dates.js';
-import { translationCoverage } from '../i18n/collect.js';
-import { useT, useTT, useUnits, useSettings } from '../engine/settings.jsx';
+import { useT, useTT } from '../engine/settings.jsx';
 
-// The hub. The top bar had grown to eleven controls of five different kinds —
-// view switches, file actions, modals, settings, and Ride — all weighted the
-// same. This gives them one home, grouped by what they are for, and each card
-// carries live state so it is a status board as much as a launcher.
+// The trip's home: identity, health, and the file drawer — and deliberately
+// nothing else. Every PAGE lives in the bottom bar exactly once; the cards
+// that used to relaunch Planner/Feasibility/Budget/Optimizer/Packing/Settings
+// from here were a second copy of that bar, and Ride a second copy of the
+// masthead button. The two status chips deep-link because they are statuses,
+// not menu entries — tapping "2 days need attention" opens feasibility the way
+// tapping a notification opens the thing it is about.
 
 function Card({ onClick, label, meta, note, accent }) {
   return (
@@ -25,93 +27,46 @@ export default function Dashboard({ onOpen }) {
   const { trip } = state;
   const t = useT();
   const tt = useTT();
-  const u = useUnits();
-  const { lang } = useSettings();
 
   const feas = tripFeasibility(trip, routedLegsByDay);
   const openBookings = (trip.reserveNow ?? []).filter((r) => !r.done).length;
   const dangerDays = summary.perDay.filter((p) => p.warnings.some((w) => w.level === 'danger')).length;
   const first = trip.days[0];
   const last = trip.days[trip.days.length - 1];
-  const coverage = lang === 'en' ? null : translationCoverage(trip, lang);
 
   return (
     <div className="dashboard">
       <div className="day-head">
         <div className="eyebrow">{tt(trip.meta.subtitle)}</div>
         <h2>{trip.meta.title}</h2>
+        {/* No miles/riders/days chips: the masthead two inches up already says
+            that. The dates are here because it does not. */}
         <div className="datebar">
           <span className="chip">{first?.dow} {fmtLongDate(first?.date ?? trip.meta.startDate)} → {last?.dow} {fmtLongDate(last?.date ?? trip.meta.startDate)}</span>
-          <span className="chip">{u.mi(summary.totalMiles)}</span>
-          <span className="chip">{trip.days.length} {t('days')}</span>
-          <span className="chip">{trip.meta.riders} {t('riders')}</span>
+          <span
+            className={`chip link ${dangerDays ? 'warn' : 'ok'}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpen('feas')}
+            onKeyDown={(e) => e.key === 'Enter' && onOpen('feas')}
+          >
+            {feas.grade} · {feas.overall}/100{dangerDays ? ` · ${dangerDays} ${t('days need attention')}` : ''}
+          </span>
+          {openBookings > 0 && (
+            <span
+              className="chip link warn"
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpen('bookings')}
+              onKeyDown={(e) => e.key === 'Enter' && onOpen('bookings')}
+            >
+              {openBookings} {t('open')} · {t('Reserve these now')}
+            </span>
+          )}
         </div>
       </div>
 
       {trip.meta.summary && <p className="trip-summary">{tt(trip.meta.summary)}</p>}
-
-      <div className="section">
-        <h3>{t('Plan the trip')}</h3>
-        <div className="dash-grid">
-          <Card
-            label={t('Planner')}
-            meta={`${trip.days.length} ${t('days')} · ${u.mi(summary.totalMiles)}`}
-            note={t('Day by day, stops, food, lodging')}
-            onClick={() => onOpen('plan')}
-          />
-          <Card
-            label={t('Feasibility')}
-            meta={`${feas.grade} · ${feas.overall}/100`}
-            note={dangerDays ? `${dangerDays} ${t('days need attention')}` : t('No hard failures')}
-            accent={dangerDays ? 'warn' : ''}
-            onClick={() => onOpen('feas')}
-          />
-          <Card
-            label={t('Budget')}
-            meta={`${trip.meta.riders} ${t('riders')}`}
-            note={t('Fuel, lodging, food, tickets')}
-            onClick={() => onOpen('budget')}
-          />
-          <Card
-            label={t('Optimizer')}
-            meta={t('AI')}
-            note={t('Ask for changes, preview, apply')}
-            accent="accent"
-            onClick={() => onOpen('optimizer')}
-          />
-        </div>
-      </div>
-
-      <div className="section">
-        <h3>{t('Get ready')}</h3>
-        <div className="dash-grid">
-          <Card
-            label={t('Packing list')}
-            note={t('Per rider, saved on this device')}
-            onClick={() => onOpen('packing')}
-          />
-          <Card
-            label={t('Reserve these now')}
-            meta={openBookings ? `${openBookings} ${t('open')}` : t('All booked')}
-            note={t('Bookings still to make')}
-            accent={openBookings ? 'warn' : ''}
-            onClick={() => onOpen('bookings')}
-          />
-          <Card
-            label={t('Ride')}
-            meta={t('GPS')}
-            note={t('Turn-by-turn, ahead or behind plan')}
-            accent="primary"
-            onClick={() => onOpen('ride')}
-          />
-          <Card
-            label={t('Settings')}
-            meta={coverage && coverage.missing.length ? `${coverage.done}/${coverage.total}` : undefined}
-            note={t('Language, theme, units')}
-            onClick={() => onOpen('settings')}
-          />
-        </div>
-      </div>
 
       <div className="section">
         <h3>{t('Trip file')}</h3>

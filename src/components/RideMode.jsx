@@ -627,6 +627,8 @@ export default function RideMode({ onClose }) {
   }, [fix]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const nextWp = proj ? day.waypoints[proj.i + 1] : null;
+  // Before a fix, "next" is simply the plan's first destination.
+  const plannedNext = proj ? null : (day.waypoints[1] ?? day.waypoints[0]);
   const nextSched = proj ? tl.stops[proj.i + 1] : null;
   const projectedEnd = delta != null ? tl.endMin + delta : null;
   const eta = nav ? clock + nav.remMin : null;
@@ -944,6 +946,15 @@ export default function RideMode({ onClose }) {
             and it was the least useful number here. */}
         <div className={`rb-delta ${deltaChip?.cls ?? ''}${lean ? ' lean' : ''}`}>
           <div className="n">{deltaChip?.text ?? (fix ? t('LOCATING…') : t('WAITING FOR GPS'))}</div>
+          {/* Parked, pre-fix: the card still earns its place by showing the
+              plan — departure, distance, where you are headed first — instead
+              of a lone WAITING FOR GPS over a strip of empty card. */}
+          {!proj && (
+            <div className="rb-line">
+              <b>{fmtTime(tl.stops[0]?.depart ?? 0)}</b> <i>{t('Depart')}</i>
+              <b className="sep">{u.miNum(totalMiles)}</b> <i>{u.miUnit}</i>
+            </div>
+          )}
           {lean ? (
             /* One row of figures, no labels: distance to the next stop, time
                left in the leg, arrival. The units and the clock format already
@@ -973,15 +984,19 @@ export default function RideMode({ onClose }) {
               )}
             </>
           )}
-          {nextWp && <Marquee className="rb-next" label={lean ? null : t('Next')} text={tt(nextWp.name)} />}
+          {(nextWp ?? plannedNext) && (
+            <Marquee className="rb-next" label={lean ? null : t('Next')} text={tt((nextWp ?? plannedNext).name)} />
+          )}
+          {fix && !lean && gateReads.length > 0 && (
+            /* Timed gates ride in the card. A floating pill under it read as a
+               stray element, and with no fix the projection is meaningless. */
+            <div className="rb-gates">
+              {gateReads.map((g, i) => (
+                <span key={i} className={`rb-gate ${g.ok ? 'ok' : 'miss'}`}>{g.label} {fmtTime(g.projected)}/{g.by}</span>
+              ))}
+            </div>
+          )}
         </div>
-        {gateReads.length > 0 && (
-          <div className="ride-gates">
-            {gateReads.map((g, i) => (
-              <span key={i} className={`ride-gate ${g.ok ? 'ok' : 'miss'}`}>{g.ok ? '✓' : '✗'} {g.label} {fmtTime(g.projected)}/{g.by}</span>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
