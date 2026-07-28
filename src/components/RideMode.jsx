@@ -948,20 +948,29 @@ export default function RideMode({ onClose }) {
             /* One row of figures, no labels: distance to the next stop, time
                left in the leg, arrival. The units and the clock format already
                say which is which. */
-            <div className="rb-line lean-row">
-              {proj && nextWp && <b>{u.miNum(proj.remainToNext)}<u>{u.miUnit}</u></b>}
-              {nav && <b>{fmtDur(nav.remMin)}</b>}
-              <b>{eta != null ? fmtTime(eta) : '—'}</b>
-            </div>
+            ((proj && nextWp) || nav || eta != null) && (
+              <div className="rb-line lean-row">
+                {proj && nextWp && <b>{u.miNum(proj.remainToNext)}<u>{u.miUnit}</u></b>}
+                {nav && <b>{fmtDur(nav.remMin)}</b>}
+                {eta != null && <b>{fmtTime(eta)}</b>}
+              </div>
+            )
           ) : (
             <>
-              <div className="rb-line">
-                {proj && nextWp && <><b>{u.miNum(proj.remainToNext)}</b> <i>{u.miUnit}</i></>}
-                {nav && <><b className="sep">{fmtDur(nav.remMin)}</b> <i>{t('left')}</i></>}
-              </div>
-              <div className="rb-line eta">
-                <b>{eta != null ? fmtTime(eta) : '—'}</b> <i>{t('ETA')}</i>
-              </div>
+              {/* Rows render only when they have something in them. An empty
+                  row still costs its line box, which is a strip of grey card
+                  over the map saying nothing. */}
+              {((proj && nextWp) || nav) && (
+                <div className="rb-line">
+                  {proj && nextWp && <><b>{u.miNum(proj.remainToNext)}</b> <i>{u.miUnit}</i></>}
+                  {nav && <><b className="sep">{fmtDur(nav.remMin)}</b> <i>{t('left')}</i></>}
+                </div>
+              )}
+              {eta != null && (
+                <div className="rb-line eta">
+                  <b>{fmtTime(eta)}</b> <i>{t('ETA')}</i>
+                </div>
+              )}
             </>
           )}
           {nextWp && <Marquee className="rb-next" label={lean ? null : t('Next')} text={tt(nextWp.name)} />}

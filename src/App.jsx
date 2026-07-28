@@ -54,6 +54,7 @@ export default function App() {
   const [view, setView] = useState('dash'); // dash | plan | feas | budget
   const [newTripOpen, setNewTripOpen] = useState(false);
   const [rideOpen, setRideOpen] = useState(false);
+  const [wheelOpen, setWheelOpen] = useState(false); // bottom page wheel
   const [packingOpen, setPackingOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const t = useT();
@@ -133,7 +134,7 @@ export default function App() {
   // there is one list of what the app can be asked to do.
   const openTarget = (target) => {
     switch (target) {
-      case 'plan': case 'feas': case 'budget':
+      case 'dash': case 'plan': case 'feas': case 'budget':
         setView(target); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
       case 'optimizer':
         setChatOpen(true); if (isMobile) setMobileTab('chat'); break;
@@ -261,6 +262,26 @@ export default function App() {
              cannot be the thing that scrolls away. The Optimizer used to hold
              this row's third seat despite being one card on the hub among a
              dozen; the third seat now follows whatever you are working on. */
+          <>
+          {/* Every page, one thumb-swipe away, without leaving what you are on.
+              The tab bar can only ever hold three things; this holds all of
+              them and stays out of the way until asked. */}
+          {wheelOpen && (
+            <div className="dash-wheel" role="menu" aria-label={t('Dashboard')}>
+              {[
+                ['dash', 'Dashboard'], ['plan', 'Planner'], ['feas', 'Feasibility'],
+                ['budget', 'Budget'], ['optimizer', 'Optimizer'], ['packing', 'Packing list'],
+                ['bookings', 'Reserve these now'], ['save-scenario', 'Scenarios'], ['settings', 'Settings'],
+              ].map(([target, label]) => (
+                <button
+                  key={target}
+                  role="menuitem"
+                  className={target === 'dash' && onDash ? 'active' : ''}
+                  onClick={() => { setWheelOpen(false); openTarget(target); }}
+                >{t(label)}</button>
+              ))}
+            </div>
+          )}
           <nav className="tabnav" aria-label="Views">
             <button
               className={mobileTab === 'map' ? 'active' : ''}
@@ -268,9 +289,9 @@ export default function App() {
               aria-current={mobileTab === 'map'}
             >{t('Map')}</button>
             <button
-              className={onDash ? 'active' : ''}
-              onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); setMobileTab('panel'); }}
-              aria-current={onDash}
+              className={onDash || wheelOpen ? 'active' : ''}
+              onClick={() => setWheelOpen((v) => !v)}
+              aria-expanded={wheelOpen}
             >{t('Dashboard')}</button>
             <button
               className={mobileTab === 'panel' && !onDash ? 'active' : ''}
@@ -278,6 +299,7 @@ export default function App() {
               aria-current={mobileTab === 'panel' && !onDash}
             >{t(workLabel)}</button>
           </nav>
+          </>
         )}
         <DetailModal />
         {newTripOpen && <NewTripModal onClose={() => setNewTripOpen(false)} />}

@@ -887,18 +887,14 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
    transparent, so every pixel of its padding is map the card is standing on
    top of for no reason. Only the safe area is kept, because that is a real
    obstruction rather than a design choice. */
-/* Flush to the bottom edge. Sitting the card ABOVE the home-indicator inset
-   left a band of map under it that reads as a gap; the card now runs into that
-   band with its own background and pads its text clear of the indicator. */
+/* The card sits above the home-indicator inset and keeps its own shape. Running
+   it flush to the screen edge instead put the whole 34px inset INSIDE the card
+   as empty background — the gap did not go away, it just turned grey and took
+   the card's bottom corners with it. Below the card is map, which is the point. */
 .ride-overlay-bottom {
-  bottom: 0;
+  bottom: env(safe-area-inset-bottom, 0);
   align-items: stretch;
   padding-top: 0; padding-bottom: 0;
-}
-.ride-overlay-bottom .rb-delta {
-  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
-  border-bottom: none;
-  padding-bottom: calc(3px + env(safe-area-inset-bottom, 0px));
 }
 
 .ride-topbar { display: flex; gap: 8px; align-items: center; }
@@ -1570,3 +1566,30 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .set-credits p {
   font-size: 11px; line-height: 1.55; color: var(--ink-faint); margin-top: 5px;
 }
+
+
+/* ---------- bottom page wheel ----------
+   The tab bar holds three seats; the app has a dozen destinations. Tapping the
+   hub opens this strip above it — every page, scrolled with a thumb, snapping
+   so nothing lands half-shown. It sits over the content rather than resizing
+   it, so opening it never reflows the view underneath. */
+.dash-wheel {
+  position: fixed; left: 0; right: 0; bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+  padding: 9px max(12px, env(safe-area-inset-left)) 9px max(12px, env(safe-area-inset-right));
+  background: rgba(14, 14, 14, 0.93);
+  backdrop-filter: blur(18px) saturate(1.2);
+  border-top: 1px solid var(--line);
+}
+.dash-wheel::-webkit-scrollbar { display: none; }
+.dash-wheel button {
+  flex: 0 0 auto; scroll-snap-align: center;
+  padding: 10px 15px; min-height: 42px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--asphalt-2); color: var(--ink-dim);
+  font-family: var(--display); font-size: 15px; font-weight: 600; letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.dash-wheel button:active { transform: translateY(1px); }
+.dash-wheel button.active { background: var(--rally); border-color: var(--rally); color: #000; }
