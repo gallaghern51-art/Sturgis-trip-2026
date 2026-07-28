@@ -6,6 +6,7 @@ import { haversineMiles } from '../engine/tripEngine.js';
 import { routeDaySteps, routeFrom } from '../engine/routing.js';
 import { STYLE_SATELLITE, STYLE_STREETS, STYLE_DARK, STYLE_LIGHT, warmTilesAhead, cachedGoogleStyle, googleStyle, GOOGLE_KEY } from '../engine/basemaps.js';
 import { fmtDayDate } from '../engine/dates.js';
+import { fetchConditionsAhead, conditionKind, conditionColor } from '../engine/conditions.js';
 import { useT, useTT, useUnits } from '../engine/settings.jsx';
 
 // Ride Mode: a navigation HUD over a live map. Projects your GPS position onto
@@ -150,6 +151,41 @@ const navStyleFor = (key) => (
         : cachedGoogleStyle('hybrid') ?? STYLE_SATELLITE
 );
 
+
+// A stop name is often longer than a phone is wide. Rather than truncate it,
+// this scrolls it — but only when it actually overflows, so short names sit
+// still instead of drifting for no reason.
+function Marquee({ className, label, text }) {
+  const boxRef = useRef(null);
+  const inkRef = useRef(null);
+  const [runs, setRuns] = useState(false);
+
+  useEffect(() => {
+    const box = boxRef.current;
+    const ink = inkRef.current;
+    if (!box || !ink) return;
+    const over = ink.scrollWidth - box.clientWidth;
+    setRuns(over > 4);
+    // distance and duration are set from the actual overflow so the speed is
+    // constant regardless of how long the name is
+    if (over > 4) {
+      ink.style.setProperty('--shift', `${-over - 12}px`);
+      ink.style.setProperty('--dur', `${Math.max(6, (over + 12) / 22)}s`);
+    }
+  }, [text]);
+
+  // The label sits OUTSIDE the clipping box: inside it, the text slid underneath
+  // the label instead of being cut at the edge of the scroll window.
+  return (
+    <div className={`${className} mq-row`}>
+      {label && <i className="mq-label">{label}</i>}
+      <div className="mq-box" ref={boxRef}>
+        <span className={`mq-ink${runs ? ' runs' : ''}`} ref={inkRef}>{text}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function RideMode({ onClose }) {
   const { state, routes, routedLegsByDay } = useTrip();
   const { trip } = state;
@@ -167,6 +203,12 @@ export default function RideMode({ onClose }) {
   const [muted, setMuted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [navStyle, setNavStyle] = useState('hybrid');
+  const [ahead, setAhead] = useState(null); // conditions a few miles up the road
+  // Posted limits are not in what we route with: OSRM's steps carry no maxspeed
+  // and Google's limits sit behind a separately-licensed Roads API. The chip is
+  // wired and will render the moment a source is plumbed in — it just will not
+  // invent a number in the meantime.
+  const speedLimit = null;
   const t = useT();
   const tt = useTT();
   const u = useUnits();
@@ -210,7 +252,7 @@ export default function RideMode({ onClose }) {
       style: cachedGoogleStyle('hybrid') ?? STYLE_SATELLITE,
       center: start ? [start.lng, start.lat] : [-108, 45],
       zoom: 12,
-      attributionControl: { compact: true },
+      attributionControl: false, // shown in the hub instead — see below
       maxTileCacheSize: 1024, // keep ridden-past tiles around for overview jumps
     });
     mapRef.current = map;
@@ -363,6 +405,29 @@ export default function RideMode({ onClose }) {
   const goodFix = fix && (fix.accuracy == null || fix.accuracy < 200);
   const offRoute = !!(geoProj && goodFix && geoProj.off > (hasRealRoute ? 0.12 : 2.5));
 
+  // Weather for a point up the road rather than underfoot — what matters on a
+  // bike is what you are about to ride into. Keyed to a coarse grid in
+  // conditions.js so travelling along a road reuses one cache entry.
+  const aheadPt = useMemo(() => {
+    const chain = geomInfo?.chain;
+    if (!chain?.length || !proj) return null;
+    // ~12 miles ahead along the routed line
+    const startIdx = Math.min(chain.length - 1, Math.max(0, proj.i));
+    let acc = 0;
+    for (let i = startIdx; i < chain.length - 1; i++) {
+      acc += haversineMiles(chain[i], chain[i + 1]);
+      if (acc >= 12) return chain[i + 1];
+    }
+    return chain[chain.length - 1];
+  }, [geomInfo, proj?.i]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!aheadPt) return;
+    let dead = false;
+    fetchConditionsAhead(aheadPt.lat, aheadPt.lng).then((w) => { if (!dead && w) setAhead(w); });
+    return () => { dead = true; };
+  }, [aheadPt?.lat?.toFixed?.(1), aheadPt?.lng?.toFixed?.(1)]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // dim the part of the route already ridden (Google-style traveled line)
   useEffect(() => {
     const map = mapRef.current;
@@ -502,8 +567,8 @@ export default function RideMode({ onClose }) {
   const deltaChip = delta == null ? null : Math.abs(delta) < 5
     ? { cls: 'on-time', text: t('ON PLAN') }
     : delta > 0
-      ? { cls: 'behind', text: `${fmtDur(delta)} ${t('BEHIND')}` }
-      : { cls: 'ahead', text: `${fmtDur(-delta)} ${t('AHEAD')}` };
+      ? { cls: 'behind', text: `${fmtDur(delta)} ${t('LATE')}` }
+      : { cls: 'ahead', text: `${fmtDur(-delta)} ${t('EARLY')}` };
 
   // "Behind" on its own is not actionable. This is where the plan says you
   // should be at this minute — which leg, and how far off in ground terms —
@@ -559,7 +624,19 @@ export default function RideMode({ onClose }) {
             <span className="rl-day">{day.dow} {fmtDayDate(day.date)}</span>
             <span className="rl-title">{tt(day.title)}</span>
           </button>
-          {/* No clock: every phone shows one in its status bar, an inch above this. */}
+          {/* Weather a dozen miles up the road, and the posted limit when we can
+              get it. No clock — the phone shows one an inch above this. */}
+          {ahead && (
+            <div className="ride-chip wx" title={`${ahead.summary} · ${t('ahead')}`}>
+              <span className="wxc-dot" style={{ background: conditionColor(ahead.code) }} />
+              <span className="wxc-temp">{u.temp(ahead.temp)}</span>
+            </div>
+          )}
+          {speedLimit != null && (
+            <div className="ride-chip limit" title={t('Speed limit')}>
+              <span className="sl-num">{u.metric ? Math.round(speedLimit * 1.609344) : speedLimit}</span>
+            </div>
+          )}
           <button
             className={`btn icon-btn ride-menu-btn${menuOpen ? ' on' : ''}`}
             onClick={() => setMenuOpen((v) => !v)}
@@ -608,6 +685,12 @@ export default function RideMode({ onClose }) {
             {/* The thing a rider actually needs to find, so it gets the weight
                 and sits alone at the bottom. */}
             <button className="btn end-nav" onClick={onClose}>{t('End navigation')}</button>
+
+            {/* Tile credit still has to appear somewhere — it just has no place
+                on a HUD read at speed, so it lives here. */}
+            <div className="rm-attrib">
+              {navStyle === 'hybrid' ? 'Imagery © Esri, Maxar, Earthstar Geographics' : '© OpenFreeMap · OpenMapTiles · OpenStreetMap'}
+            </div>
           </div>
         )}
 
@@ -644,23 +727,12 @@ export default function RideMode({ onClose }) {
             to look down. Then the two numbers you glance at. Nothing repeated. */}
         <div className={`rb-delta ${deltaChip?.cls ?? ''}`}>
           <div className="n">{deltaChip?.text ?? (fix ? t('LOCATING…') : t('WAITING FOR GPS'))}</div>
-          {milesOff != null && Math.abs(milesOff) >= 1 && (
-            <div className={`l off-line ${milesOff < 0 ? 'short' : 'past'}`}>
-              {u.miNum(Math.abs(milesOff))} {u.miUnit} {milesOff < 0 ? t('short of plan') : t('past plan')}
-              {targetWp && ` · ${t('plan:')} ${tt(targetWp.name)}`}
-            </div>
+          {/* Distance to the next stop, bare. The big line already said late or
+              early, so labelling this "short of plan" only repeated it. */}
+          {proj && nextWp && (
+            <div className="rb-togo">{u.miNum(proj.remainToNext)} <i>{u.miUnit}</i></div>
           )}
-          <div className="rb-grid">
-            {nextWp && (
-              <span className="rb-next">
-                <i>{t('Next')}</i> {tt(nextWp.name)}
-                {proj && <b> {u.miNum(proj.remainToNext)} {u.miUnit}</b>}
-              </span>
-            )}
-            <span className="rb-odo">
-              <b>{u.miNum(proj ? proj.doneMiles : 0)}</b>/{u.miNum(totalMiles)} {u.miUnit}
-            </span>
-          </div>
+          {nextWp && <Marquee className="rb-next" label={t('Next')} text={tt(nextWp.name)} />}
         </div>
         <div className="ride-bottombar">
           <div className="rb-speed">

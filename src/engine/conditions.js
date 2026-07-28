@@ -136,3 +136,43 @@ export const ROAD_STATUS_LINKS = [
   { name: 'South Dakota 511 (Black Hills)', url: 'https://sd511.org/' },
   { name: 'Wildfire smoke — AirNow fire & smoke map', url: 'https://fire.airnow.gov/' },
 ];
+
+/**
+ * Conditions at a point you are about to ride into, for the nav HUD. Current
+ * hour rather than a daily summary — a rider wants what is over the next ridge,
+ * not the day's high.
+ *
+ * Rounded to ~0.1° (~7 km) so riding along a road reuses one cache entry
+ * instead of asking per GPS fix, and capped to a 30-minute TTL.
+ */
+const AHEAD_TTL = 30 * 60 * 1000;
+
+export async function fetchConditionsAhead(lat, lng) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const key = `ahead|${lat.toFixed(1)},${lng.toFixed(1)}`;
+  const c = cache();
+  if (c[key] && Date.now() - c[key].at < AHEAD_TTL) return c[key].data;
+
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
+    + '&current=temperature_2m,weather_code,wind_speed_10m'
+    + '&temperature_unit=fahrenheit&wind_speed_unit=mph';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const j = await res.json();
+    const cur = j.current;
+    if (!cur) return null;
+    const data = {
+      code: cur.weather_code,
+      temp: Math.round(cur.temperature_2m),
+      wind: Math.round(cur.wind_speed_10m),
+      summary: WMO[cur.weather_code] ?? '—',
+    };
+    const next = cache();
+    next[key] = { at: Date.now(), data };
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(next)); } catch { /* full */ }
+    return data;
+  } catch {
+    return null;
+  }
+}

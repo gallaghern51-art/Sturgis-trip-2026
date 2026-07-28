@@ -657,8 +657,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
   /* The HUD is read at speed on the smallest screen, so a phone is exactly where
      the type must NOT shrink. These used to cut it to 24px and undo the sizing. */
-  .rb-speed { padding: 6px 8px 8px; }
-  .rb-eta { padding: 6px 8px 8px; }
+  .rb-speed { padding: 0 3px 3px; }
+  .rb-eta { padding: 0 5px 3px; }
 }
 
 /* ---------- phone: one pane at a time, driven by the bottom tab bar ----------
@@ -875,12 +875,10 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 }
 .ride-overlay > * { pointer-events: auto; }
 .ride-overlay-top { top: env(safe-area-inset-top, 0); }
-/* The map's attribution control sits on the bottom edge and was overlapping the
-   progress bar, so the overlay stops short of it. */
 .ride-overlay-bottom {
   bottom: env(safe-area-inset-bottom, 0);
   align-items: stretch;
-  padding-bottom: 26px;
+  padding-bottom: 4px;
 }
 
 .ride-topbar { display: flex; gap: 8px; align-items: center; }
@@ -889,17 +887,17 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .ride-leg {
   flex: 1; min-width: 0; text-align: left;
   display: flex; flex-direction: column; gap: 1px;
-  padding: 8px 13px; min-height: 58px; justify-content: center;
-  background: rgba(0, 0, 0, 0.82);
-  border: 1px solid var(--line); border-radius: 8px;
-  backdrop-filter: blur(6px);
+  padding: 4px 10px; min-height: 44px; justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 8px;
+  backdrop-filter: blur(12px);
 }
 .ride-leg .rl-day {
-  font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--ink-faint);
 }
 .ride-leg .rl-title {
-  font-family: var(--display); font-size: 23px; font-weight: 700; color: var(--ink);
+  font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ride-menu-btn.on { border-color: var(--outbound); color: var(--outbound); }
@@ -909,36 +907,38 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
    the controls stay legible over moving imagery. */
 .ride-menu {
   margin-top: 8px;
-  display: flex; flex-direction: column; gap: 9px;
-  padding: 11px;
-  /* more see-through, heavier blur so it still reads as a greyed-out panel */
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(24px) saturate(1.15) brightness(0.6);
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 6px;
+  /* genuinely see-through: the previous 0.4 black still stacked with a dark blur
+     and read as solid, so the tint is now a fraction of that and the blur alone
+     does the separating. */
+  background: rgba(10, 10, 10, 0.16);
+  backdrop-filter: blur(18px) saturate(1.2);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 14px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
 }
-.ride-menu .rm-row { display: flex; align-items: center; gap: 10px; }
+.ride-menu .rm-row { display: flex; align-items: center; gap: 7px; }
 .ride-menu .rm-label {
   font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--ink-faint);
-  width: 54px; flex: none;
+  width: 42px; flex: none; line-height: 1.05;
 }
-.ride-menu select { flex: 1; min-width: 0; min-height: 46px; font-size: 16px; background: rgba(0, 0, 0, 0.6); }
+.ride-menu select { flex: 1; min-width: 0; min-height: 38px; font-size: 15px; padding: 4px 8px; background: rgba(0, 0, 0, 0.6); }
 .ride-menu .rm-seg {
   flex: 1; display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
 }
 .ride-menu .rm-seg button {
-  flex: 1; padding: 11px 4px;
+  flex: 1; padding: 9px 2px;
   font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em;
   color: var(--ink-dim); border-right: 1px solid var(--line);
 }
 .ride-menu .rm-seg button:last-child { border-right: none; }
 .ride-menu .rm-seg button.active { background: var(--outbound); color: #000; }
 .ride-menu .end-nav {
-  min-height: 54px; margin-top: 2px;
+  min-height: 46px; margin-top: 0;
   background: var(--danger); border-color: var(--danger); color: #000;
-  font-size: 20px; letter-spacing: 0.1em;
+  font-size: 18px; letter-spacing: 0.08em;
 }
 .ride-menu .end-nav:hover { background: #f76a4a; border-color: #f76a4a; color: #000; }
 
@@ -951,7 +951,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   background: rgba(0, 0, 0, 0.92);
 }
 .ride-clock { font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--ink); text-shadow: 0 1px 4px #000; }
-.ride-topbar .btn { min-height: 58px; background: rgba(0, 0, 0, 0.92); }
+.ride-topbar .btn { min-height: 44px; background: rgba(0, 0, 0, 0.92); }
 
 .turn-card {
   display: flex; gap: 14px; align-items: center;
@@ -989,51 +989,44 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 /* Two equal tiles. They were fixed-width with the schedule squeezed between
    them, which left the ETA tile half empty on a phone. */
-.ride-bottombar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* MPH is three characters; ETA carries a time and a duration. Sizing them
+   equally is what left the speed tile mostly empty. */
+.ride-bottombar { display: grid; grid-template-columns: minmax(96px, 0.5fr) 1fr; gap: 8px; }
 .rb-speed {
-  background: rgba(0, 0, 0, 0.94); border: 1px solid var(--line); border-radius: 12px;
-  padding: 6px 10px 8px; text-align: center;
+  background: rgba(0, 0, 0, 0.55); border: 1px solid var(--line); border-radius: 12px;
+  padding: 0 4px 3px; text-align: center; backdrop-filter: blur(12px);
 }
-.rb-speed .n { font-family: var(--display); font-size: 64px; font-weight: 700; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.rb-speed .n { font-family: var(--display); font-size: 60px; font-weight: 700; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
 .rb-speed .l { font-family: var(--mono); font-size: 14px; letter-spacing: 0.16em; color: var(--ink-faint); }
 .rb-delta {
   border-radius: 12px; border: 1px solid var(--line);
-  padding: 7px 12px 9px; margin-bottom: 10px;
-  background: rgba(0, 0, 0, 0.94);
+  padding: 2px 10px 5px; margin-bottom: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px);
 }
+/* the type is the box — nothing is centred in dead space */
 .rb-delta .n {
-  font-family: var(--display); font-size: 38px; font-weight: 700;
-  line-height: 1.02; white-space: nowrap;
+  font-family: var(--display); font-size: 44px; font-weight: 700;
+  line-height: 1.0; white-space: nowrap;
 }
-/* how far off the plan's position you are — the number a rider acts on */
-.rb-delta .off-line {
-  font-family: var(--mono); font-size: 15px; line-height: 1.25; margin-top: 1px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+/* miles to the next stop, bare */
+.rb-delta .rb-togo {
+  font-family: var(--display); font-size: 30px; font-weight: 700;
+  line-height: 1.05; color: var(--ink);
 }
-.rb-delta .off-line.short { color: var(--danger); }
-.rb-delta .off-line.past { color: var(--ok); }
-/* next stop and the day's odometer share one row instead of each taking their
-   own — that stacking is what left the tile looking half empty */
-.rb-grid {
-  display: flex; gap: 12px; align-items: baseline; margin-top: 5px;
-  font-family: var(--mono); font-size: 15px; color: var(--ink-dim);
+.rb-delta .rb-togo i {
+  font-style: normal; font-family: var(--mono); font-size: 14px;
+  color: var(--ink-faint); margin-left: 2px;
 }
-.rb-next { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rb-odo { flex: none; white-space: nowrap; }
-.rb-grid i {
-  font-style: normal; font-size: 11px; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--ink-faint); margin-right: 3px;
-}
-.rb-grid b { color: var(--ink); font-weight: 600; }
 .rb-delta.ahead { border-color: var(--ok); } .rb-delta.ahead .n { color: var(--ok); }
 .rb-delta.behind { border-color: var(--danger); } .rb-delta.behind .n { color: var(--danger); }
 .rb-delta.on-time { border-color: var(--rally); } .rb-delta.on-time .n { color: var(--rally); }
 .rb-eta {
-  background: rgba(0, 0, 0, 0.94); border: 1px solid var(--line); border-radius: 12px;
-  padding: 6px 10px 8px; text-align: center;
+  background: rgba(0, 0, 0, 0.55); border: 1px solid var(--line); border-radius: 12px;
+  padding: 0 6px 3px; text-align: center; backdrop-filter: blur(12px);
   display: flex; flex-direction: column; justify-content: center;
 }
-.rb-eta .n { font-family: var(--display); font-size: 34px; font-weight: 700; line-height: 1.05; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rb-eta .n { font-family: var(--display); font-size: 42px; font-weight: 700; line-height: 1.05; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rb-eta .l { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: var(--ink-faint); margin-top: 3px; white-space: nowrap; }
 
 .ride-mode .rp-bar { background: rgba(26, 26, 26, 0.9); }
@@ -1348,3 +1341,52 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .rp-stop.photo { background: var(--return); border-radius: 1px; transform: translate(-50%, -50%) rotate(45deg); }
 .rp-stop.end { background: var(--ink); width: 7px; height: 14px; border-radius: 2px; }
 .rp-stop.via { background: var(--ink-faint); width: 7px; height: 7px; }
+
+
+/* ---------- scrolling stop name ----------
+   Long names get read rather than truncated. The label is a sibling of the
+   scroll window, not inside it, or the text slides under the label instead of
+   being clipped at the window's edge. Shift and duration come from the actual
+   overflow so the speed is the same whatever the name's length. */
+.mq-row { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.mq-label {
+  font-style: normal; font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint);
+  flex: none;
+}
+.mq-box { flex: 1; min-width: 0; overflow: hidden; }
+.mq-ink {
+  display: inline-block;
+  font-family: var(--mono); font-size: 17px; color: var(--ink);
+  white-space: nowrap;
+}
+.mq-ink.runs { animation: mq-slide var(--dur, 9s) linear infinite alternate; }
+@keyframes mq-slide { from { transform: translateX(0); } to { transform: translateX(var(--shift, 0)); } }
+@media (prefers-reduced-motion: reduce) { .mq-ink.runs { animation: none; } }
+
+/* tile credit, parked in the hub so it is off the riding view */
+.rm-attrib {
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint);
+  text-align: center; line-height: 1.3;
+}
+
+
+/* ---------- small HUD chips beside the leg bar ---------- */
+
+.ride-chip {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 44px; padding: 0 9px; border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(12px);
+}
+.ride-chip .wxc-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+.ride-chip .wxc-temp {
+  font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+/* US speed-limit sign: white plate, black rule, number */
+.ride-chip.limit { background: #fff; border-color: #d4d4d4; padding: 0 8px; }
+.ride-chip.limit .sl-num {
+  font-family: var(--display); font-size: 24px; font-weight: 700; color: #111;
+  font-variant-numeric: tabular-nums;
+}
