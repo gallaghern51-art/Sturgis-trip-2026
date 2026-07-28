@@ -19,12 +19,14 @@ import Dashboard from './components/Dashboard.jsx';
 import { useAutoTranslate } from './engine/autoTranslate.js';
 import { useT, useTT, useUnits } from './engine/settings.jsx';
 
-// The phone's bottom bar: every page once, related work adjacent. Map first,
-// the hub, then planning (Planner and Optimizer share an elbow), then the
-// checks, then prep. Ride is NOT here — it is the masthead's one action.
+// The phone's bottom bar: every page once, related work adjacent. The hub
+// takes the first seat — it is the trip's home, and the leftmost seat is where
+// a thumb lands first. Then the map, then planning (Planner and Optimizer
+// share an elbow), then the checks, then prep. Ride is NOT here — it is the
+// masthead's one action.
 const SEATS = [
-  ['map', 'Map'],
   ['dash', 'Dashboard'],
+  ['map', 'Map'],
   ['plan', 'Planner'],
   ['optimizer', 'Optimizer'],
   ['feas', 'Feasibility'],
@@ -201,54 +203,76 @@ export default function App() {
     activeSeatRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
   }, [seatActive]);
 
+  // On the phone's map tab the header and ribbon float over the map, so the map
+  // has to know how tall they are — its own overlays (basemap switch, hint,
+  // geolocate) sit below them. Measured rather than guessed: the masthead grows
+  // a line when a trip title wraps or a translation pill appears.
+  const appRef = useRef(null);
+  const chromeRef = useRef(null);
+  useEffect(() => {
+    const app = appRef.current, chrome = chromeRef.current;
+    if (!app || !chrome || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      app.style.setProperty('--chrome-h', `${Math.round(chrome.getBoundingClientRect().height)}px`);
+    });
+    ro.observe(chrome);
+    return () => ro.disconnect();
+  }, []);
+
+  // Full-bleed map is the map tab's posture only: every other tab scrolls text,
+  // which needs an opaque bar to scroll under rather than glass to read through.
+  const mapFull = isMobile && mobileTab === 'map';
+
   return (
     <TripContext.Provider value={{ state, dispatch, routes, routedLegsByDay, summary, ui }}>
-      <div className={`app${isMobile ? ' mobile' : ''}`}>
-        <header className="masthead">
-          <div className="mast-id">
-            <h1 className="brand">
-              <button
-                onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
-                title={t('Dashboard')}
-              >ROAD<span className="yr">BOOK</span></button>
-            </h1>
-            <span className="sub">
-              {/* title and stats are separate spans so a narrow screen breaks
-                  between them rather than mid-phrase ("7 / RIDERS") */}
-              <span className="mast-trip">{state.trip.meta.title}</span>
-              <span className="mast-stats">
-                {u.mi(summary.totalMiles)} · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
+      <div ref={appRef} className={`app${isMobile ? ' mobile' : ''}${mapFull ? ' map-full' : ''}`}>
+        <div className="topchrome" ref={chromeRef}>
+          <header className="masthead">
+            <div className="mast-id">
+              <h1 className="brand">
+                <button
+                  onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
+                  title={t('Dashboard')}
+                >ROAD<span className="yr">BOOK</span></button>
+              </h1>
+              <span className="sub">
+                {/* title and stats are separate spans so a narrow screen breaks
+                    between them rather than mid-phrase ("7 / RIDERS") */}
+                <span className="mast-trip">{state.trip.meta.title}</span>
+                <span className="mast-stats">
+                  {u.mi(summary.totalMiles)} · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
+                </span>
+                <span className="mast-flags">
+                  {CREW_FLAGS.map((f) => <img key={f.alt} className="flag crew" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
+                  {/* state flags only make sense on the Sturgis route */}
+                  {/STURGIS/i.test(state.trip.meta.title) && (
+                    <span className="state-flags">
+                      {STATE_FLAGS.map((f) => <img key={f.alt} className="flag" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
+                    </span>
+                  )}
+                </span>
+                <TranslationStatus />
               </span>
-              <span className="mast-flags">
-                {CREW_FLAGS.map((f) => <img key={f.alt} className="flag crew" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
-                {/* state flags only make sense on the Sturgis route */}
-                {/STURGIS/i.test(state.trip.meta.title) && (
-                  <span className="state-flags">
-                    {STATE_FLAGS.map((f) => <img key={f.alt} className="flag" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
-                  </span>
-                )}
-              </span>
-              <TranslationStatus />
-            </span>
-          </div>
-          <span className="spacer" />
-          {/* Navigation lives on the dashboard, not here. Five view tabs up top
-              duplicated five dashboard cards; the brand is the way home and the
-              hub is the switcher. What is left is contextual: Undo appears only
-              when there is something to undo, and Ride is the app's one action. */}
-          <div className="actions">
-            <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
-            {state.history.length > 0 && (
-              <button className="btn" onClick={() => dispatch({ type: 'undo' })}>{t('Undo')}</button>
-            )}
-            <span className="mast-where">{t(viewLabel)}</span>
-            <button className="btn primary ride-btn" onClick={() => setRideOpen(true)}>
-              <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
-              {t('Ride')}
-            </button>
-          </div>
-        </header>
-        <Ribbon />
+            </div>
+            <span className="spacer" />
+            {/* Navigation lives on the dashboard, not here. Five view tabs up top
+                duplicated five dashboard cards; the brand is the way home and the
+                hub is the switcher. What is left is contextual: Undo appears only
+                when there is something to undo, and Ride is the app's one action. */}
+            <div className="actions">
+              <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
+              {state.history.length > 0 && (
+                <button className="btn" onClick={() => dispatch({ type: 'undo' })}>{t('Undo')}</button>
+              )}
+              <span className="mast-where">{t(viewLabel)}</span>
+              <button className="btn primary ride-btn" onClick={() => setRideOpen(true)}>
+                <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
+                {t('Ride')}
+              </button>
+            </div>
+          </header>
+          <Ribbon />
+        </div>
         <div className={`main${!isMobile && chatOpen ? ' chat-open' : ''}`} data-tab={mobileTab}>
           <MapView />
           <aside className="side">
