@@ -16,6 +16,11 @@ function freshRecord(trip, name) {
     trip,
     scenarios: [],
     chat: [],
+    // set once the trip is published: { tripId, joinCode }
+    remote: null,
+    // op batches applied locally but not yet accepted by the server. Persisted,
+    // so edits made with no signal are still waiting when the bars come back.
+    outbox: [],
     updatedAt: new Date().toISOString(),
   };
 }
@@ -73,6 +78,13 @@ function activeRecord(lib) {
   return lib.trips.find((t) => t.id === lib.activeId) ?? lib.trips[0];
 }
 
+// Persist bookkeeping that hangs off the record rather than the trip itself.
+function syncMeta(state, patch) {
+  const rec = activeRecord(state.lib);
+  Object.assign(rec, patch);
+  persistLibrary(state.lib);
+}
+
 // Write the working trip back into its library record and persist.
 function syncTrip(state, trip) {
   const lib = state.lib;
@@ -92,6 +104,8 @@ export const initialState = () => {
     trip: rec.trip,
     scenarios: rec.scenarios,
     chat: rec.chat ?? [],
+    remote: rec.remote ?? null,
+    outbox: rec.outbox ?? [],
     history: [], // undo stack of previous trips (capped)
     selectedDayId: null, // null = whole-trip overview
     pendingProposal: null, // { ops, summary, saveAs, overwriteScenarioId }
@@ -106,7 +120,34 @@ export function reducer(state, action) {
       const { trip, errors } = applyOps(state.trip, action.ops);
       if (errors.length) console.warn('op errors', errors);
       syncTrip(state, trip);
-      return { ...state, trip, history: [state.trip, ...state.history].slice(0, 30) };
+      // action.remote = this batch arrived FROM the server. Queueing it would
+      // bounce it straight back and loop.
+      const outbox = action.remote ? state.outbox : [...state.outbox, { id: uid('ob'), ops: action.ops }];
+      if (!action.remote) syncMeta(state, { outbox });
+      return {
+        ...state, trip, outbox,
+        // Undo is a local snapshot stack; restoring one would silently revert a
+        // co-rider's edit, so a shared trip does not stack remote changes.
+        history: action.remote ? state.history : [state.trip, ...state.history].slice(0, 30),
+      };
+    }
+    // the server accepted these batches — drop them from the queue
+    case 'outbox_sent': {
+      const done = new Set(action.ids);
+      const outbox = state.outbox.filter((b) => !done.has(b.id));
+      syncMeta(state, { outbox });
+      return { ...state, outbox };
+    }
+    // Adopting a shared trip: the joined copy replaces this device's, and the
+    // outbox is dropped — those edits belong to a trip this device just left.
+    case 'load_trip': {
+      syncTrip(state, action.trip);
+      syncMeta(state, { outbox: [] });
+      return { ...state, trip: action.trip, outbox: [], history: [], selectedDayId: null };
+    }
+    case 'set_remote': {
+      syncMeta(state, { remote: action.remote });
+      return { ...state, remote: action.remote };
     }
     case 'undo': {
       if (!state.history.length) return state;

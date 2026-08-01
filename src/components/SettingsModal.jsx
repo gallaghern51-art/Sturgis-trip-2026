@@ -3,9 +3,10 @@ import { useSettings, useT } from '../engine/settings.jsx';
 import { useTrip } from '../engine/store.js';
 import { translationCoverage } from '../i18n/collect.js';
 import { clearTranslateFailure } from '../engine/autoTranslate.js';
+import SyncPanel from './SyncPanel.jsx';
 
 // Language + theme, per device. Both apply instantly; nothing to save.
-export default function SettingsModal() {
+export default function SettingsModal({ sync }) {
   const { lang, theme, units, shields, set } = useSettings();
   const t = useT();
   const [devOpen, setDevOpen] = useState(false);
@@ -45,6 +46,8 @@ export default function SettingsModal() {
           <p className="set-note">
             {t('Applies on this device only. Trip text and AI answers stay in the language they were written in — ask the optimizer in Spanish and it answers in Spanish.')}
           </p>
+
+          {sync && <SyncPanel sync={sync} />}
 
           {/* The map credits. Esri and OpenMapTiles require these to be shown;
               they do not require them to be shown on the map, so they live here
