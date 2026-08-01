@@ -20,10 +20,36 @@ function freshRecord(trip, name) {
   };
 }
 
+// One-time data corrections applied to trips already in storage. Fixing the
+// seed only helps trips created afterwards, and nobody should have to reset a
+// trip to stop seeing a road number that does not exist.
+//
+// SD-14A: Spearfish Canyon is US-14A. South Dakota has no route 14A, so the
+// shield lookup found nothing and the number rendered as plain text.
+const DATA_FIXES = [[/\bSD-14A\b/g, 'US-14A']];
+
+function applyDataFixes(lib) {
+  let touched = false;
+  const walk = (node) => {
+    if (Array.isArray(node)) return node.forEach(walk);
+    if (!node || typeof node !== 'object') return;
+    for (const [k, v] of Object.entries(node)) {
+      if (typeof v === 'string') {
+        let next = v;
+        for (const [re, to] of DATA_FIXES) next = next.replace(re, to);
+        if (next !== v) { node[k] = next; touched = true; }
+      } else walk(v);
+    }
+  };
+  walk(lib.trips);
+  if (touched) persistLibrary(lib);
+  return lib;
+}
+
 export function loadLibrary() {
   try {
     const lib = JSON.parse(localStorage.getItem(LIB_KEY) || 'null');
-    if (lib?.trips?.length) return lib;
+    if (lib?.trips?.length) return applyDataFixes(lib);
   } catch { /* rebuild below */ }
   // migrate legacy single-trip storage, else seed with the Sturgis template
   let trip = null;

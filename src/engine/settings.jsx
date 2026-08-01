@@ -23,7 +23,9 @@ import { resolveContent } from '../i18n/resolve.js';
 import { TripContext } from './store.js';
 
 const KEY = 'moto.settings.v1';
-const DEFAULTS = { lang: 'en', theme: 'dark', units: 'imperial', shields: true };
+// `density` is the Ride Mode HUD's information budget: 'detailed' shows the
+// labels and the weather, 'minimal' strips it to numbers only.
+const DEFAULTS = { lang: 'en', theme: 'dark', units: 'imperial', shields: true, density: 'detailed' };
 
 function load() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...DEFAULTS }; }
@@ -328,6 +330,33 @@ const ES = {
   'Add an item…': 'Agregar un ítem…',
   'Add': 'Agregar',
   'Restore removed items': 'Restaurar ítems eliminados',
+  // dashboard
+  'Switch trip': 'Cambiar de viaje',
+  'in the library': 'en la biblioteca',
+  'saved': 'guardados',
+  'Save this plan as a named permutation': 'Guardar este plan como una permutación con nombre',
+  'Change which trip you are planning': 'Cambiar qué viaje estás planificando',
+  'Dashboard': 'Panel',
+  'Planner': 'Planificador',
+  'Plan the trip': 'Planificar el viaje',
+  'Get ready': 'Prepararse',
+  'Trip file': 'Archivo del viaje',
+  'Day by day, stops, food, lodging': 'Día a día, paradas, comida, alojamiento',
+  'days need attention': 'días requieren atención',
+  'No hard failures': 'Sin fallas graves',
+  'Fuel, lodging, food, tickets': 'Bencina, alojamiento, comida, entradas',
+  'AI': 'IA',
+  'Ask for changes, preview, apply': 'Pide cambios, previsualiza, aplica',
+  'Per rider, saved on this device': 'Por motociclista, guardado en este dispositivo',
+  'All booked': 'Todo reservado',
+  'Bookings still to make': 'Reservas pendientes',
+  'GPS': 'GPS',
+  'Turn-by-turn, ahead or behind plan': 'Indicaciones giro a giro, adelantados o atrasados',
+  'Language, theme, units': 'Idioma, tema, unidades',
+  'Save this trip as JSON': 'Guardar este viaje como JSON',
+  'Load a trip from JSON': 'Cargar un viaje desde JSON',
+  'From scratch, a description, or the template': 'Desde cero, una descripción o la plantilla',
+  'Back to the bundled template': 'Volver a la plantilla incluida',
   // highway shields
   'Highway shields': 'Escudos de carretera',
   'Developer tools': 'Herramientas de desarrollo',
@@ -345,6 +374,31 @@ const ES = {
   'Why': 'Por qué',
   'Trade-off': 'Costo',
   'Logistics': 'Logística',
+  'Next': 'Siguiente',
+  'ETA': 'ETA',
+  'left': 'restante',
+  'ON PLAN': 'SEGÚN EL PLAN',
+  'LATE': 'TARDE',
+  'ahead': 'adelante',
+  'away': 'de distancia',
+  'Speed limit': 'Límite de velocidad',
+  'EARLY': 'TEMPRANO',
+  'LOCATING…': 'UBICANDO…',
+  'WAITING FOR GPS': 'ESPERANDO GPS',
+  // ride mode hub
+  'Ride menu': 'Menú de ruta',
+  'Leg': 'Tramo',
+  'Voice': 'Voz',
+  'Map settings': 'Ajustes del mapa',
+  'Credits': 'Créditos',
+  'Basemap': 'Mapa base',
+  'Density': 'Densidad',
+  'Minimalist': 'Minimalista',
+  'Detailed': 'Detallado',
+  'then': 'luego',
+  'Route overview': 'Vista de la ruta',
+  'Re-center': 'Recentrar',
+  'End navigation': 'Terminar navegación',
   // ride mode
   'Exit': 'Salir',
   'Overview': 'Vista general',

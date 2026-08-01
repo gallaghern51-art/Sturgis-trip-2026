@@ -11,7 +11,8 @@ import PlaceSearch from './PlaceSearch.jsx';
 import ConditionsCard from './ConditionsCard.jsx';
 import { tripToGpx, downloadFile } from '../engine/exporters.js';
 import { useT, useTT, useUnits, useSettings } from '../engine/settings.jsx';
-import { dayRoadShields, SHIELD_ART } from '../engine/roads.js';
+import { dayRoadShields } from '../engine/roads.js';
+import RoadShield from './RoadShield.jsx';
 import { parksForDay } from '../data/parks.js';
 
 export default function DayPanel({ day }) {
@@ -167,26 +168,6 @@ function ParkBadge({ park, label }) {
       <img src="/pics/nps-arrowhead.png" alt="" aria-hidden="true" loading="lazy" />
       {park.short}
     </span>
-  );
-}
-
-// Real signage artwork when we have it; a plain chip otherwise (see SHIELD_ART).
-function RoadShield({ road }) {
-  const label = `${road.prefix}-${road.num}`;
-  const art = SHIELD_ART[road.key];
-  if (art) {
-    return (
-      <img
-        className={`shield-img${road.inherited ? ' inherited' : ''}`}
-        src={`/shields/${art}`}
-        alt={label}
-        title={label}
-        loading="lazy"
-      />
-    );
-  }
-  return (
-    <i className={`shield ${road.kind}${road.inherited ? ' inherited' : ''}`}>{label}</i>
   );
 }
 

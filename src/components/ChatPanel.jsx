@@ -14,7 +14,7 @@ const SUGGESTIONS = [
   'Give me a lower-mileage permutation of the whole trip, save as "Relaxed"',
 ];
 
-export default function ChatPanel({ onClose }) {
+export default function ChatPanel() {
   const { state, dispatch, routedLegsByDay } = useTrip();
   const [messages, setMessages] = useState(state.chat ?? []); // {role, content} — hydrated from the trip record
   const [input, setInput] = useState('');
@@ -133,7 +133,7 @@ export default function ChatPanel({ onClose }) {
   const proposal = state.pendingProposal;
 
   return (
-    <div className="chat-panel">
+    <div className="chat-panel panel-view">
       <div className="chat-head">
         <span className="t">Trip <i>Optimizer</i></span>
         {messages.length > 0 && (
@@ -143,7 +143,6 @@ export default function ChatPanel({ onClose }) {
             onClick={() => { if (confirm('Clear the optimizer conversation for this trip?')) { dispatch({ type: 'clear_chat' }); setMessages([]); } }}
           >{t('Clear')}</button>
         )}
-        <button className="btn" onClick={onClose}>✕</button>
       </div>
       <div className="chat-msgs" ref={scrollRef}>
         {messages.length === 0 && (

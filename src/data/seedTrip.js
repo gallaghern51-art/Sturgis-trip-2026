@@ -271,7 +271,7 @@ export const SEED_TRIP = {
       summary: 'Spearfish Canyon starts at your back door in Lead — ride it downhill in morning shade, run west to Devils Tower (867 ft of columnar rock), and come back through Sturgis for the last night of the rally.',
       constraints: [],
       waypoints: [
-        { id: 'd6w0', name: 'Lead, SD', mile: 0, note: 'Depart 8:00 AM. SD-14A North, canyon starts here', lat: 44.352, lng: -103.7652, kind: 'start' },
+        { id: 'd6w0', name: 'Lead, SD', mile: 0, note: 'Depart 8:00 AM. US-14A North, canyon starts here', lat: 44.352, lng: -103.7652, kind: 'start' },
         { id: 'd6w1', name: 'Savoy / Roughlock Falls turnoff', mile: 6, note: 'Short gravel spur to the falls, worth it', lat: 44.3486, lng: -103.9296, kind: 'via' },
         { id: 'd6w2', name: 'Bridal Veil Falls', mile: 9, note: 'Roadside pullout, 60-ft drop off the canyon wall', lat: 44.4525, lng: -103.8776, kind: 'photo' },
         { id: 'd6w3', name: 'Safeway Fuel Station — Spearfish, SD', mile: 20, note: '1600 North Ave. Canyon mouth, fuel and coffee. Backup: Sunny\'s 1, 820 E Colorado Blvd.', lat: 44.4996965, lng: -103.8591597, kind: 'fuel', fuel: true },

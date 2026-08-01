@@ -29,9 +29,45 @@ function prNumber() {
   try { return sh('gh pr view --json number -q .number'); } catch { return ''; }
 }
 
+
+// The Netlify functions do not run under plain `vite dev`, which meant the
+// shield endpoint 404'd locally and every route fell back to a text chip. That
+// gap was quietly driving design decisions — bundling artwork, keeping a
+// fallback that looked like a fake sign — so close it instead: dev serves the
+// real handler, so what you see locally is what ships.
+function netlifyFunctionsInDev() {
+  return {
+    name: 'netlify-functions-dev',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const match = /^\/\.netlify\/functions\/([\w-]+)/.exec(req.url ?? '');
+        if (!match) return next();
+        try {
+          const mod = await server.ssrLoadModule(`/netlify/functions/${match[1]}.mjs`);
+          const url = new URL(req.url, 'http://localhost');
+          const out = await mod.default(new Request(url, { method: req.method }));
+          res.statusCode = out.status;
+          out.headers.forEach((v, k) => res.setHeader(k, v));
+          res.end(Buffer.from(await out.arrayBuffer()));
+        } catch (err) {
+          res.statusCode = 500;
+          res.end(String(err?.message ?? err));
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
-  server: { port: 5199 },
+  plugins: [react(), netlifyFunctionsInDev()],
+  // 5199 by default so `npm run dev` is predictable, but an assigned PORT wins
+  // — nothing in the app depends on the number (every call is a relative URL),
+  // so a tool that hands us a free port should get to.
+  server: {
+    port: Number(process.env.PORT) || 5199,
+    strictPort: Boolean(process.env.PORT),
+  },
   // Surfaced under Settings → Developer tools, so a rider reporting a problem
   // can say which build they are on.
   define: {

@@ -6,35 +6,10 @@
 // Interstates get the blue/red shield, US routes the white escutcheon, state
 // routes a plain square — the same three shapes as real signage.
 
-// Real signage artwork in public/shields (Wikimedia Commons, public domain).
-// A route with no file here still renders — as a plain text chip — so adding a
-// shield later is just dropping <KEY>.svg in that folder and adding the key.
-// Real signage artwork in public/shields (Wikimedia Commons, public domain),
-// keyed by route with its filename so mixed formats work. A route with no
-// entry still renders — as a plain text chip — so adding one later is just
-// dropping the file in that folder and adding a line here.
-export const SHIELD_ART = {
-  'I-15': 'I-15.svg',
-  'I-90': 'I-90.svg',
-  'MT-135': 'MT-135.svg',
-  'MT-35': 'MT-35.svg',
-  'SD-14A': 'SD-14A.svg',
-  'SD-87': 'SD-87.svg',
-  'US-14': 'US-14.svg',
-  'US-14A': 'US-14A.svg',
-  'US-16': 'US-16.svg',
-  'US-16A': 'US-16A.svg',
-  'US-191': 'US-191.svg',
-  'US-2': 'US-2.svg',
-  'US-20': 'US-20.svg',
-  'US-212': 'US-212.svg',
-  'US-385': 'US-385.svg',
-  'US-85': 'US-85.svg',
-  'US-87': 'US-87.svg',
-  'US-89': 'US-89.svg',
-  'US-93': 'US-93.svg',
-  'WY-120': 'WY-120.webp',
-};
+// Shields are fetched by route key from the `shield` function, which resolves
+// them on Wikimedia Commons — see netlify/functions/shield.mjs. There is
+// deliberately no list of known routes here: route numbers are unbounded, and
+// any such list is a manual step that is never finished.
 
 const ROAD_RE = /\b(I|US|MT|WY|SD|ID|NE|CO|UT)-(\d{1,3}[A-Z]?(?:\/\d{1,3}[A-Z]?)*)\b/g;
 

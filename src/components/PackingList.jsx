@@ -88,7 +88,7 @@ function load() {
   } catch { return { checks: {}, custom: {}, hidden: [] }; }
 }
 
-export default function PackingList({ onClose }) {
+export default function PackingList() {
   const t = useT();
   const { lang } = useSettings();
   const [state, setState] = useState(load);
@@ -132,14 +132,16 @@ export default function PackingList({ onClose }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal packing" onClick={(e) => e.stopPropagation()}>
+    // A panel, not a modal. It is a destination in the view bar like Planner
+    // or Budget, so it renders in the panel column with them rather than
+    // throwing a dialog over whatever you were looking at.
+    <div className="panel-view packing">
+      <div className="panel-view-inner">
         <div className="modal-head">
           <div>
             <h3>{t('Packing list')} <span className="pack-count">{count}/{total} {t('packed')}</span></h3>
             <div className="pack-sub">{t('Per rider — saves on this device only, so each rider checks off their own.')}</div>
           </div>
-          <button className="btn" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
           {sections.map((sec) => (
@@ -183,7 +185,6 @@ export default function PackingList({ onClose }) {
             <button className="btn" onClick={() => setState((s) => ({ ...s, hidden: [] }))}>{t('Restore removed items')} ({state.hidden.length})</button>
           )}
           <span style={{ flex: 1 }} />
-          <button className="btn gold" onClick={onClose}>{t('Close')}</button>
         </div>
       </div>
     </div>

@@ -41,6 +41,45 @@ export function dwellFor(w) {
 }
 
 // Per-waypoint schedule: { id, arrive, depart, legMiles, legMin, dwell }
+/**
+ * Where the plan says you should be at `clockMin` — the other half of "are we
+ * behind?". A time delta alone does not tell a rider anything actionable; this
+ * turns it into ground: which leg you should be on and how far along.
+ *
+ * Derived entirely from the timeline, so it re-answers itself whenever the route
+ * changes (stops moved, departure retimed, routing refreshed) with nothing to
+ * invalidate by hand.
+ *
+ * @returns {{miles:number, stopIndex:number, atStop:boolean}|null}
+ *   miles     — planned distance covered by now
+ *   stopIndex — the stop you should be at or heading to
+ *   atStop    — true while the plan has you parked there (dwell), not moving
+ */
+export function planTargetAt(day, tl, clockMin) {
+  const stops = tl?.stops;
+  if (!stops?.length) return null;
+
+  // before rolling out: nothing covered yet
+  if (clockMin <= stops[0].depart) return { miles: 0, stopIndex: 0, atStop: true };
+
+  let miles = 0;
+  for (let i = 1; i < stops.length; i++) {
+    const prev = stops[i - 1];
+    const s = stops[i];
+    // in transit on the leg into stop i
+    if (clockMin < s.arrive) {
+      const legMin = s.arrive - prev.depart;
+      const f = legMin > 0 ? Math.max(0, Math.min(1, (clockMin - prev.depart) / legMin)) : 0;
+      return { miles: miles + f * s.legMiles, stopIndex: i, atStop: false };
+    }
+    miles += s.legMiles;
+    // parked at stop i for its dwell
+    if (clockMin < s.depart) return { miles, stopIndex: i, atStop: true };
+  }
+  // past the last arrival — the day is done on paper
+  return { miles, stopIndex: stops.length - 1, atStop: true };
+}
+
 export function dayTimeline(day, routedLegs) {
   const departMin = parseTime(day.depart);
   const wps = day.waypoints;

@@ -5,7 +5,7 @@ import { translationCoverage } from '../i18n/collect.js';
 import { clearTranslateFailure } from '../engine/autoTranslate.js';
 
 // Language + theme, per device. Both apply instantly; nothing to save.
-export default function SettingsModal({ onClose }) {
+export default function SettingsModal() {
   const { lang, theme, units, shields, set } = useSettings();
   const t = useT();
   const [devOpen, setDevOpen] = useState(false);
@@ -14,11 +14,10 @@ export default function SettingsModal({ onClose }) {
   const coverage = translationCoverage(state.trip, lang === 'en' ? 'es' : lang);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal settings" onClick={(e) => e.stopPropagation()}>
+    <div className="panel-view settings">
+      <div className="panel-view-inner">
         <div className="modal-head">
           <h3>{t('Settings')}</h3>
-          <button className="btn" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
           <div className="set-row">
@@ -42,9 +41,22 @@ export default function SettingsModal({ onClose }) {
               <button className={units === 'metric' ? 'active' : ''} onClick={() => set({ units: 'metric' })}>{t('Metric (km, °C)')}</button>
             </div>
           </div>
+
           <p className="set-note">
             {t('Applies on this device only. Trip text and AI answers stay in the language they were written in — ask the optimizer in Spanish and it answers in Spanish.')}
           </p>
+
+          {/* The map credits. Esri and OpenMapTiles require these to be shown;
+              they do not require them to be shown on the map, so they live here
+              rather than as a pill across the corner of every view. */}
+          <div className="set-credits">
+            <span className="set-label">{t('Credits')}</span>
+            <p>
+              Map imagery © Esri, Maxar, Earthstar Geographics · Street data ©
+              {' '}OpenStreetMap contributors, © OpenMapTiles · Routing by OSRM
+              {' '}· Highway shields from Wikimedia Commons · Weather by Open-Meteo
+            </p>
+          </div>
 
           {/* Experiments live behind a fold so the everyday settings stay to
               three choices. Anything in here can be pulled without ceremony. */}

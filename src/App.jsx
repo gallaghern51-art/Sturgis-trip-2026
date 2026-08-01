@@ -15,8 +15,24 @@ import FeasibilityPanel from './components/FeasibilityPanel.jsx';
 import BudgetPanel from './components/BudgetPanel.jsx';
 import PackingList from './components/PackingList.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import Dashboard from './components/Dashboard.jsx';
 import { useAutoTranslate } from './engine/autoTranslate.js';
-import { useT, useUnits } from './engine/settings.jsx';
+import { useT, useTT, useUnits } from './engine/settings.jsx';
+
+// The phone's bottom bar: every page once, related work adjacent. The hub
+// takes the first seat — it is the trip's home, and the leftmost seat is where
+// a thumb lands first. Then the map, then planning (Planner and Optimizer
+// share an elbow), then the checks, then prep. Ride is NOT here — it is the
+// masthead's one action.
+const SEATS = [
+  ['dash', 'Dashboard'],
+  ['plan', 'Planner'],
+  ['optimizer', 'Optimizer'],
+  ['feas', 'Feasibility'],
+  ['budget', 'Budget'],
+  ['packing', 'Packing'],
+  ['settings', 'Settings'],
+];
 
 // Masthead flags: the crew (US ride, Chilean riders) plus the four states the
 // route crosses. Assets live in public/flags — the user supplied them.
@@ -49,17 +65,14 @@ function TranslationStatus() {
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [routes, setRoutes] = useState({}); // dayId -> {legs, geometry}
-  const [chatOpen, setChatOpen] = useState(true);
-  const [view, setView] = useState('plan'); // plan | feas | budget
+  const [view, setView] = useState('dash'); // dash | plan | feas | budget
   const [newTripOpen, setNewTripOpen] = useState(false);
   const [rideOpen, setRideOpen] = useState(false);
-  const [packingOpen, setPackingOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const t = useT();
+  const tt = useTT();
   const u = useUnits();
   const isMobile = useIsMobile();
-  const [mobileTab, setMobileTab] = useState('map'); // map | panel | chat
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false); // the side panel over the map
   const fileRef = useRef(null);
 
   // Route every day whenever its waypoint sequence changes.
@@ -89,14 +102,13 @@ export default function App() {
 
   // On a phone the side panel and the optimizer are tabs, not columns. The chat
   // stays mounted behind the other tabs so a conversation survives tab switches.
-  const openChat = () => (isMobile ? setMobileTab('chat') : setChatOpen(true));
-  const closeChat = () => (isMobile ? setMobileTab('map') : setChatOpen(false));
+  // The optimizer is a view now, so "go to chat" is just navigation.
+  const openChat = () => openTarget('optimizer');
   // Anything that jumps the reader into the side panel (a modal's "open this
   // day", a feasibility row) has to bring the panel on screen on mobile.
-  const showPanel = () => { if (isMobile) setMobileTab('panel'); };
-  const ui = { isMobile, mobileTab, setMobileTab, showPanel };
+  const showPanel = () => setPanelOpen(true);
+  const ui = { isMobile, panelOpen, setPanelOpen, showPanel };
 
-  useEffect(() => { if (!isMobile) setMenuOpen(false); }, [isMobile]);
 
   // A queued optimizer question (from a feasibility recommendation) opens the chat.
   useEffect(() => {
@@ -128,133 +140,185 @@ export default function App() {
     document.title = `${state.trip.meta.title} · Roadbook`;
   }, [state.trip.meta.title]);
 
-  const panelLabel = selectedDay ? selectedDay.dow : view === 'feas' ? 'Feasibility' : view === 'budget' ? 'Budget' : 'Trip';
+
+  // Every dashboard card routes through here, so the hub stays declarative and
+  // there is one list of what the app can be asked to do.
+  const openTarget = (target) => {
+    switch (target) {
+      case 'dash': case 'plan': case 'feas': case 'budget':
+        setView(target); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
+      // Every page is a view in the panel column. Packing and Settings used to
+      // be dialogs and the Optimizer a drawer pinned under the map, which is
+      // why they felt like different species from Planner and Budget.
+      case 'optimizer': case 'packing': case 'settings':
+        setView(target); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
+      case 'ride': setRideOpen(true); break;
+      case 'new': setNewTripOpen(true); break;
+      case 'export': exportJson(); break;
+      case 'import': fileRef.current?.click(); break;
+      // Bookings live on the trip overview, so send the rider to it rather than
+      // duplicating the list in a second place.
+      case 'bookings': setView('plan'); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
+      case 'reset':
+        if (confirm('Reset this trip to the bundled Sturgis template? Your edits to this trip are discarded.')) dispatch({ type: 'reset' });
+        break;
+      case 'save-scenario': {
+        const name = prompt('Name this trip permutation:');
+        if (name) dispatch({ type: 'save_scenario', name });
+        break;
+      }
+      case 'switch-trip': {
+        // A prompt is honest for a handful of trips; it becomes a picker when the
+        // library is big enough to need one.
+        const others = state.lib.trips.filter((x) => x.id !== state.lib.activeId);
+        if (!others.length) return;
+        const list = others.map((x, i) => `${i + 1}. ${x.name}`).join('\n');
+        const pick = prompt(`Switch to which trip?\n\n${list}`);
+        const idx = Number(pick) - 1;
+        if (others[idx]) dispatch({ type: 'switch_trip', id: others[idx].id });
+        break;
+      }
+      default: break;
+    }
+  };
+
+  // One name for the current view, shown in the bar and on the mobile tab.
+  const viewLabel = selectedDay ? tt(selectedDay.title)
+    : view === 'dash' ? 'Dashboard'
+    : view === 'feas' ? 'Feasibility'
+    : view === 'budget' ? 'Budget'
+    : 'Planner';
+  // Which seat in the bottom bar is lit. Packing and Settings are modals over
+  // the current view, so they never take the light; an open day belongs to the
+  // Planner.
+  // Desktop shows map + panel + optimizer at once, so its lit seat is about
+  // what the panel holds, not which pane is on screen.
+  // On a phone the panel slides over the map, so a seat is only "lit" while
+  // its page is actually showing.
+  const seatActive = !isMobile
+    ? (selectedDay ? 'plan' : view)
+    : panelOpen ? (selectedDay ? 'plan' : view) : null;
+  const activeSeatRef = useRef(null);
+  useEffect(() => {
+    activeSeatRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [seatActive]);
+
+  // On the phone's map tab the header and ribbon float over the map, so the map
+  // has to know how tall they are — its own overlays (basemap switch, hint,
+  // geolocate) sit below them. Measured rather than guessed: the masthead grows
+  // a line when a trip title wraps or a translation pill appears.
+  const appRef = useRef(null);
+  const chromeRef = useRef(null);
+  useEffect(() => {
+    const app = appRef.current, chrome = chromeRef.current;
+    if (!app || !chrome || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      app.style.setProperty('--chrome-h', `${Math.round(chrome.getBoundingClientRect().height)}px`);
+    });
+    ro.observe(chrome);
+    return () => ro.disconnect();
+  }, []);
+
+  // The map is always underneath now, so the chrome floats on it whenever the
+  // panel is not covering it.
+  const mapFull = isMobile && !panelOpen;
+
+  // ONE navigation surface, rendered where each layout puts it: a fixed bottom
+  // bar on the phone, a row under the masthead on desktop. Same list, same
+  // handlers, so a destination can never exist on one and not the other.
+  const ViewBar = () => (
+    <nav className={`tabnav${isMobile ? '' : ' deskbar'}`} aria-label="Views">
+      {SEATS.map(([key, label], i) => (
+        <button
+          key={key}
+          style={{ '--i': i }}
+          ref={seatActive === key ? activeSeatRef : null}
+          className={seatActive === key ? 'active' : ''}
+          aria-current={seatActive === key}
+          onClick={() => {
+            // tapping the page you are on closes the panel back to bare map
+            if (isMobile && seatActive === key) setPanelOpen(false);
+            else openTarget(key);
+          }}
+        >{t(label)}</button>
+      ))}
+    </nav>
+  );
 
   return (
     <TripContext.Provider value={{ state, dispatch, routes, routedLegsByDay, summary, ui }}>
-      <div className={`app${isMobile ? ' mobile' : ''}`}>
-        <header className="masthead">
-          <div className="mast-id">
-            <h1 className="brand">ROAD<span className="yr">BOOK</span></h1>
-            <span className="sub">
-              {state.trip.meta.title} · {u.mi(summary.totalMiles)} · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
-              <span className="mast-flags">
-                {CREW_FLAGS.map((f) => <img key={f.alt} className="flag crew" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
-                {/* state flags only make sense on the Sturgis route */}
-                {/STURGIS/i.test(state.trip.meta.title) && (
-                  <span className="state-flags">
-                    {STATE_FLAGS.map((f) => <img key={f.alt} className="flag" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
-                  </span>
-                )}
+      <div ref={appRef} className={`app${isMobile ? ' mobile' : ''}${mapFull ? ' map-full' : ''}`}>
+        <div className="topchrome" ref={chromeRef}>
+          <header className="masthead">
+            <div className="mast-id">
+              <h1 className="brand">
+                <button
+                  onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
+                  title={t('Dashboard')}
+                >ROAD<span className="yr">BOOK</span></button>
+              </h1>
+              <span className="sub">
+                {/* title and stats are separate spans so a narrow screen breaks
+                    between them rather than mid-phrase ("7 / RIDERS") */}
+                <span className="mast-trip">{state.trip.meta.title}</span>
+                <span className="mast-stats">
+                  {u.mi(summary.totalMiles)} · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
+                </span>
+                <span className="mast-flags">
+                  {CREW_FLAGS.map((f) => <img key={f.alt} className="flag crew" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
+                  {/* state flags only make sense on the Sturgis route */}
+                  {/STURGIS/i.test(state.trip.meta.title) && (
+                    <span className="state-flags">
+                      {STATE_FLAGS.map((f) => <img key={f.alt} className="flag" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
+                    </span>
+                  )}
+                </span>
+                <TranslationStatus />
               </span>
-              <TranslationStatus />
-            </span>
-          </div>
-          <span className="spacer" />
-          <button
-            className="btn menu-btn"
-            aria-expanded={menuOpen}
-            aria-controls="mast-actions"
-            onClick={() => setMenuOpen((v) => !v)}
-          >☰ {t('Menu')}</button>
-          <div
-            id="mast-actions"
-            className={`actions${menuOpen ? ' open' : ''}`}
-            onClick={(e) => { if (e.target.closest?.('button')) setMenuOpen(false); }}
-          >
-            <div className="sheet-head">
-              <span className="sheet-title">{t('Trip controls')}</span>
-              <button className="btn" aria-label="Close menu" onClick={() => setMenuOpen(false)}>✕</button>
             </div>
-            <select
-              className="scen-select"
-              aria-label="Trips"
-              value=""
-              onChange={(e) => {
-                const v = e.target.value;
-                setMenuOpen(false);
-                if (v === '__new') setNewTripOpen(true);
-                else if (v === '__delete') {
-                  if (state.lib.trips.length > 1 && confirm(`Delete trip “${state.trip.meta.title}” and all its scenarios? This cannot be undone.`)) {
-                    dispatch({ type: 'delete_trip', id: state.lib.activeId });
-                  }
-                } else if (v) dispatch({ type: 'switch_trip', id: v });
-                e.target.value = '';
-              }}
-            >
-              <option value="">{t('Trips')} ({state.lib.trips.length})…</option>
-              <option value="__new">＋ {t('New trip')}</option>
-              {state.lib.trips.map((t) => (
-                <option key={t.id} value={t.id}>{t.id === state.lib.activeId ? '● ' : ''}{t.name}</option>
-              ))}
-              {state.lib.trips.length > 1 && <option value="__delete">{t('Delete current trip')}</option>}
-            </select>
-            <select
-              className="scen-select"
-              aria-label="Scenarios"
-              value=""
-              onChange={(e) => {
-                const v = e.target.value;
-                setMenuOpen(false);
-                if (v === '__save') {
-                  const name = prompt('Name this trip permutation:');
-                  if (name) dispatch({ type: 'save_scenario', name });
-                } else if (v) {
-                  if (confirm('Load this saved permutation as the working plan? Current plan goes on the undo stack.')) dispatch({ type: 'load_scenario', id: v });
-                }
-                e.target.value = '';
-              }}
-            >
-              <option value="">{t('Scenarios')} ({state.scenarios.length})…</option>
-              <option value="__save">＋ {t('Save current as scenario')}</option>
-              {state.scenarios.map((s) => <option key={s.id} value={s.id}>{t('Load')}: {s.name}</option>)}
-            </select>
-            {/* Optimizer belongs with the other panel switches — it is a view of
-                the trip, not a file action. */}
-            <div className="viewtabs">
-              {[['plan', 'Plan'], ['feas', 'Feasibility'], ['budget', 'Budget']].map(([v, label]) => (
-                <button key={v} className={view === v ? 'active' : ''} onClick={() => { setView(v); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}>{t(label)}</button>
-              ))}
-              <button className={`opt-tab${chatOpen ? ' active' : ''}`} onClick={() => setChatOpen((v) => !v)}>{t('Optimizer')}</button>
+            {/* Navigation lives on the dashboard, not here. Five view tabs up top
+                duplicated five dashboard cards; the brand is the way home and the
+                hub is the switcher. What is left is contextual: Undo appears only
+                when there is something to undo, and Ride is the app's one action. */}
+            <div className="actions">
+              <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
+              {state.history.length > 0 && (
+                <button className="btn" onClick={() => dispatch({ type: 'undo' })}>{t('Undo')}</button>
+              )}
+              <button className="btn primary ride-btn" onClick={() => setRideOpen(true)}>
+                <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
+                {t('Ride')}
+              </button>
             </div>
-            {/* Trip admin, then Ride last so the one button you press at a
-                kickstand sits at the end of the row and reads as the action. */}
-            <button className="btn" onClick={() => setPackingOpen(true)}>{t('Packing')}</button>
-            <button className="btn" onClick={() => dispatch({ type: 'undo' })} disabled={!state.history.length}>{t('Undo')}</button>
-            <button className="btn" onClick={exportJson}>{t('Export')}</button>
-            <button className="btn" onClick={() => fileRef.current?.click()}>{t('Import')}</button>
-            <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
-            <button className="btn danger-ghost" onClick={() => { if (confirm('Reset this trip to the original Sturgis field guide template?')) dispatch({ type: 'reset' }); }}>{t('Reset')}</button>
-            <button className="btn" onClick={() => setSettingsOpen(true)}>{t('Settings')}</button>
-            <button className="btn primary ride-btn" onClick={() => { setMenuOpen(false); setRideOpen(true); }}>
-              <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
-              {t('Ride')}
-            </button>
-          </div>
-        </header>
-        {menuOpen && <div className="sheet-backdrop" onClick={() => setMenuOpen(false)} />}
-        <Ribbon />
-        <div className={`main${!isMobile && chatOpen ? ' chat-open' : ''}`} data-tab={mobileTab}>
+          </header>
+          {/* Desktop has no bottom bar, so the same seats render here. Without
+              this, removing the dashboard's launcher cards left Feasibility,
+              Budget, Optimizer, Packing and Settings unreachable on a laptop. */}
+          {!isMobile && <ViewBar />}
+          <Ribbon />
+        </div>
+        <div className="main" data-panel={isMobile && panelOpen ? 'open' : 'closed'}>
           <MapView />
           <aside className="side">
             <div className="side-inner">
-              {selectedDay ? <DayPanel day={selectedDay} /> : view === 'feas' ? <FeasibilityPanel /> : view === 'budget' ? <BudgetPanel /> : <OverviewPanel routes={routes} />}
+              {/* The hub has to be reachable from anywhere it sent you. On a
+                  phone the bottom tab renames itself to the current view, so
+                  without this there is no way back to the dashboard at all. */}
+              {selectedDay ? <DayPanel day={selectedDay} />
+                : view === 'dash' ? <Dashboard onOpen={openTarget} />
+                : view === 'feas' ? <FeasibilityPanel />
+                : view === 'budget' ? <BudgetPanel />
+                : view === 'packing' ? <PackingList />
+                : view === 'settings' ? <SettingsModal />
+                : view === 'optimizer' ? <ChatPanel />
+                : <OverviewPanel routes={routes} />}
             </div>
           </aside>
-          {(isMobile || chatOpen) && <ChatPanel onClose={closeChat} />}
         </div>
-        {isMobile && (
-          <nav className="tabnav" aria-label="Views">
-            <button className={mobileTab === 'map' ? 'active' : ''} onClick={() => setMobileTab('map')} aria-current={mobileTab === 'map'}>{t('Map')}</button>
-            <button className={mobileTab === 'panel' ? 'active' : ''} onClick={() => setMobileTab('panel')} aria-current={mobileTab === 'panel'}>{t(panelLabel)}</button>
-            <button className={mobileTab === 'chat' ? 'active' : ''} onClick={() => setMobileTab('chat')} aria-current={mobileTab === 'chat'}>{t('Optimizer')}</button>
-          </nav>
-        )}
+        {isMobile && <ViewBar />}
         <DetailModal />
         {newTripOpen && <NewTripModal onClose={() => setNewTripOpen(false)} />}
         {rideOpen && <RideMode onClose={() => setRideOpen(false)} />}
-        {packingOpen && <PackingList onClose={() => setPackingOpen(false)} />}
-        {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       </div>
     </TripContext.Provider>
   );
