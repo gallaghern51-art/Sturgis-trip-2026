@@ -15,6 +15,7 @@ import FeasibilityPanel from './components/FeasibilityPanel.jsx';
 import BudgetPanel from './components/BudgetPanel.jsx';
 import PackingList from './components/PackingList.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import { useTripSync } from './engine/useTripSync.js';
 import Dashboard from './components/Dashboard.jsx';
 import { useAutoTranslate } from './engine/autoTranslate.js';
 import { useT, useTT, useUnits } from './engine/settings.jsx';
@@ -64,6 +65,9 @@ function TranslationStatus() {
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  // Sync rides alongside the reducer: it drains the outbox and replays other
+  // riders' ops through the same apply_ops path. No-ops when not configured.
+  const sync = useTripSync(state, dispatch);
   const [routes, setRoutes] = useState({}); // dayId -> {legs, geometry}
   const [view, setView] = useState('dash'); // dash | plan | feas | budget
   const [newTripOpen, setNewTripOpen] = useState(false);
@@ -309,7 +313,7 @@ export default function App() {
                 : view === 'feas' ? <FeasibilityPanel />
                 : view === 'budget' ? <BudgetPanel />
                 : view === 'packing' ? <PackingList />
-                : view === 'settings' ? <SettingsModal />
+                : view === 'settings' ? <SettingsModal sync={sync} />
                 : view === 'optimizer' ? <ChatPanel />
                 : <OverviewPanel routes={routes} />}
             </div>
