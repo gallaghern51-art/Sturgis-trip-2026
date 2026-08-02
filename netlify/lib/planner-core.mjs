@@ -48,6 +48,7 @@ How to respond:
 - When the user asks you to rework, reorder, add, or remove something, USE the propose_trip_changes tool with concrete ops referencing real ids from the trip JSON. Keep the accompanying text short — the proposal card shows the ops.
 - When the user asks a question or for analysis, answer in text only. Do not propose changes nobody asked for.
 - Waypoints need lat/lng when added; use accurate coordinates for real places.
+- When a search_places result becomes a waypoint, copy its id into the waypoint's placeId — routing then snaps to the place itself instead of the raw coordinate (which can force absurd exit-and-re-enter maneuvers).
 - The search_places tool returns verified names, addresses, and exact coordinates from the live places database. Use it whenever you add or move a stop whose coordinates you are not fully certain of (restaurants, gas stations, small attractions, lodging) — one focused query per place, then emit the ops using the returned lat/lng. Do not call propose_trip_changes and search_places in the same reply; search first, propose after the results come back. Skip searching for places you already know precisely (major cities, famous landmarks).`;
 
 // Live place lookup for the model — verified coordinates instead of recalled ones.
@@ -136,6 +137,7 @@ export const TOOL = {
                 kind: { type: 'string', enum: ['start', 'via', 'fuel', 'photo', 'end'] },
                 fuel: { type: 'boolean' },
                 mile: { type: ['number', 'null'] },
+                placeId: { type: 'string', description: 'the id returned by search_places — carry it so routing snaps to the place, not the raw coordinate' },
               },
             },
             patch: { type: 'object' },
@@ -259,6 +261,7 @@ export const GENERATE_TOOL = {
                       fuel: { type: 'boolean' },
                       dwell: { type: 'number' },
                       note: { type: 'string' },
+                      placeId: { type: 'string', description: 'Google place id when known (from search_places) — routing snaps to the place itself' },
                     },
                   },
                 },

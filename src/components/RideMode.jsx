@@ -289,6 +289,10 @@ export default function RideMode({ onClose }) {
   const [muted, setMuted] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false); // the ride sheet — everything that isn't glanceable
   const [navStyle, setNavStyle] = useState('hybrid');
+  // Camera grammar, Google-style: track-up is the tilted chase view; north-up
+  // is flat overhead with the puck arrow carrying the heading. The compass
+  // rose toggles between them and its needle always shows true map north.
+  const [camMode, setCamMode] = useState('track'); // track | north
   const [ahead, setAhead] = useState(null); // conditions a few miles up the road
   const wpMarkersRef = useRef([]);
   const t = useT();
@@ -312,6 +316,9 @@ export default function RideMode({ onClose }) {
   const lastRerouteAtRef = useRef(0);
   const reroutingRef = useRef(false);
   reroutingRef.current = rerouting;
+  const camModeRef = useRef('track');
+  camModeRef.current = camMode;
+  const compassRef = useRef(null); // the rose needle — rotated straight on the DOM, no re-render per frame
 
   const day = trip.days.find((d) => d.id === dayId) ?? trip.days[0];
   const tl = useMemo(() => dayTimeline(day, routedLegsByDay[day.id]), [day, routedLegsByDay]);
@@ -341,6 +348,10 @@ export default function RideMode({ onClose }) {
     });
     mapRef.current = map;
     map.on('dragstart', () => setFollow(false));
+    // the rose needle tracks true map north on every frame of rotation
+    map.on('rotate', () => {
+      if (compassRef.current) compassRef.current.style.transform = `rotate(${-map.getBearing()}deg)`;
+    });
 
     const el = document.createElement('div');
     el.className = 'nav-puck';
@@ -551,10 +562,13 @@ export default function RideMode({ onClose }) {
       // zoom breathes with speed and tightens into the next turn
       let zoom = mph == null ? 14 : mph >= 50 ? 12.9 : mph >= 25 ? 13.8 : 14.8;
       if (nav && nav.toNext < 0.35) zoom = Math.max(zoom, 15.3);
+      const northUp = camModeRef.current === 'north';
       map.easeTo({
         center: [lng, lat],
-        bearing: heading ?? map.getBearing(),
-        pitch: 55,
+        // north-up holds the map still and lets the puck arrow carry the
+        // heading — the Google grammar for the flat overhead view
+        bearing: northUp ? 0 : heading ?? map.getBearing(),
+        pitch: northUp ? 0 : 55,
         zoom,
         duration: 950,
         // keep the puck low on screen so the road ahead fills the view
@@ -567,6 +581,18 @@ export default function RideMode({ onClose }) {
       warmTilesAhead(geomInfo.chain, geoProj.i, { miles: 12 });
     }
   }, [fix]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Toggling the compass snaps the camera to the new grammar immediately —
+  // waiting for the next GPS fix would make the button feel dead.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.easeTo({
+      bearing: camMode === 'north' ? 0 : fix?.heading ?? map.getBearing(),
+      pitch: camMode === 'north' ? 0 : 55,
+      duration: 450,
+    });
+  }, [camMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- live rerouting: off the line for a few fixes → recalc from here ----
   useEffect(() => {
@@ -816,10 +842,22 @@ export default function RideMode({ onClose }) {
         }
       });
     };
+    // Clamp only when the map SETTLES. Re-translating labels on every move
+    // frame made them drift away from their dots mid-zoom; during a gesture
+    // the label stays anchored, and slides inside the viewport when it lands.
+    const unclamp = () => {
+      labels.forEach((el) => {
+        if (el.dataset.dx) { el.dataset.dx = '0'; el.style.transform = ''; }
+      });
+    };
     clamp();
-    map.on('move', clamp);
+    map.on('movestart', unclamp);
+    map.on('moveend', clamp);
+    map.on('zoomend', clamp);
     return () => {
-      map.off('move', clamp);
+      map.off('movestart', unclamp);
+      map.off('moveend', clamp);
+      map.off('zoomend', clamp);
       wpMarkersRef.current.forEach((m) => m.remove());
       wpMarkersRef.current = [];
     };
@@ -886,6 +924,24 @@ export default function RideMode({ onClose }) {
 
       {/* ---- right edge: one-tap controls, glove-sized ---- */}
       <div className="ride-fabs">
+        {/* the compass rose: needle shows true north, tap toggles the camera
+            grammar — tilted track-up chase or flat north-up overhead */}
+        <button
+          className={`ride-fab compass${camMode === 'north' ? ' lit' : ''}`}
+          onClick={() => setCamMode((m) => (m === 'track' ? 'north' : 'track'))}
+          aria-label={camMode === 'track' ? t('North up') : t('Track up')}
+          title={camMode === 'track' ? t('North up') : t('Track up')}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.4" opacity="0.45" />
+            <path d="M12 2.6v2M12 19.4v2M2.6 12h2M19.4 12h2" stroke="currentColor" strokeWidth="1.2" opacity="0.45" />
+            <g ref={compassRef} style={{ transformOrigin: '12px 12px', transition: 'transform 0.2s linear' }}>
+              <path d="M12 4.6 L14.2 12 L9.8 12 Z" fill="var(--rally)" />
+              <path d="M12 19.4 L9.8 12 L14.2 12 Z" fill="var(--ink-faint)" />
+              <text x="12" y="3.4" textAnchor="middle" fontSize="4.6" fontFamily="var(--mono)" fill="currentColor">N</text>
+            </g>
+          </svg>
+        </button>
         <button
           className={`ride-fab${muted ? ' off' : ''}`}
           onClick={() => setMuted((m) => !m)}
@@ -893,21 +949,24 @@ export default function RideMode({ onClose }) {
           title={t('Voice')}
         ><SpeakerIcon muted={muted} /></button>
         <button
-          className={`ride-fab${!follow ? ' lit' : ''}`}
-          onClick={() => (follow ? showOverview() : setFollow(true))}
-          aria-label={follow ? t('Route overview') : t('Re-center')}
-          title={follow ? t('Route overview') : t('Re-center')}
+          className="ride-fab"
+          onClick={showOverview}
+          aria-label={t('Route overview')}
+          title={t('Route overview')}
         >
-          {follow ? (
-            <svg viewBox="0 0 22 22" aria-hidden="true"><path d="M4 15 L9 5 L13 12 L18 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="4" cy="15" r="2" fill="currentColor" /><circle cx="18" cy="6" r="2" fill="currentColor" /></svg>
-          ) : (
-            <svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="3.2" fill="currentColor" /><circle cx="11" cy="11" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M11 1.5v4M11 16.5v4M1.5 11h4M16.5 11h4" stroke="currentColor" strokeWidth="1.8" /></svg>
-          )}
+          <svg viewBox="0 0 22 22" aria-hidden="true"><path d="M4 15 L9 5 L13 12 L18 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="4" cy="15" r="2" fill="currentColor" /><circle cx="18" cy="6" r="2" fill="currentColor" /></svg>
         </button>
       </div>
 
       {/* ---- bottom: chips Google can\'t show, then ONE bar ---- */}
       <div className="ride-overlay ride-overlay-bottom">
+        {/* panned away from the puck → the way back, Google's pill grammar */}
+        {!follow && (
+          <button className="ride-recenter" onClick={() => setFollow(true)}>
+            <svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="3.2" fill="currentColor" /><circle cx="11" cy="11" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M11 1.5v4M11 16.5v4M1.5 11h4M16.5 11h4" stroke="currentColor" strokeWidth="1.8" /></svg>
+            {t('Re-center')}
+          </button>
+        )}
         {!arrived && fix && (nextFuel || nextGate) && (
           <div className="ride-chips">
             {nextFuel && (

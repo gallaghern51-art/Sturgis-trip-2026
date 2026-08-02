@@ -25,6 +25,13 @@ const FIELD_MASK = [
 ].join(',');
 
 const latLng = (p) => ({ location: { latLng: { latitude: p.lat, longitude: p.lng } } });
+// A stop with place identity routes to the PLACE — Google snaps it to the
+// right driveway. A raw coordinate gets stopover semantics (vehicleStopover +
+// sideOfRoad) so the router aims for pavement a vehicle can actually stop on,
+// instead of exiting a highway to touch a pin in a parking lot and re-enter.
+const stopWaypoint = (p) => (typeof p.placeId === 'string' && p.placeId
+  ? { placeId: p.placeId, vehicleStopover: true }
+  : { ...latLng(p), vehicleStopover: true, sideOfRoad: true });
 const seconds = (s) => (typeof s === 'string' ? parseFloat(s) : (s ?? 0)); // "1234s" → 1234
 
 export default async (req) => {
@@ -49,9 +56,9 @@ export default async (req) => {
   const dest = waypoints[waypoints.length - 1];
 
   const gBody = {
-    origin: latLng(origin),
-    destination: latLng(dest),
-    ...(vias.length ? { intermediates: vias.map(latLng) } : {}),
+    origin: latLng(origin), // where the bike IS — plain position, no stop semantics
+    destination: stopWaypoint(dest),
+    ...(vias.length ? { intermediates: vias.map(stopWaypoint) } : {}),
     travelMode: 'DRIVE',
     routingPreference: 'TRAFFIC_AWARE', // live traffic — bills as the Pro SKU
     polylineEncoding: 'GEO_JSON_LINESTRING',

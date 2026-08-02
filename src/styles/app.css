@@ -2348,3 +2348,23 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 @media (max-width: 820px), (max-width: 1100px) and (max-height: 520px) {
   .tabnav.modebar button { min-height: 48px; }
 }
+
+/* compass rose + the way back to the puck */
+.ride-fab.compass svg { width: 26px; height: 26px; }
+.ride-fab.compass.lit { border-color: var(--outbound); color: var(--outbound); }
+.ride-recenter {
+  align-self: center;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--display); font-weight: 600; font-size: 15px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.9); color: var(--outbound);
+  border: 1px solid var(--outbound); border-radius: 999px;
+  padding: 10px 18px; min-height: 44px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+.ride-recenter svg { width: 18px; height: 18px; }
+.ride-recenter:active { transform: scale(0.96); }
+@media (prefers-reduced-motion: reduce) {
+  .ride-recenter:active { transform: none; }
+  .ride-fab.compass g { transition: none !important; }
+}
