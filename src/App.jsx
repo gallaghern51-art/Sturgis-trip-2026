@@ -185,7 +185,17 @@ export default function App() {
         }
       }
     } catch (e) {
-      setCollabError(String(e.message ?? e));
+      // A share that no longer knows us (removed from the crew, or the share
+      // is gone) is not an error to keep showing — release the membership and
+      // the trip becomes a normal local trip again.
+      if (e.status === 403 || e.status === 404) {
+        clearCollab(state.lib.activeId);
+        setCollabInfo(null);
+        setCrew(null);
+        setCollabError(null);
+      } else {
+        setCollabError(String(e.message ?? e));
+      }
     }
   };
   const refreshCrewRef = useRef(refreshCrew);
@@ -248,7 +258,7 @@ export default function App() {
   // Joining from an invite link: the share's trip becomes a new library record;
   // the membership record attaches once the reducer has minted the trip id.
   const joinShare = async (name) => {
-    if (!joinReq) return;
+    if (!joinReq || collabBusy) return; // a slow join must not double-fire
     // Tapping the same invite twice reopens the trip instead of joining a copy.
     const existing = tripIdForShare(joinReq.shareId);
     if (existing && state.lib.trips.some((r) => r.id === existing)) {

@@ -514,9 +514,11 @@ function SortableWaypoint({ w, dayId, legIndex, dispatch, sched, cum, first, tt,
       style={style}
       className={`wp-row${isDragging ? ' dragging' : ''}`}
       // hovering a stop lights its arriving leg on the map — the row's +mi/+time
-      // figures ARE that leg, so the map shows what the numbers describe
-      onMouseEnter={() => { if (!first && legIndex >= 0) dispatch({ type: 'focus_leg', leg: { dayId, index: legIndex } }); }}
-      onMouseLeave={() => { if (!first && legIndex >= 0) dispatch({ type: 'focus_leg', leg: null }); }}
+      // figures ARE that leg, so the map shows what the numbers describe.
+      // Hover-capable pointers only: on touch, a tap's synthetic hover would
+      // leave the highlight stuck with no mouseleave to ever clear it.
+      onMouseEnter={() => { if (!first && legIndex >= 0 && window.matchMedia?.('(hover: hover)').matches) dispatch({ type: 'focus_leg', leg: { dayId, index: legIndex } }); }}
+      onMouseLeave={() => { if (!first && legIndex >= 0 && window.matchMedia?.('(hover: hover)').matches) dispatch({ type: 'focus_leg', leg: null }); }}
     >
       <span className="grip" {...attributes} {...listeners}>⠿</span>
       <span className="eta">
