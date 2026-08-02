@@ -29,7 +29,9 @@ async function googleRoute(origin, waypoints) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         origin: { lat: origin.lat, lng: origin.lng },
-        waypoints: waypoints.map((w) => ({ lat: w.lat, lng: w.lng })),
+        // place identity rides along when a stop has it — the route function
+        // snaps those to the place instead of the raw coordinate
+        waypoints: waypoints.map((w) => ({ lat: w.lat, lng: w.lng, ...(w.placeId ? { placeId: w.placeId } : {}) })),
       }),
     });
   } catch (e) {

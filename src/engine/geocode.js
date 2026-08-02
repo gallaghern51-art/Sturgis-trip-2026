@@ -24,7 +24,9 @@ async function googlePlaces(query, near) {
   }
   const json = await res.json();
   if (!Array.isArray(json)) throw new Error('google-places bad shape');
-  return json;
+  // Google results carry a real place ID — routing snaps to the place itself
+  // instead of whatever pavement is nearest a raw coordinate.
+  return json.map((r) => ({ ...r, source: 'google' }));
 }
 
 async function nominatim(query) {
@@ -34,7 +36,8 @@ async function nominatim(query) {
   const json = await res.json();
   if (!Array.isArray(json)) return [];
   return json.map((r) => ({
-    id: r.place_id,
+    id: r.place_id, // OSM id — NOT a Google place ID; never sent to the router
+    source: 'osm',
     name: r.display_name.split(',').slice(0, 2).join(',').trim(),
     detail: r.display_name.split(',').slice(2, 5).join(',').trim(),
     lat: parseFloat(r.lat),

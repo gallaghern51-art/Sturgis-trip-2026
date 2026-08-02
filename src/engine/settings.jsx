@@ -535,6 +535,8 @@ const ES = {
   'Joining…': 'Uniéndome…',
   'e.g. Marco': 'ej. Marco',
   // ride mode rebuilt
+  'North up': 'Norte arriba',
+  'Track up': 'Rumbo arriba',
   'Arrived': 'Llegaste',
   'End ride': 'Terminar ruta',
   'Stops ahead': 'Paradas por delante',

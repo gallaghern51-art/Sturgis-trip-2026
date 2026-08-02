@@ -500,7 +500,9 @@ export default function MapView() {
             const ll = marker.getLngLat();
             dispatch({
               type: 'apply_ops',
-              ops: [{ op: 'update_waypoint', dayId: day.id, waypointId: w.id, patch: { lat: ll.lat, lng: ll.lng } }],
+              // a dragged pin is a deliberate raw coordinate — any old place
+              // identity no longer describes where the marker sits
+              ops: [{ op: 'update_waypoint', dayId: day.id, waypointId: w.id, patch: { lat: ll.lat, lng: ll.lng, placeId: null } }],
             });
           });
         }

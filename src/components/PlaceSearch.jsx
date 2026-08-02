@@ -40,7 +40,12 @@ export default function PlaceSearch({ day }) {
         op: 'add_waypoint',
         dayId: day.id,
         index: bestInsertIndex(day.waypoints, pt),
-        waypoint: { name: r.name, ...pt, kind: 'via', note: r.detail },
+        waypoint: {
+          name: r.name, ...pt, kind: 'via', note: r.detail,
+          // place identity rides with the stop so the route API snaps to the
+          // place, not to whatever pavement is nearest the coordinate
+          ...(r.source === 'google' && r.id ? { placeId: r.id } : {}),
+        },
       }],
     });
     setQ('');

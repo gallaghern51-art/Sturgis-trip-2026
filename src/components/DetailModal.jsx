@@ -49,7 +49,7 @@ function StopDetail({ day, waypointId, trip, dispatch, routedLegsByDay, close })
     }, 400);
   };
   const pickPlace = (p) => {
-    setForm((f) => ({ ...f, name: p.name, lat: p.lat, lng: p.lng }));
+    setForm((f) => ({ ...f, name: p.name, lat: p.lat, lng: p.lng, placeId: p.source === 'google' && p.id ? p.id : null }));
     setMoved(true);
     setPlaces([]);
   };
@@ -60,7 +60,7 @@ function StopDetail({ day, waypointId, trip, dispatch, routedLegsByDay, close })
 
   const save = () => {
     const patch = { name: form.name, note: form.note, dwell: Number(form.dwell) || 0, fuel: form.fuel };
-    if (moved) { patch.lat = form.lat; patch.lng = form.lng; patch.mile = null; }
+    if (moved) { patch.lat = form.lat; patch.lng = form.lng; patch.mile = null; patch.placeId = form.placeId ?? null; }
     dispatch({ type: 'apply_ops', ops: [{ op: 'update_waypoint', dayId: day.id, waypointId: w.id, patch }] });
     close();
   };
