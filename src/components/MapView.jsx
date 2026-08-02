@@ -309,9 +309,60 @@ export default function MapView() {
       map.setPaintProperty(`${srcId}-glow`, 'line-opacity', active ? 0.2 : 0.05);
       map.setPaintProperty(`${srcId}-arrows`, 'icon-opacity', active ? 0.9 : 0);
     }
+    // The leg-highlight layer rides on top of every route: hovering a stop row
+    // in the day panel lights the stretch of road that leg actually covers.
+    if (!map.getSource('leg-hi')) {
+      map.addSource('leg-hi', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } } });
+      const round = { 'line-cap': 'round', 'line-join': 'round' };
+      map.addLayer({
+        id: 'leg-hi-glow', type: 'line', source: 'leg-hi',
+        paint: { 'line-color': '#ffffff', 'line-width': lineWidth(11), 'line-opacity': 0.3, 'line-blur': 6 },
+        layout: round,
+      });
+      map.addLayer({
+        id: 'leg-hi-line', type: 'line', source: 'leg-hi',
+        paint: { 'line-color': '#ffffff', 'line-width': lineWidth(4.5), 'line-opacity': 0.95 },
+        layout: round,
+      });
+    }
     // prune sources for deleted days
     drawMarkers();
   }
+
+  // Hovered leg → the slice of routed geometry between its two waypoints.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded() || !map.getSource('leg-hi')) return;
+    const fl = state.focusLeg;
+    let coords = [];
+    if (fl) {
+      const day = state.trip.days.find((d) => d.id === fl.dayId);
+      const a = day?.waypoints[fl.index];
+      const b = day?.waypoints[fl.index + 1];
+      if (a && b) {
+        const geom = routes[fl.dayId]?.geometry;
+        if (geom?.length > 1) {
+          const near = (wp) => {
+            let best = 0;
+            let bd = Infinity;
+            for (let i = 0; i < geom.length; i++) {
+              const dx = geom[i][0] - wp.lng;
+              const dy = geom[i][1] - wp.lat;
+              const d = dx * dx + dy * dy;
+              if (d < bd) { bd = d; best = i; }
+            }
+            return best;
+          };
+          let ia = near(a);
+          let ib = near(b);
+          if (ia > ib) [ia, ib] = [ib, ia];
+          coords = geom.slice(ia, ib + 1);
+        }
+        if (coords.length < 2) coords = [[a.lng, a.lat], [b.lng, b.lat]];
+      }
+    }
+    map.getSource('leg-hi').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords } });
+  }, [state.focusLeg, routes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Which leg of a day is nearest to a clicked/hovered point.
   function nearestLegIndex(day, pt) {
@@ -469,6 +520,15 @@ export default function MapView() {
           ? <>{t('Editing')} <b>{selectedDay.dow} {selectedDay.date.slice(5)}</b><span className="hint-more"> {t('— click map to add a stop · drag markers · click stops & legs for details')}</span></>
           : <>{t('Whole-trip view')}<span className="hint-more"> {t('— hover a route for leg info, click for details, pick a day to edit')}</span></>}
       </div>
+      {/* The first minute of a cold load is OSRM routing eleven days one by
+          one — without narration it reads as a broken map. Say what the
+          engine is doing until every day has road geometry. */}
+      {Object.keys(routes).length < trip.days.length && (
+        <div className="routing-chip">
+          <span className="routing-dot" />
+          {t('Routing')} {Math.min(Object.keys(routes).length + 1, trip.days.length)}/{trip.days.length}…
+        </div>
+      )}
       <div className="basemap-switch">
         {Object.entries(maps).map(([key, b]) => (
           <button

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useTrip } from '../engine/store.js';
 import { dayTimeline, fmtTime, fmtDur, parseTime, planTargetAt } from '../engine/timeline.js';
-import { haversineMiles } from '../engine/tripEngine.js';
+import { haversineMiles, tripRange } from '../engine/tripEngine.js';
 import { routeDaySteps, routeFrom } from '../engine/routing.js';
 import { STYLE_SATELLITE, STYLE_STREETS, STYLE_DARK, STYLE_LIGHT, warmTilesAhead, cachedGoogleStyle, googleStyle, GOOGLE_KEY } from '../engine/basemaps.js';
 import { fmtDayDate } from '../engine/dates.js';
@@ -287,16 +287,10 @@ export default function RideMode({ onClose }) {
   const [rerouteFailed, setRerouteFailed] = useState(false);
   const [follow, setFollow] = useState(true);
   const [muted, setMuted] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [mapSetOpen, setMapSetOpen] = useState(false); // map settings, its own sheet
+  const [sheetOpen, setSheetOpen] = useState(false); // the ride sheet — everything that isn't glanceable
   const [navStyle, setNavStyle] = useState('hybrid');
   const [ahead, setAhead] = useState(null); // conditions a few miles up the road
   const wpMarkersRef = useRef([]);
-  // Posted limits are not in what we route with: OSRM's steps carry no maxspeed
-  // and Google's limits sit behind a separately-licensed Roads API. The chip is
-  // wired and will render the moment a source is plumbed in — it just will not
-  // invent a number in the meantime.
-  const speedLimit = null;
   const t = useT();
   const tt = useTT();
   const u = useUnits();
@@ -672,6 +666,58 @@ export default function RideMode({ onClose }) {
   const targetWp = target ? day.waypoints[target.stopIndex] : null;
   const milesOff = target && proj ? proj.doneMiles - target.miles : null;
 
+  // ---- the numbers Google Maps cannot show ----
+  // Miles of road to the next fuel stop — read off the plan, colored against
+  // the bike's own range. THE moto-specific number.
+  const range = tripRange(trip);
+  const nextFuel = useMemo(() => {
+    if (!proj) return null;
+    let mi = proj.remainToNext;
+    for (let j = proj.i + 1; j < day.waypoints.length; j++) {
+      if (day.waypoints[j].fuel) return { name: day.waypoints[j].name, miles: mi };
+      mi += tl.stops[j + 1]?.legMiles ?? 0;
+    }
+    return null;
+  }, [proj?.i, proj?.remainToNext, day, tl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The next gate still ahead of the bike, with its live margin. One gate,
+  // big — a row of tiny chips at 70 mph is decoration, not information.
+  const nextGate = useMemo(() => {
+    if (!fix) return null;
+    for (const g of day.gates ?? []) {
+      const idx = day.waypoints.findIndex((w) => w.id === g.waypointId);
+      if (idx < 0 || (proj && idx <= proj.i)) continue;
+      const s = tl.stops[idx];
+      if (!s) continue;
+      const projected = delta != null ? s.arrive + delta : s.arrive;
+      const margin = parseTime(g.by) - projected;
+      return { label: g.label, by: g.by, margin, ok: margin >= 0 };
+    }
+    return null;
+  }, [fix, day, tl, delta, proj?.i]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Day's end: within a couple hundred yards of the last stop on its final leg.
+  const lastWp = day.waypoints[day.waypoints.length - 1];
+  const arrived = !!(fix && lastWp && proj
+    && proj.i >= day.waypoints.length - 2
+    && haversineMiles(fix, lastWp) < 0.15);
+
+  // The remaining stops as swipeable cards — the roadbook strip. Google gives
+  // you turns; a roadbook gives you the day.
+  const stopsAhead = useMemo(() => {
+    const from = proj ? proj.i + 1 : 1;
+    return day.waypoints.slice(from).map((w, k) => {
+      const i = from + k;
+      const s = tl.stops[i];
+      return {
+        id: w.id, name: w.name, fuel: !!w.fuel, kind: w.kind,
+        dwell: s?.dwell ?? 0,
+        arrive: s ? (delta != null ? s.arrive + delta : s.arrive) : null,
+        lat: w.lat, lng: w.lng,
+      };
+    });
+  }, [day, tl, proj?.i, delta]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Stops placed along the progress bar by their share of the day's distance, so
   // the bar shows what is coming (fuel, a photo stop, the end) and not just how
   // far along you are.
@@ -783,117 +829,24 @@ export default function RideMode({ onClose }) {
     <div className="ride-mode nav">
       <div ref={mapDivRef} className="ride-map" />
 
+      {/* ---- top: the turn, and almost nothing else ---- */}
       <div className="ride-overlay ride-overlay-top">
-        {/* A day <select> used to sit here and eat the whole row, which pushed
-            the sound and exit controls off a phone screen. The bar is now just
-            the leg you are on plus one way in; everything else is in the hub. */}
         <div className="ride-topbar">
-          {/* Tapping the leg frames the whole day — the standalone Overview
-              button was a second control for the same thing. */}
-          <button
-            className="ride-leg"
-            onClick={showOverview}
-            title={t('Route overview')}
-          >
-            <span className="rl-day">{day.dow} {fmtDayDate(day.date)}</span>
-            <Marquee className="rl-title" text={tt(day.title)} />
+          {/* Which day this is. Tap = whole-day overview. Switching days lives
+              in the sheet as a chip strip — the old dropdown was a form control
+              in a place where nobody is filling in forms. */}
+          <button className="ride-day-pill" onClick={showOverview} title={t('Route overview')}>
+            <span className="rdp-day">{day.dow} {fmtDayDate(day.date)}</span>
+            <Marquee className="rdp-title" text={tt(day.title)} />
           </button>
-          {/* Weather a dozen miles up the road, and the posted limit when we can
-              get it. No clock — the phone shows one an inch above this. */}
           {ahead && !lean && (
             <div className="ride-chip wx" title={`${ahead.summary} · ${t('ahead')}`}>
-              {/* same glyph the day panel uses, so one sky reads one way */}
               <WeatherIcon code={ahead.code} className="wxc-icon" />
               <span className="wxc-temp">{u.temp(ahead.temp)}</span>
             </div>
           )}
-          {speedLimit != null && (
-            <div className="ride-chip limit" title={t('Speed limit')}>
-              <span className="sl-num">{u.metric ? Math.round(speedLimit * 1.609344) : speedLimit}</span>
-            </div>
-          )}
-          <button
-            className={`btn icon-btn ride-menu-btn${menuOpen ? ' on' : ''}`}
-            onClick={() => { setMenuOpen((v) => !v); setMapSetOpen(false); }}
-            aria-expanded={menuOpen}
-            aria-label={t('Ride menu')}
-            title={t('Ride menu')}
-          >
-            <svg viewBox="0 0 22 22" aria-hidden="true" className="hamb">
-              <path d="M3 6h16M3 11h16M3 16h16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-            </svg>
-          </button>
+          <button className="btn icon-btn ride-x" onClick={onClose} aria-label={t('End navigation')} title={t('End navigation')}>✕</button>
         </div>
-
-        {/* One sheet at a time — showing both stacked is busier than either. */}
-        {menuOpen && !mapSetOpen && (
-          <div className="ride-menu" role="dialog" aria-label={t('Ride menu')}>
-            <label className="rm-row">
-              <span className="rm-label">{t('Leg')}</span>
-              <select value={dayId} onChange={(e) => setDayId(e.target.value)}>
-                {trip.days.map((d) => (
-                  <option key={d.id} value={d.id}>{d.dow} {fmtDayDate(d.date)} — {tt(d.title)}</option>
-                ))}
-              </select>
-            </label>
-
-            {/* Three things. Basemap, density and voice are a settings screen
-                of their own — stacked inline they turned a menu you open at
-                60 mph into a form. */}
-            <button className="btn rm-open-settings" onClick={() => setMapSetOpen(true)}>
-              {t('Map settings')}
-              <span className="rm-chev">›</span>
-            </button>
-
-            {/* The thing a rider actually needs to find, so it gets the weight
-                and sits alone at the bottom. */}
-            <button className="btn end-nav" onClick={onClose}>{t('End navigation')}</button>
-          </div>
-        )}
-
-        {menuOpen && mapSetOpen && (
-          <div className="ride-menu ride-subsheet" role="dialog" aria-label={t('Map settings')}>
-            <div className="rm-sub-head">
-              <button className="btn rm-back" onClick={() => setMapSetOpen(false)}>‹</button>
-              <span className="rm-sub-title">{t('Map settings')}</span>
-            </div>
-
-            <div className="rm-row">
-              <span className="rm-label">{t('Basemap')}</span>
-              <div className="rm-seg">
-                {NAV_STYLES.map((o) => (
-                  <button
-                    key={o.key}
-                    className={navStyle === o.key ? 'active' : ''}
-                    onClick={() => setNavStyle(o.key)}
-                  >{t(o.label)}</button>
-                ))}
-              </div>
-            </div>
-
-            <div className="rm-row">
-              <span className="rm-label">{t('Density')}</span>
-              <div className="rm-seg">
-                <button className={lean ? 'active' : ''} onClick={() => set({ density: 'minimal' })}>{t('Minimalist')}</button>
-                <button className={!lean ? 'active' : ''} onClick={() => set({ density: 'detailed' })}>{t('Detailed')}</button>
-              </div>
-            </div>
-
-            <div className="rm-row">
-              <span className="rm-label">{t('Voice')}</span>
-              <div className="rm-switch">
-                <SpeakerIcon muted={muted} />
-                <button
-                  className={`toggle rm-toggle${muted ? '' : ' on'}`}
-                  role="switch"
-                  aria-checked={!muted}
-                  aria-label={t('Voice')}
-                  onClick={() => setMuted((m) => !m)}
-                />
-              </div>
-            </div>
-          </div>
-        )}
 
         {geoErr && <div className="warning danger">⚠ {geoErr}</div>}
         {offRoute && !geoErr && (
@@ -904,10 +857,8 @@ export default function RideMode({ onClose }) {
           </div>
         )}
 
-        {nav && !offRoute && (
+        {nav && !offRoute && !arrived && (
           <div className="turn-card">
-            {/* Lanes first, the way Apple stacks it: you pick the lane before you
-                read the road name, so it belongs above both. */}
             <LaneStrip lanes={nav.next.lanes} />
             <div className="turn-head">
               <div className="turn-icon"><TurnArrow step={nav.next} /></div>
@@ -933,70 +884,136 @@ export default function RideMode({ onClose }) {
         {steps === null && fix && <div className="turn-card loading"><div className="t-instr">loading turn-by-turn…</div></div>}
       </div>
 
+      {/* ---- right edge: one-tap controls, glove-sized ---- */}
+      <div className="ride-fabs">
+        <button
+          className={`ride-fab${muted ? ' off' : ''}`}
+          onClick={() => setMuted((m) => !m)}
+          aria-label={t('Voice')}
+          title={t('Voice')}
+        ><SpeakerIcon muted={muted} /></button>
+        <button
+          className={`ride-fab${!follow ? ' lit' : ''}`}
+          onClick={() => (follow ? showOverview() : setFollow(true))}
+          aria-label={follow ? t('Route overview') : t('Re-center')}
+          title={follow ? t('Route overview') : t('Re-center')}
+        >
+          {follow ? (
+            <svg viewBox="0 0 22 22" aria-hidden="true"><path d="M4 15 L9 5 L13 12 L18 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="4" cy="15" r="2" fill="currentColor" /><circle cx="18" cy="6" r="2" fill="currentColor" /></svg>
+          ) : (
+            <svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="3.2" fill="currentColor" /><circle cx="11" cy="11" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M11 1.5v4M11 16.5v4M1.5 11h4M16.5 11h4" stroke="currentColor" strokeWidth="1.8" /></svg>
+          )}
+        </button>
+      </div>
+
+      {/* ---- bottom: chips Google can\'t show, then ONE bar ---- */}
       <div className="ride-overlay ride-overlay-bottom">
-        {/* Rendered only when it holds something. As an always-present empty
-            div it still drew the column's 8px gap — an invisible row of dead
-            space above the card the whole time you were following the route. */}
-        {!follow && fix && (
-          <div className="ride-quick">
-            <button className="btn gold recenter" onClick={() => setFollow(true)}>◉ {t('Re-center')}</button>
+        {!arrived && fix && (nextFuel || nextGate) && (
+          <div className="ride-chips">
+            {nextFuel && (
+              <span className={`m-chip fuel${nextFuel.miles > range.comfort ? ' danger' : ''}`}>
+                <svg viewBox="0 0 20 20" className="mc-ic" aria-hidden="true"><path d="M4 17V5a1.5 1.5 0 0 1 1.5-1.5H10A1.5 1.5 0 0 1 11.5 5v12M3 17h9.5M11.5 8.5H14a1.5 1.5 0 0 1 1.5 1.5v4.2a1.15 1.15 0 1 0 2.3 0V7.4L16 5.6" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+                {u.miNum(nextFuel.miles)} {u.miUnit}
+              </span>
+            )}
+            {nextGate && (
+              <span className={`m-chip gate${nextGate.ok ? '' : ' danger'}`}>
+                ⏱ {tt(nextGate.label)} · {nextGate.ok ? `${fmtDur(nextGate.margin)} ${t('margin')}` : `${fmtDur(-nextGate.margin)} ${t('LATE')}`}
+              </span>
+            )}
           </div>
         )}
-        {/* One card. Speed came off — a bike has a speedometer six inches away
-            and it was the least useful number here. */}
-        <div className={`rb-delta ${deltaChip?.cls ?? ''}${lean ? ' lean' : ''}`}>
-          <div className="n">{deltaChip?.text ?? (fix ? t('LOCATING…') : t('WAITING FOR GPS'))}</div>
-          {/* Parked, pre-fix: the card still earns its place by showing the
-              plan — departure, distance, where you are headed first — instead
-              of a lone WAITING FOR GPS over a strip of empty card. */}
-          {!proj && (
-            <div className="rb-line">
-              <b>{fmtTime(tl.stops[0]?.depart ?? 0)}</b> <i>{t('Depart')}</i>
-              <b className="sep">{u.miNum(totalMiles)}</b> <i>{u.miUnit}</i>
+
+        {arrived ? (
+          <div className="ride-bar arrive">
+            <div className="rb-main">
+              <b className="rb-big">{t('Arrived')}</b>
+              <span className="rb-mid">{tt(lastWp.name)}</span>
             </div>
-          )}
-          {lean ? (
-            /* One row of figures, no labels: distance to the next stop, time
-               left in the leg, arrival. The units and the clock format already
-               say which is which. */
-            ((proj && nextWp) || nav || eta != null) && (
-              <div className="rb-line lean-row">
-                {proj && nextWp && <b>{u.miNum(proj.remainToNext)}<u>{u.miUnit}</u></b>}
-                {nav && <b>{fmtDur(nav.remMin)}</b>}
-                {eta != null && <b>{fmtTime(eta)}</b>}
+            <div className="rb-sub">{u.miNum(statsRef.current.miles)} {u.miUnit} {t('ridden today')}</div>
+            <button className="btn gold end-ride" onClick={onClose}>{t('End ride')}</button>
+          </div>
+        ) : (
+          <>
+            <button className={`ride-bar${sheetOpen ? ' open' : ''}`} onClick={() => setSheetOpen((v) => !v)} aria-expanded={sheetOpen}>
+              <span className="rb-grip" aria-hidden="true" />
+              {!fix ? (
+                <div className="rb-main">
+                  <b className="rb-big">{t('WAITING FOR GPS')}</b>
+                  <span className="rb-mid">{fmtTime(tl.stops[0]?.depart ?? 0)} · {u.mi(totalMiles)}</span>
+                </div>
+              ) : (
+                <div className="rb-main">
+                  <b className="rb-big">{(eta ?? projectedEnd) != null ? fmtTime(eta ?? projectedEnd) : '—'}</b>
+                  <span className="rb-mid">{nav ? `${u.miNum(nav.remMi)} ${u.miUnit}` : proj && nextWp ? `${u.miNum(proj.remainToNext)} ${u.miUnit}` : ''}</span>
+                  {deltaChip && <span className={`rb-chip ${deltaChip.cls}`}>{deltaChip.text}</span>}
+                </div>
+              )}
+              {(nextWp ?? plannedNext) && !sheetOpen && (
+                <Marquee className="rb-next" label={lean ? null : t('Next')} text={tt((nextWp ?? plannedNext).name)} />
+              )}
+            </button>
+
+            {sheetOpen && (
+              <div className="ride-sheet" role="dialog" aria-label={t('Ride menu')}>
+                {stopsAhead.length > 0 && (
+                  <div className="sheet-block">
+                    <div className="sheet-label">{t('Stops ahead')}</div>
+                    <div className="stops-strip">
+                      {stopsAhead.map((s) => (
+                        <button
+                          key={s.id}
+                          className={`stop-card${s.fuel ? ' fuel' : ''}`}
+                          onClick={() => {
+                            setFollow(false);
+                            mapRef.current?.easeTo({ center: [s.lng, s.lat], zoom: 12.5, pitch: 0, duration: 600 });
+                          }}
+                        >
+                          <span className="sc-kind">{s.fuel ? '⛽' : s.kind === 'photo' ? '◆' : s.kind === 'end' ? '⚑' : '●'}</span>
+                          <span className="sc-name">{tt(s.name)}</span>
+                          {s.arrive != null && <span className="sc-eta">{fmtTime(s.arrive)}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="sheet-block">
+                  <div className="sheet-label">{t('Days')}</div>
+                  <div className="day-chips">
+                    {trip.days.map((d) => (
+                      <button
+                        key={d.id}
+                        className={`day-chip${d.id === day.id ? ' active' : ''}${d.date === today ? ' today' : ''}`}
+                        onClick={() => { setDayId(d.id); setSheetOpen(false); setFollow(true); }}
+                      >{d.dow} {fmtDayDate(d.date)}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="sheet-block sheet-settings">
+                  <div className="rm-row">
+                    <span className="rm-label">{t('Basemap')}</span>
+                    <div className="rm-seg">
+                      {NAV_STYLES.map((o) => (
+                        <button key={o.key} className={navStyle === o.key ? 'active' : ''} onClick={() => setNavStyle(o.key)}>{t(o.label)}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rm-row">
+                    <span className="rm-label">{t('Density')}</span>
+                    <div className="rm-seg">
+                      <button className={lean ? 'active' : ''} onClick={() => set({ density: 'minimal' })}>{t('Minimalist')}</button>
+                      <button className={!lean ? 'active' : ''} onClick={() => set({ density: 'detailed' })}>{t('Detailed')}</button>
+                    </div>
+                  </div>
+                </div>
+
+                <button className="btn end-nav" onClick={onClose}>{t('End navigation')}</button>
               </div>
-            )
-          ) : (
-            <>
-              {/* Rows render only when they have something in them. An empty
-                  row still costs its line box, which is a strip of grey card
-                  over the map saying nothing. */}
-              {((proj && nextWp) || nav) && (
-                <div className="rb-line">
-                  {proj && nextWp && <><b>{u.miNum(proj.remainToNext)}</b> <i>{u.miUnit}</i></>}
-                  {nav && <><b className="sep">{fmtDur(nav.remMin)}</b> <i>{t('left')}</i></>}
-                </div>
-              )}
-              {eta != null && (
-                <div className="rb-line eta">
-                  <b>{fmtTime(eta)}</b> <i>{t('ETA')}</i>
-                </div>
-              )}
-            </>
-          )}
-          {(nextWp ?? plannedNext) && (
-            <Marquee className="rb-next" label={lean ? null : t('Next')} text={tt((nextWp ?? plannedNext).name)} />
-          )}
-          {fix && !lean && gateReads.length > 0 && (
-            /* Timed gates ride in the card. A floating pill under it read as a
-               stray element, and with no fix the projection is meaningless. */
-            <div className="rb-gates">
-              {gateReads.map((g, i) => (
-                <span key={i} className={`rb-gate ${g.ok ? 'ok' : 'miss'}`}>{g.label} {fmtTime(g.projected)}/{g.by}</span>
-              ))}
-            </div>
-          )}
-        </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

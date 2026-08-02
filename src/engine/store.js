@@ -111,6 +111,8 @@ export const initialState = () => {
     pendingProposal: null, // { ops, summary, saveAs, overwriteScenarioId }
     modal: null, // { type: 'stop'|'leg', dayId, waypointId?, legIndex? }
     chatAsk: null, // question queued for the optimizer
+    opLog: [], // ops since the last collab mark — a rider's unsent proposal
+    focusLeg: null, // { dayId, index } — hovered leg, highlighted on the map
   };
 };
 
@@ -129,6 +131,10 @@ export function reducer(state, action) {
         // Undo is a local snapshot stack; restoring one would silently revert a
         // co-rider's edit, so a shared trip does not stack remote changes.
         history: action.remote ? state.history : [state.trip, ...state.history].slice(0, 30),
+        // Ops also accumulate for collaborate mode: a rider's edit session
+        // becomes the proposal it sends (capped — a runaway session is not a
+        // proposal). Server-originated batches are not yours to propose.
+        opLog: action.remote ? state.opLog : [...state.opLog, ...action.ops].slice(-120),
       };
     }
     // the server accepted these batches — drop them from the queue
@@ -139,16 +145,25 @@ export function reducer(state, action) {
       return { ...state, outbox };
     }
     // Adopting a shared trip: the joined copy replaces this device's, and the
-    // outbox is dropped — those edits belong to a trip this device just left.
+    // outbox and op log are dropped — those edits belong to a trip this
+    // device just left.
     case 'load_trip': {
       syncTrip(state, action.trip);
       syncMeta(state, { outbox: [] });
-      return { ...state, trip: action.trip, outbox: [], history: [], selectedDayId: null };
+      return { ...state, trip: action.trip, outbox: [], opLog: [], history: [], selectedDayId: null };
     }
     case 'set_remote': {
       syncMeta(state, { remote: action.remote });
       return { ...state, remote: action.remote };
     }
+    // Collaborate mode: adopt the group's trip without touching undo or the op
+    // log — remote updates are not edits the local rider made.
+    case 'sync_trip': {
+      syncTrip(state, action.trip);
+      return { ...state, trip: action.trip };
+    }
+    case 'collab_mark':
+      return { ...state, opLog: [] };
     case 'undo': {
       if (!state.history.length) return state;
       const [prev, ...rest] = state.history;
@@ -193,6 +208,9 @@ export function reducer(state, action) {
     case 'focus_point':
       // `at` makes re-clicking the same stop re-trigger the map effect.
       return { ...state, focus: { lat: action.lat, lng: action.lng, at: Date.now() } };
+    case 'focus_leg':
+      // Hovering a stop row lights its arriving leg on the map. null clears.
+      return { ...state, focusLeg: action.leg ?? null };
     case 'open_modal':
       return { ...state, modal: action.modal };
     case 'close_modal':

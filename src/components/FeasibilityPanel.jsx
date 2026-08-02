@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTrip } from '../engine/store.js';
 import { tripFeasibility, fmtTime, fmtDur, gradeFor } from '../engine/timeline.js';
 import { tripSummary } from '../engine/tripEngine.js';
@@ -6,6 +6,27 @@ import { splitRecommendations } from '../engine/splits.js';
 import { PHASES } from '../data/seedTrip.js';
 import { fmtDayDate } from '../engine/dates.js';
 import { useT, useTT, useUnits } from '../engine/settings.jsx';
+
+// Two-tap confirm in place: first tap arms for 3 seconds, second fires. The
+// stakes here are undo-able (Load) or single-row (Delete) — a dialog is more
+// ceremony than the action deserves, but one tap is less than it needs.
+function ArmedButton({ label, danger, onFire }) {
+  const t = useT();
+  const [armed, setArmed] = useState(false);
+  return (
+    <button
+      className={`btn${danger || armed ? ' danger-ghost' : ''}`}
+      onClick={() => {
+        if (!armed) {
+          setArmed(true);
+          setTimeout(() => setArmed(false), 3000);
+          return;
+        }
+        onFire();
+      }}
+    >{armed ? t('Sure?') : label}</button>
+  );
+}
 
 export default function FeasibilityPanel() {
   const { state, dispatch, routedLegsByDay } = useTrip();
@@ -98,8 +119,8 @@ export default function FeasibilityPanel() {
                       <td>{s.name}<div className="scen-date">{new Date(s.savedAt).toLocaleDateString()} {new Date(s.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></td>
                       <td>{u.miNum(ss.totalMiles)}</td>
                       <td><span className={`grade grade-${sf.grade}`}>{sf.grade} {sf.overall}</span></td>
-                      <td><button className="btn" onClick={() => { if (confirm(`Load “${s.name}” as the working plan? Current plan goes on the undo stack.`)) dispatch({ type: 'load_scenario', id: s.id }); }}>{t('Load')}</button></td>
-                      <td><button className="btn danger-ghost" onClick={() => { if (confirm(`Delete scenario “${s.name}”?`)) dispatch({ type: 'delete_scenario', id: s.id }); }}>✕</button></td>
+                      <td><ArmedButton label={t('Load')} onFire={() => dispatch({ type: 'load_scenario', id: s.id })} /></td>
+                      <td><ArmedButton label="✕" danger onFire={() => dispatch({ type: 'delete_scenario', id: s.id })} /></td>
                     </tr>
                   );
                 })}
@@ -110,7 +131,7 @@ export default function FeasibilityPanel() {
       </div>
 
       <p style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 14 }}>
-        {t('Method: departure times from each day\'s plan, routed leg durations (OSRM, +15% group pace), planned time-on-ground at every stop, checked against the trip\'s hard gates, its configured fuel range, daylight (~8:30 PM), and booking status. Scenario rows use cached routing where available and planned mileage otherwise.')}
+        {t('Method: departure times from each day\'s plan, routed leg durations (OSRM, +15% group pace), planned time-on-ground at every stop, checked against the trip\'s hard gates, its configured fuel range, its dusk setting, and booking status. Scenario rows use cached routing where available and planned mileage otherwise.')}
       </p>
     </div>
   );

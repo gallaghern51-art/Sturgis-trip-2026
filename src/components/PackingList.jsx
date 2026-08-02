@@ -88,6 +88,24 @@ function load() {
   } catch { return { checks: {}, custom: {}, hidden: [] }; }
 }
 
+// Progress for surfaces that show packing state without rendering the list
+// (the Prep board card). Same effective-list math as the component below.
+export function packingProgress() {
+  const s = load();
+  const hidden = new Set(s.hidden);
+  let total = 0;
+  let done = 0;
+  for (const sec of LIST) {
+    const items = [
+      ...sec.items.filter((i) => !hidden.has(i.id)),
+      ...(s.custom[sec.id] ?? []),
+    ];
+    total += items.length;
+    for (const i of items) if (s.checks[i.id]) done += 1;
+  }
+  return { done, total };
+}
+
 export default function PackingList() {
   const t = useT();
   const { lang } = useSettings();

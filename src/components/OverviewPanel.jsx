@@ -5,21 +5,21 @@ import { CSS } from '@dnd-kit/utilities';
 import { useTrip } from '../engine/store.js';
 import { PHASES } from '../data/seedTrip.js';
 import { fmtDayDate, fmtLongDate } from '../engine/dates.js';
-import { tripToGpx, tripToIcs, downloadFile } from '../engine/exporters.js';
-import { ROAD_STATUS_LINKS } from '../engine/conditions.js';
 import { useT, useTT, useUnits } from '../engine/settings.jsx';
 import { uid } from '../engine/ops.js';
 
-// The EagleRider Harley-Davidson rental lineup (eaglerider.com/harley-rentals,
-// plus the CVO additions) — what the group can actually be riding.
-const EAGLERIDER_HD = [
+// Suggestions only — riders type whatever they actually ride. (The list began
+// as the EagleRider rental lineup the Sturgis crew booked from; it survives as
+// autocomplete, not as the universe of motorcycles.)
+const BIKE_SUGGESTIONS = [
   'Street Glide', 'Street Glide Ultra', 'Road Glide', 'Road Glide Ultra',
   'Electra Glide', 'Road King', 'Heritage Softail Classic',
-  'CVO Street Glide', 'CVO Road Glide', 'Pan America 1250', 'Other',
+  'CVO Street Glide', 'CVO Road Glide', 'Pan America 1250',
+  'BMW R 1300 GS', 'Honda Gold Wing', 'KTM 1290 Super Adventure', 'Indian Roadmaster',
 ];
 
 export default function OverviewPanel() {
-  const { state, dispatch, summary, routes, routedLegsByDay, ui } = useTrip();
+  const { state, dispatch, summary, ui } = useTrip();
   const { trip } = state;
   const t = useT();
   const tt = useTT();
@@ -39,8 +39,6 @@ export default function OverviewPanel() {
     const next = arrayMove(ids, ids.indexOf(active.id), ids.indexOf(over.id));
     dispatch({ type: 'apply_ops', ops: [{ op: 'reorder_days', dayIds: next }] });
   };
-
-  const openReservations = (trip.reserveNow ?? []).filter((r) => !r.done);
 
   return (
     <div>
@@ -75,46 +73,6 @@ export default function OverviewPanel() {
 
       <TripSettings trip={trip} dispatch={dispatch} />
 
-      <div className="section">
-        <h3>{t('Ride pack')}</h3>
-        <div className="ridepack">
-          <button className="btn" onClick={() => downloadFile('trip-full.gpx', tripToGpx(trip, routes, routedLegsByDay), 'application/gpx+xml')}>↓ {t('GPX — full trip')}</button>
-          <button className="btn" onClick={() => downloadFile('trip-calendar.ics', tripToIcs(trip, routedLegsByDay), 'text/calendar')}>↓ {t('Calendar (.ics)')}</button>
-        </div>
-        <p style={{ fontSize: 12, color: 'var(--ink-dim)', marginTop: 6 }}>
-          {t('GPX loads into Garmin, Rever, or any nav app (per-day GPX is on each day panel).')}{' '}
-          {t('The calendar file drops all 11 days — departures, gates, dinners — into everyone\'s phone in Mountain Time.')}
-        </p>
-      </div>
-
-      <div className="section">
-        <h3>{t('Road status & smoke')} <span className="cnt">{t('check the week of')}</span></h3>
-        <ul className="road-links">
-          {ROAD_STATUS_LINKS.map((l) => (
-            <li key={l.url}><a href={l.url} target="_blank" rel="noreferrer">{l.name} ↗</a></li>
-          ))}
-        </ul>
-      </div>
-
-      {(trip.reserveNow?.length ?? 0) > 0 && <div className="section">
-        <h3>{t('Reserve these now')} <span className="cnt">{openReservations.length} {t('open')}</span></h3>
-        {trip.reserveNow.map((r) => (
-          <label key={r.id} className={`reserve-item${r.done ? ' done' : ''}`}>
-            <input
-              type="checkbox"
-              checked={r.done}
-              onChange={(e) => dispatch({ type: 'apply_ops', ops: [{ op: 'set_reservation_done', reservationId: r.id, done: e.target.checked }] })}
-            />
-            <div>
-              <div className="r-name">{r.name}</div>
-              <div className="r-when">{tt(r.when)}</div>
-              <div className="r-note">{r.where}</div>
-              <div className="r-note">{tt(r.note)}</div>
-            </div>
-          </label>
-        ))}
-      </div>}
-
       {trip.fieldNotes && <div className="section fieldnotes">
         <h3>{t('Field notes')}</h3>
         <h4>{t('Fuel discipline')}</h4>
@@ -145,6 +103,9 @@ function RiderRoster({ trip, dispatch }) {
   return (
     <div className="section">
       <h3>{t('Rider roster')} <span className="cnt">{t('name + bike, saved on the trip')}</span></h3>
+      <datalist id="bike-suggestions">
+        {BIKE_SUGGESTIONS.map((b) => <option key={b} value={b} />)}
+      </datalist>
       {roster.map((r) => (
         <div key={r.id} className="roster-row">
           <input
@@ -153,10 +114,13 @@ function RiderRoster({ trip, dispatch }) {
             onBlur={(e) => { if (e.target.value !== r.name) update(r.id, { name: e.target.value }); }}
             onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
           />
-          <select value={r.bike || ''} onChange={(e) => update(r.id, { bike: e.target.value })}>
-            <option value="">{t('Choose a bike…')}</option>
-            {EAGLERIDER_HD.map((b) => <option key={b} value={b}>{b}</option>)}
-          </select>
+          <input
+            list="bike-suggestions"
+            placeholder={t('Bike — type anything')}
+            defaultValue={r.bike || ''}
+            onBlur={(e) => { if (e.target.value !== (r.bike || '')) update(r.id, { bike: e.target.value }); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+          />
           <button className="mini-edit" title={t('Cancel')} onClick={() => save(roster.filter((x) => x.id !== r.id))}>✕</button>
         </div>
       ))}
@@ -203,9 +167,19 @@ function TripSettings({ trip, dispatch }) {
         <label className="fld">MPG
           <input type="number" min="10" value={range.mpg} onChange={(e) => setRange('mpg', e.target.value)} />
         </label>
+        <label className="fld">{t('Dusk (after-dark warnings)')}
+          <input defaultValue={trip.meta.dusk ?? '8:30 PM'} key={trip.meta.dusk}
+            placeholder="8:30 PM"
+            onBlur={(e) => { if (e.target.value !== (trip.meta.dusk ?? '')) set({ dusk: e.target.value }); }} />
+        </label>
+        <label className="fld">{t('UTC offset (calendar export)')}
+          <input type="number" min="-12" max="14" step="0.5" value={Number.isFinite(trip.meta.utcOffset) ? trip.meta.utcOffset : -6}
+            onChange={(e) => set({ utcOffset: Number(e.target.value) })} />
+        </label>
       </div>
       <p style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 4 }}>
-        {t('Changing the start date re-pins every day to the new calendar. Fuel warnings and feasibility use the bike range set here.')}
+        {t('Changing the start date re-pins every day to the new calendar. Fuel warnings and feasibility use the bike range set here.')}{' '}
+        {t('Dusk drives the after-dark warnings; the UTC offset places .ics calendar times in the trip’s zone.')}
       </p>
     </div>
   );

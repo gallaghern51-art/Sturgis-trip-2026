@@ -14,12 +14,13 @@ const SUGGESTIONS = [
   'Give me a lower-mileage permutation of the whole trip, save as "Relaxed"',
 ];
 
-export default function ChatPanel() {
+export default function ChatPanel({ onClose }) {
   const { state, dispatch, routedLegsByDay } = useTrip();
   const [messages, setMessages] = useState(state.chat ?? []); // {role, content} — hydrated from the trip record
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [building, setBuilding] = useState(null); // {chars, thinking} streamed so far
+  const [confirmClear, setConfirmClear] = useState(false); // two-tap clear, no window.confirm
   const t = useT();
   const [setupNeeded, setSetupNeeded] = useState(false);
   const scrollRef = useRef(null);
@@ -135,14 +136,20 @@ export default function ChatPanel() {
   return (
     <div className="chat-panel panel-view">
       <div className="chat-head">
-        <span className="t">Trip <i>Optimizer</i></span>
+        <span className="t">✦ <i>{t('Copilot')}</i></span>
         {messages.length > 0 && (
           <button
-            className="btn"
+            className={`btn${confirmClear ? ' danger-ghost' : ''}`}
             title="Clear this trip's chat history"
-            onClick={() => { if (confirm('Clear the optimizer conversation for this trip?')) { dispatch({ type: 'clear_chat' }); setMessages([]); } }}
-          >{t('Clear')}</button>
+            onClick={() => {
+              if (!confirmClear) { setConfirmClear(true); setTimeout(() => setConfirmClear(false), 3000); return; }
+              dispatch({ type: 'clear_chat' });
+              setMessages([]);
+              setConfirmClear(false);
+            }}
+          >{confirmClear ? t('Sure?') : t('Clear')}</button>
         )}
+        {onClose && <button className="btn" onClick={onClose} aria-label={t('Close')}>✕</button>}
       </div>
       <div className="chat-msgs" ref={scrollRef}>
         {messages.length === 0 && (
