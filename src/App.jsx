@@ -130,6 +130,16 @@ export default function App() {
     if (state.chatAsk) setDockOpen(true);
   }, [state.chatAsk]);
 
+  // Tapping a leg's figures zooms the map to that leg — on a phone the panel
+  // covers the map, so it steps aside to show what was asked for.
+  useEffect(() => {
+    if (state.focusLeg?.zoom && isMobile) setPanelOpen(false);
+  }, [state.focusLeg?.zoom, isMobile]);
+  // Reopening the panel is the way back — the highlight has done its job.
+  useEffect(() => {
+    if (isMobile && panelOpen && state.focusLeg) dispatch({ type: 'focus_leg', leg: null });
+  }, [panelOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const exportJson = () => {
     const slug = (state.trip.meta.title || 'trip').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const blob = new Blob([JSON.stringify(state.trip, null, 2)], { type: 'application/json' });

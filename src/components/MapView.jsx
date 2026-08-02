@@ -330,6 +330,7 @@ export default function MapView() {
   }
 
   // Hovered leg → the slice of routed geometry between its two waypoints.
+  const legZoomAtRef = useRef(0);
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded() || !map.getSource('leg-hi')) return;
@@ -362,6 +363,13 @@ export default function MapView() {
       }
     }
     map.getSource('leg-hi').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords } });
+    // A zoom-tagged focus (a TAP, not a hover) frames the leg — once per tap,
+    // so a routes refresh doesn't re-yank the camera.
+    if (fl?.zoom && fl.zoom !== legZoomAtRef.current && coords.length > 1) {
+      legZoomAtRef.current = fl.zoom;
+      const b = coords.reduce((acc, c) => acc.extend(c), new maplibregl.LngLatBounds(coords[0], coords[0]));
+      map.fitBounds(b, { padding: { top: 150, bottom: 90, left: 50, right: 50 }, maxZoom: 13, duration: 700 });
+    }
   }, [state.focusLeg, routes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Which leg of a day is nearest to a clicked/hovered point.
