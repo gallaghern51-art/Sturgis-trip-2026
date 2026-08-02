@@ -7,6 +7,12 @@
 import { legKey, haversineMiles } from './tripEngine.js';
 
 const OSRM = 'https://router.project-osrm.org/route/v1/driving';
+
+// Group riding is slower than a solo car: staggered formation, fuel-stop
+// re-forms, the slowest rider sets the pace. One factor, applied to every leg
+// duration in one place. NOTE: baked into cached legs — making this per-trip
+// means bumping the route-cache versions so old durations flush.
+export const GROUP_PACE = 1.15;
 const CACHE_KEY = 'sturgis.routeCache.v1';
 
 // ---- Google Routes proxy (traffic-aware) ----
@@ -65,7 +71,7 @@ function googleCompactSteps(g, stops) {
       steps.push({
         lat: st.lat, lng: st.lng,
         dist: st.distanceMeters / 1609.34,
-        sec: st.staticDurationSeconds * scale * 1.15, // group-of-8 pace, matches OSRM path
+        sec: st.staticDurationSeconds * scale * GROUP_PACE, // group-of-8 pace, matches OSRM path
         type, mod, exit: null, road: null,
         instr: st.instruction || 'Continue',
       });
@@ -124,7 +130,7 @@ export async function routeDay(day) {
     route.legs.forEach((leg, i) => {
       legs[legKey(wps[i], wps[i + 1])] = {
         miles: leg.distance / 1609.34,
-        seconds: leg.duration * 1.15, // group-of-8 pace penalty
+        seconds: leg.duration * GROUP_PACE, // group-of-8 pace penalty
       };
     });
     const result = { legs, geometry: route.geometry.coordinates };
@@ -240,7 +246,7 @@ function compactSteps(route, stopNames) {
         lat: st.maneuver.location[1],
         lng: st.maneuver.location[0],
         dist: st.distance / 1609.34, // miles from this maneuver to the next
-        sec: st.duration * 1.15,     // group-of-8 pace penalty, matches routeDay
+        sec: st.duration * GROUP_PACE,     // group-of-8 pace penalty, matches routeDay
         type: st.maneuver.type,
         mod: st.maneuver.modifier ?? null,
         exit: st.maneuver.exit ?? null,
@@ -310,7 +316,7 @@ export async function routeFrom(pos, waypoints) {
       geometry: g.geometry,
       steps: googleCompactSteps(g, wps),
       miles: g.distanceMeters / 1609.34,
-      seconds: g.durationSeconds * 1.15,
+      seconds: g.durationSeconds * GROUP_PACE,
       traffic: true,
     };
   } catch { /* fall through to OSRM */ }
@@ -327,6 +333,6 @@ export async function routeFrom(pos, waypoints) {
     geometry: route.geometry.coordinates,
     steps: compactSteps(route, wps.map((w) => w.name)),
     miles: route.distance / 1609.34,
-    seconds: route.duration * 1.15,
+    seconds: route.duration * GROUP_PACE,
   };
 }

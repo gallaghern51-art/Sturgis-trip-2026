@@ -117,7 +117,7 @@ export const TOOL = {
           properties: {
             op: {
               type: 'string',
-              enum: ['reorder_days', 'add_day', 'remove_day', 'reorder_waypoints', 'move_waypoint', 'add_waypoint', 'remove_waypoint', 'update_waypoint', 'set_day_field', 'toggle_module', 'update_module', 'move_module', 'add_module', 'remove_module', 'set_reservation_done', 'update_meal', 'remove_meal', 'update_lodging', 'set_meta'],
+              enum: ['reorder_days', 'add_day', 'remove_day', 'reorder_waypoints', 'move_waypoint', 'add_waypoint', 'remove_waypoint', 'update_waypoint', 'set_day_field', 'toggle_module', 'update_module', 'move_module', 'add_module', 'remove_module', 'set_reservation_done', 'add_reservation', 'remove_reservation', 'add_gate', 'update_gate', 'remove_gate', 'update_meal', 'remove_meal', 'update_lodging', 'set_meta'],
             },
             dayId: { type: 'string' },
             dayIds: { type: 'array', items: { type: 'string' } },
@@ -158,6 +158,25 @@ export const TOOL = {
             done: { type: 'boolean' },
             meal: { type: 'string', enum: ['breakfast', 'lunch', 'dinner'] },
             day: { type: 'object', description: 'For add_day: {title, phase, depart, summary}. Dates cascade automatically.' },
+            gate: {
+              type: 'object',
+              description: 'For add_gate: a hard be-there-by commitment the feasibility engine grades against. update_gate/remove_gate address gates by their array index on the day.',
+              properties: {
+                label: { type: 'string' },
+                by: { type: 'string', description: 'e.g. "7:00 AM"' },
+                waypointId: { type: 'string', description: 'the stop the deadline applies to' },
+              },
+            },
+            reservation: {
+              type: 'object',
+              description: 'For add_reservation: an entry on the trip-wide booking checklist.',
+              properties: {
+                name: { type: 'string' },
+                when: { type: 'string' },
+                where: { type: 'string' },
+                note: { type: 'string' },
+              },
+            },
           },
           required: ['op'],
         },
@@ -175,6 +194,7 @@ Rules:
 - Keep daily distance realistic: 150–300 mi for scenic days, up to 450 for transit days, and note it in the summary.
 - Every day gets: an honest one-to-two-sentence summary (trade-offs included), a depart time, lunch and dinner meal entries with real restaurant-quality picks when you know them (or the honest "best option in town" note), and lodging (real town + property suggestion, status "reserve").
 - Phases: use "outbound" for the way out, "rally" for event/destination days, "return" for the way home, "prep" for travel/arrival days.
+- Gates: when a day contains a hard real-world deadline — park-entrance cutoffs, timed-entry windows, ferry or tour departures, rental returns, restaurant reservations — emit it in day.gates ({label, by, waypointIndex}). Real commitments only; never invent one.
 - meta.summary: two to three sentences on the whole trip — the shape of the route, the landmark days, the rider count.
 - Respect the rider count and requested day count exactly.`;
 
@@ -213,6 +233,19 @@ export const GENERATE_TOOL = {
                 summary: { type: 'string' },
                 anchor: { type: 'boolean' },
                 constraints: { type: 'array', items: { type: 'string' } },
+                gates: {
+                  type: 'array',
+                  description: 'Hard be-there-by deadlines the feasibility engine will grade against. Only real-world commitments.',
+                  items: {
+                    type: 'object',
+                    required: ['label', 'by', 'waypointIndex'],
+                    properties: {
+                      label: { type: 'string' },
+                      by: { type: 'string', description: 'e.g. "7:00 AM"' },
+                      waypointIndex: { type: 'integer', description: '0-based index into this day\'s waypoints array' },
+                    },
+                  },
+                },
                 waypoints: {
                   type: 'array',
                   items: {

@@ -46,7 +46,15 @@ function netlifyFunctionsInDev() {
         try {
           const mod = await server.ssrLoadModule(`/netlify/functions/${match[1]}.mjs`);
           const url = new URL(req.url, 'http://localhost');
-          const out = await mod.default(new Request(url, { method: req.method }));
+          // Forward the body — POST functions (collab, chat) read JSON from it.
+          const chunks = [];
+          for await (const c of req) chunks.push(c);
+          const body = chunks.length ? Buffer.concat(chunks) : undefined;
+          const out = await mod.default(new Request(url, {
+            method: req.method,
+            headers: req.headers,
+            body,
+          }));
           res.statusCode = out.status;
           out.headers.forEach((v, k) => res.setHeader(k, v));
           res.end(Buffer.from(await out.arrayBuffer()));

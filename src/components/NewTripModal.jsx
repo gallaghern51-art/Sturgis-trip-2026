@@ -8,17 +8,19 @@ import { SEED_TRIP } from '../data/seedTrip.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function NewTripModal({ onClose }) {
+export default function NewTripModal({ onClose, onCreated, initial }) {
   const { dispatch } = useTrip();
-  const [tab, setTab] = useState('ai'); // ai | blank | template
+  const [tab, setTab] = useState(initial?.tab ?? 'ai'); // ai | blank | template
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState(today());
   const [numDays, setNumDays] = useState(5);
   const [riders, setRiders] = useState(2);
   const [startPlace, setStartPlace] = useState('');
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState(initial?.prompt ?? '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  // Home hands off here after trip creation so the app can land in the workspace.
+  const created = () => (onCreated ? onCreated() : onClose());
 
   const baseMeta = (title) => ({
     title: title || 'New trip',
@@ -43,7 +45,7 @@ export default function NewTripModal({ onClose }) {
       }
       const trip = cascadeDates({ meta: baseMeta(name), days, reserveNow: [], fieldNotes: null });
       dispatch({ type: 'create_trip', trip });
-      onClose();
+      created();
     } catch (e) {
       setErr(String(e.message || e));
     } finally {
@@ -55,7 +57,7 @@ export default function NewTripModal({ onClose }) {
     const trip = structuredClone(SEED_TRIP);
     if (name.trim()) trip.meta.title = name.trim();
     dispatch({ type: 'create_trip', trip });
-    onClose();
+    created();
   };
 
   const createWithAi = async () => {
@@ -72,23 +74,31 @@ export default function NewTripModal({ onClose }) {
       // assign fresh ids + defaults, then pin dates
       const trip = {
         meta: { ...baseMeta(name), ...data.trip.meta },
-        days: data.trip.days.map((d) => ({
-          ...blankDay({}),
-          ...d,
-          id: uid('day'),
-          waypoints: (d.waypoints ?? [])
+        days: data.trip.days.map((d) => {
+          const waypoints = (d.waypoints ?? [])
             .filter((w) => Number.isFinite(w.lat) && Number.isFinite(w.lng))
-            .map((w) => ({ id: uid('w'), kind: 'via', mile: null, note: '', ...w })),
-          meals: d.meals ?? [],
-          photos: [], modules: [], ops: [], constraints: d.constraints ?? [], gates: [],
-          lodging: { status: 'none', name: '', where: '', note: '', ...(d.lodging ?? {}) },
-        })),
+            .map((w) => ({ id: uid('w'), kind: 'via', mile: null, note: '', ...w }));
+          // The model names gate stops by index (it can't know the ids minted
+          // here); resolve them onto the fresh waypoint ids.
+          const gates = (d.gates ?? [])
+            .map((g) => ({ label: g.label, by: g.by, waypointId: waypoints[g.waypointIndex]?.id ?? null }))
+            .filter((g) => g.label && g.by);
+          return {
+            ...blankDay({}),
+            ...d,
+            id: uid('day'),
+            waypoints,
+            meals: d.meals ?? [],
+            photos: [], modules: [], ops: [], constraints: d.constraints ?? [], gates,
+            lodging: { status: 'none', name: '', where: '', note: '', ...(d.lodging ?? {}) },
+          };
+        }),
         reserveNow: [],
         fieldNotes: null,
       };
       cascadeDates(trip);
       dispatch({ type: 'create_trip', trip });
-      onClose();
+      created();
     } catch (e) {
       setErr(String(e.message || e));
     } finally {

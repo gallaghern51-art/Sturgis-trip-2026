@@ -97,6 +97,8 @@ export const initialState = () => {
     pendingProposal: null, // { ops, summary, saveAs, overwriteScenarioId }
     modal: null, // { type: 'stop'|'leg', dayId, waypointId?, legIndex? }
     chatAsk: null, // question queued for the optimizer
+    opLog: [], // ops since the last collab mark — a rider's unsent proposal
+    focusLeg: null, // { dayId, index } — hovered leg, highlighted on the map
   };
 };
 
@@ -106,8 +108,23 @@ export function reducer(state, action) {
       const { trip, errors } = applyOps(state.trip, action.ops);
       if (errors.length) console.warn('op errors', errors);
       syncTrip(state, trip);
-      return { ...state, trip, history: [state.trip, ...state.history].slice(0, 30) };
+      return {
+        ...state,
+        trip,
+        history: [state.trip, ...state.history].slice(0, 30),
+        // Ops accumulate for collaborate mode: a rider's edit session becomes
+        // the proposal it sends. Capped — a runaway session is not a proposal.
+        opLog: [...state.opLog, ...action.ops].slice(-120),
+      };
     }
+    // Collaborate mode: adopt the group's trip without touching undo or the op
+    // log — remote updates are not edits the local rider made.
+    case 'sync_trip': {
+      syncTrip(state, action.trip);
+      return { ...state, trip: action.trip };
+    }
+    case 'collab_mark':
+      return { ...state, opLog: [] };
     case 'undo': {
       if (!state.history.length) return state;
       const [prev, ...rest] = state.history;
@@ -152,6 +169,9 @@ export function reducer(state, action) {
     case 'focus_point':
       // `at` makes re-clicking the same stop re-trigger the map effect.
       return { ...state, focus: { lat: action.lat, lng: action.lng, at: Date.now() } };
+    case 'focus_leg':
+      // Hovering a stop row lights its arriving leg on the map. null clears.
+      return { ...state, focusLeg: action.leg ?? null };
     case 'open_modal':
       return { ...state, modal: action.modal };
     case 'close_modal':

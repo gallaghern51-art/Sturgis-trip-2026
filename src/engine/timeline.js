@@ -6,7 +6,7 @@ import { legKey, haversineMiles, fuelGaps, DEFAULT_RANGE, tripRange } from './tr
 
 export const DWELL_DEFAULT = { start: 0, via: 5, fuel: 15, photo: 20, end: 0 };
 const AVG_MPH = 45;
-const DARK_MIN = 20 * 60 + 30; // ~8:30 PM MT in August
+const DARK_MIN = 20 * 60 + 30; // default dusk when the trip doesn't set one
 
 export function parseTime(str, fallbackMin = 8 * 60) {
   const m = /(\d{1,2}):(\d{2})\s*(AM|PM)?/i.exec(str || '');
@@ -107,7 +107,9 @@ export function dayTimeline(day, routedLegs) {
 }
 
 // Feasibility for one day: gate checks, fuel range, day length, darkness, lodging.
-export function dayFeasibility(day, routedLegs, range = DEFAULT_RANGE) {
+// darkMin comes from trip.meta.dusk — riding season and latitude move sunset by
+// hours, so "after dark" is the trip's own fact, not the engine's.
+export function dayFeasibility(day, routedLegs, range = DEFAULT_RANGE, darkMin = DARK_MIN) {
   const tl = dayTimeline(day, routedLegs);
   const issues = [];
   let score = 100;
@@ -147,9 +149,9 @@ export function dayFeasibility(day, routedLegs, range = DEFAULT_RANGE) {
     issues.push({ level: 'warn', text: `${durH.toFixed(1)}h door-to-door — long day, protect the stops that matter.` });
   }
 
-  if (tl.endMin > DARK_MIN && day.waypoints.length > 1) {
+  if (tl.endMin > darkMin && day.waypoints.length > 1) {
     score -= 8;
-    issues.push({ level: 'warn', text: `Projected arrival ${fmtTime(tl.endMin)} — after dark (~8:30 PM). Wildlife risk on rural two-lane.` });
+    issues.push({ level: 'warn', text: `Projected arrival ${fmtTime(tl.endMin)} — after dark (~${fmtTime(darkMin)}). Wildlife risk on rural two-lane.` });
   }
 
   if (day.lodging?.status === 'reserve') {
@@ -170,7 +172,8 @@ export function gradeFor(score) {
 
 export function tripFeasibility(trip, routedLegsByDay) {
   const range = tripRange(trip);
-  const perDay = trip.days.map((d) => ({ id: d.id, ...dayFeasibility(d, routedLegsByDay?.[d.id], range) }));
+  const darkMin = parseTime(trip.meta?.dusk, DARK_MIN);
+  const perDay = trip.days.map((d) => ({ id: d.id, ...dayFeasibility(d, routedLegsByDay?.[d.id], range, darkMin) }));
   const overall = Math.round(perDay.reduce((a, p) => a + p.score, 0) / Math.max(1, perDay.length));
   return { perDay, overall, grade: gradeFor(overall) };
 }

@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { TripContext, reducer, initialState } from './engine/store.js';
 import { routeDay } from './engine/routing.js';
 import { tripSummary } from './engine/tripEngine.js';
+import { tripFeasibility } from './engine/timeline.js';
 import { useIsMobile } from './hooks/useMediaQuery.js';
+import Home from './components/Home.jsx';
 import Ribbon from './components/Ribbon.jsx';
 import MapView from './components/MapView.jsx';
 import DayPanel from './components/DayPanel.jsx';
@@ -11,41 +13,23 @@ import ChatPanel from './components/ChatPanel.jsx';
 import DetailModal from './components/DetailModal.jsx';
 import NewTripModal from './components/NewTripModal.jsx';
 import RideMode from './components/RideMode.jsx';
-import FeasibilityPanel from './components/FeasibilityPanel.jsx';
-import BudgetPanel from './components/BudgetPanel.jsx';
-import PackingList from './components/PackingList.jsx';
+import PrepBoard from './components/PrepBoard.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
-import Dashboard from './components/Dashboard.jsx';
+import { ConfirmSheet, InputSheet } from './components/Sheets.jsx';
 import { useAutoTranslate } from './engine/autoTranslate.js';
-import { useT, useTT, useUnits } from './engine/settings.jsx';
+import { collabFor, saveCollab, clearCollab, collabApi, parseJoinParam, tripIdForShare } from './engine/collab.js';
+import { useT, useUnits } from './engine/settings.jsx';
 
-// The phone's bottom bar: every page once, related work adjacent. The hub
-// takes the first seat — it is the trip's home, and the leftmost seat is where
-// a thumb lands first. Then the map, then planning (Planner and Optimizer
-// share an elbow), then the checks, then prep. Ride is NOT here — it is the
-// masthead's one action.
-const SEATS = [
-  ['dash', 'Dashboard'],
-  ['plan', 'Planner'],
-  ['optimizer', 'Optimizer'],
-  ['feas', 'Feasibility'],
-  ['budget', 'Budget'],
-  ['packing', 'Packing'],
-  ['settings', 'Settings'],
-];
-
-// Masthead flags: the crew (US ride, Chilean riders) plus the four states the
-// route crosses. Assets live in public/flags — the user supplied them.
-const CREW_FLAGS = [
-  { src: '/flags/us.webp', alt: 'USA', title: 'United States' },
-  { src: '/flags/cl.webp', alt: 'CHI', title: 'Chile' },
-];
-const STATE_FLAGS = [
-  { src: '/flags/mt.svg', alt: 'MT', title: 'Montana' },
-  { src: '/flags/id.svg', alt: 'ID', title: 'Idaho' },
-  { src: '/flags/wy.svg', alt: 'WY', title: 'Wyoming' },
-  { src: '/flags/sd.svg', alt: 'SD', title: 'South Dakota' },
-];
+// The app is two screens:
+//   HOME — the trip library and the AI intake. No map; nothing to draw yet.
+//   TRIP — the workspace, with two working modes and one overlay:
+//     PLAN — the map room: ribbon, map, day/overview panel. Route work.
+//     PREP — the status board: grade, countdown, bookings, budget, packing.
+//     RIDE — fullscreen navigation, launched from the mode bar.
+// The AI is ONE surface — the Copilot dock — reachable from both modes, never
+// a page of its own. Feasibility is a grade woven through every surface; the
+// full study lives one tap deep on PREP.
+const SCREEN_KEY = 'moto.screen.v1';
 
 // Language selection is the whole instruction: this watches for a language the
 // trip is not translated into yet and fills it in, showing progress rather than
@@ -65,15 +49,36 @@ function TranslationStatus() {
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [routes, setRoutes] = useState({}); // dayId -> {legs, geometry}
-  const [view, setView] = useState('dash'); // dash | plan | feas | budget
-  const [newTripOpen, setNewTripOpen] = useState(false);
+  const [screen, setScreen] = useState(() => {
+    try { return localStorage.getItem(SCREEN_KEY) || 'home'; } catch { return 'home'; }
+  });
+  const [mode, setMode] = useState('plan'); // plan | prep
+  const [prepFocus, setPrepFocus] = useState(null); // null | feasibility | budget | packing | bookings | file
+  const [dockOpen, setDockOpen] = useState(false); // the Copilot dock
+  const [sheet, setSheet] = useState(null); // { type: settings|save-scenario|reset|delete-trip, ... }
+  const [newTrip, setNewTrip] = useState(null); // { tab, prompt } while the modal is open
   const [rideOpen, setRideOpen] = useState(false);
   const t = useT();
-  const tt = useTT();
   const u = useUnits();
   const isMobile = useIsMobile();
   const [panelOpen, setPanelOpen] = useState(false); // the side panel over the map
   const fileRef = useRef(null);
+
+  // ---- collaborate mode ----
+  const [collabInfo, setCollabInfo] = useState(() => collabFor(state.lib.activeId));
+  const [crew, setCrew] = useState(null); // latest pulled share state
+  const [collabBusy, setCollabBusy] = useState(false);
+  const [collabError, setCollabError] = useState(null);
+  const [joinReq, setJoinReq] = useState(() => parseJoinParam()); // ?join=… in the URL
+  const crewRef = useRef(null);
+  crewRef.current = crew;
+  const pendingJoinRef = useRef(null); // collab record awaiting the new trip id
+  const opLogRef = useRef(state.opLog);
+  opLogRef.current = state.opLog;
+
+  useEffect(() => {
+    try { localStorage.setItem(SCREEN_KEY, screen); } catch { /* non-fatal */ }
+  }, [screen]);
 
   // Route every day whenever its waypoint sequence changes.
   const routeSignature = state.trip.days
@@ -98,38 +103,49 @@ export default function App() {
   }, [routes]);
 
   const summary = useMemo(() => tripSummary(state.trip, routedLegsByDay), [state.trip, routedLegsByDay]);
+  // One computation of the grade system, shared by the ribbon, Home, and PREP.
+  const feas = useMemo(() => tripFeasibility(state.trip, routedLegsByDay), [state.trip, routedLegsByDay]);
   const selectedDay = state.trip.days.find((d) => d.id === state.selectedDayId) ?? null;
 
-  // On a phone the side panel and the optimizer are tabs, not columns. The chat
-  // stays mounted behind the other tabs so a conversation survives tab switches.
-  // The optimizer is a view now, so "go to chat" is just navigation.
-  const openChat = () => openTarget('optimizer');
-  // Anything that jumps the reader into the side panel (a modal's "open this
-  // day", a feasibility row) has to bring the panel on screen on mobile.
   const showPanel = () => setPanelOpen(true);
   const ui = { isMobile, panelOpen, setPanelOpen, showPanel };
 
-
-  // A queued optimizer question (from a feasibility recommendation) opens the chat.
+  // Selecting a day from anywhere — ribbon, feasibility rows, map, modals — is
+  // a planning act: land in PLAN with the panel on screen.
   useEffect(() => {
-    if (state.chatAsk) openChat();
-  }, [state.chatAsk]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (state.selectedDayId) {
+      setMode('plan');
+      setPanelOpen(true);
+    }
+  }, [state.selectedDayId]);
+
+  // A question queued for the AI (feasibility handoffs, PREP hero) opens the
+  // dock; the chat mounts, sees the ask, and sends it.
+  useEffect(() => {
+    if (state.chatAsk) setDockOpen(true);
+  }, [state.chatAsk]);
 
   const exportJson = () => {
+    const slug = (state.trip.meta.title || 'trip').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const blob = new Blob([JSON.stringify(state.trip, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'sturgis-2026-trip.json';
+    a.download = `${slug || 'trip'}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
+  // Import always creates a NEW library record — replacing the working trip
+  // with whatever a file held was the old behavior and a data-loss trap.
   const importJson = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
       const trip = JSON.parse(await file.text());
       if (!trip?.days?.length) throw new Error('not a trip file');
-      dispatch({ type: 'import', trip });
+      dispatch({ type: 'create_trip', trip });
+      setScreen('trip');
+      setMode('plan');
+      setPanelOpen(true);
     } catch (err) {
       alert(`Could not import: ${err.message}`);
     }
@@ -137,76 +153,147 @@ export default function App() {
   };
 
   useEffect(() => {
-    document.title = `${state.trip.meta.title} · Roadbook`;
-  }, [state.trip.meta.title]);
+    document.title = screen === 'home' ? 'Roadbook' : `${state.trip.meta.title} · Roadbook`;
+  }, [state.trip.meta.title, screen]);
 
+  const askAI = (text) => {
+    dispatch({ type: 'ask_optimizer', text });
+    setDockOpen(true);
+  };
 
-  // Every dashboard card routes through here, so the hub stays declarative and
-  // there is one list of what the app can be asked to do.
-  const openTarget = (target) => {
-    switch (target) {
-      case 'dash': case 'plan': case 'feas': case 'budget':
-        setView(target); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
-      // Every page is a view in the panel column. Packing and Settings used to
-      // be dialogs and the Optimizer a drawer pinned under the map, which is
-      // why they felt like different species from Planner and Budget.
-      case 'optimizer': case 'packing': case 'settings':
-        setView(target); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
-      case 'ride': setRideOpen(true); break;
-      case 'new': setNewTripOpen(true); break;
-      case 'export': exportJson(); break;
-      case 'import': fileRef.current?.click(); break;
-      // Bookings live on the trip overview, so send the rider to it rather than
-      // duplicating the list in a second place.
-      case 'bookings': setView('plan'); dispatch({ type: 'select_day', dayId: null }); showPanel(); break;
-      case 'reset':
-        if (confirm('Reset this trip to the bundled Sturgis template? Your edits to this trip are discarded.')) dispatch({ type: 'reset' });
-        break;
-      case 'save-scenario': {
-        const name = prompt('Name this trip permutation:');
-        if (name) dispatch({ type: 'save_scenario', name });
-        break;
+  // ---- collaborate mode plumbing ----
+  // Membership follows the active trip; crew state resets on switch.
+  useEffect(() => {
+    setCollabInfo(collabFor(state.lib.activeId));
+    setCrew(null);
+    setCollabError(null);
+  }, [state.lib.activeId]);
+
+  const refreshCrew = async () => {
+    const info = collabFor(state.lib.activeId);
+    if (!info) return;
+    try {
+      const d = await collabApi({ action: 'pull', shareId: info.shareId, key: info.key });
+      if (d.state) {
+        setCrew(d.state);
+        setCollabError(null);
+        // A rider with no unsent edits adopts the group's plan silently.
+        if (d.state.me?.role === 'rider' && d.state.rev !== info.lastRev && opLogRef.current.length === 0) {
+          dispatch({ type: 'sync_trip', trip: d.state.trip });
+          saveCollab(state.lib.activeId, { ...info, lastRev: d.state.rev });
+          setCollabInfo({ ...info, lastRev: d.state.rev });
+        }
       }
-      case 'switch-trip': {
-        // A prompt is honest for a handful of trips; it becomes a picker when the
-        // library is big enough to need one.
-        const others = state.lib.trips.filter((x) => x.id !== state.lib.activeId);
-        if (!others.length) return;
-        const list = others.map((x, i) => `${i + 1}. ${x.name}`).join('\n');
-        const pick = prompt(`Switch to which trip?\n\n${list}`);
-        const idx = Number(pick) - 1;
-        if (others[idx]) dispatch({ type: 'switch_trip', id: others[idx].id });
-        break;
-      }
-      default: break;
+    } catch (e) {
+      setCollabError(String(e.message ?? e));
+    }
+  };
+  const refreshCrewRef = useRef(refreshCrew);
+  refreshCrewRef.current = refreshCrew;
+
+  // Poll while the trip is on screen. 10s is plenty for trip planning; hidden
+  // tabs skip the tick and catch up the moment they come back.
+  useEffect(() => {
+    if (screen !== 'trip' || !collabInfo) return undefined;
+    refreshCrewRef.current();
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') refreshCrewRef.current();
+    }, 10000);
+    const onVis = () => { if (document.visibilityState === 'visible') refreshCrewRef.current(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [screen, collabInfo?.shareId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The captain's working trip is the group's trip: push edits, debounced.
+  const pushTimerRef = useRef(null);
+  useEffect(() => {
+    const info = collabFor(state.lib.activeId);
+    if (!info || info.role !== 'captain') return undefined;
+    clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(() => {
+      collabApi({ action: 'push_trip', shareId: info.shareId, key: info.key, trip: state.trip })
+        .then((d) => saveCollab(state.lib.activeId, { ...info, lastRev: d.rev }))
+        .catch((e) => setCollabError(String(e.message ?? e)));
+    }, 1500);
+    return () => clearTimeout(pushTimerRef.current);
+  }, [state.trip]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const startShare = async (name) => {
+    setCollabBusy(true);
+    setCollabError(null);
+    try {
+      const d = await collabApi({ action: 'create', trip: state.trip, name });
+      const rec = { shareId: d.shareId, key: d.key, role: 'captain', name, lastRev: d.state.rev };
+      saveCollab(state.lib.activeId, rec);
+      setCollabInfo(rec);
+      setCrew(d.state);
+    } catch (e) {
+      setCollabError(String(e.message ?? e));
+    } finally {
+      setCollabBusy(false);
     }
   };
 
-  // One name for the current view, shown in the bar and on the mobile tab.
-  const viewLabel = selectedDay ? tt(selectedDay.title)
-    : view === 'dash' ? 'Dashboard'
-    : view === 'feas' ? 'Feasibility'
-    : view === 'budget' ? 'Budget'
-    : 'Planner';
-  // Which seat in the bottom bar is lit. Packing and Settings are modals over
-  // the current view, so they never take the light; an open day belongs to the
-  // Planner.
-  // Desktop shows map + panel + optimizer at once, so its lit seat is about
-  // what the panel holds, not which pane is on screen.
-  // On a phone the panel slides over the map, so a seat is only "lit" while
-  // its page is actually showing.
-  const seatActive = !isMobile
-    ? (selectedDay ? 'plan' : view)
-    : panelOpen ? (selectedDay ? 'plan' : view) : null;
-  const activeSeatRef = useRef(null);
-  useEffect(() => {
-    activeSeatRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-  }, [seatActive]);
+  const collabAct = async (action, extra = {}) => {
+    const info = collabFor(state.lib.activeId);
+    if (!info) return;
+    try {
+      await collabApi({ action, shareId: info.shareId, key: info.key, ...extra });
+      await refreshCrewRef.current();
+    } catch (e) {
+      setCollabError(String(e.message ?? e));
+    }
+  };
 
-  // On the phone's map tab the header and ribbon float over the map, so the map
-  // has to know how tall they are — its own overlays (basemap switch, hint,
-  // geolocate) sit below them. Measured rather than guessed: the masthead grows
-  // a line when a trip title wraps or a translation pill appears.
+  // Joining from an invite link: the share's trip becomes a new library record;
+  // the membership record attaches once the reducer has minted the trip id.
+  const joinShare = async (name) => {
+    if (!joinReq) return;
+    // Tapping the same invite twice reopens the trip instead of joining a copy.
+    const existing = tripIdForShare(joinReq.shareId);
+    if (existing && state.lib.trips.some((r) => r.id === existing)) {
+      setJoinReq(null);
+      window.history.replaceState(null, '', location.pathname);
+      openTrip(existing);
+      return;
+    }
+    setCollabBusy(true);
+    try {
+      const d = await collabApi({ action: 'join', shareId: joinReq.shareId, joinCode: joinReq.joinCode, name });
+      pendingJoinRef.current = { shareId: joinReq.shareId, key: d.key, role: 'rider', name, lastRev: d.state.rev };
+      dispatch({ type: 'create_trip', trip: d.state.trip });
+      setJoinReq(null);
+      window.history.replaceState(null, '', location.pathname);
+      setScreen('trip');
+      setMode('prep');
+      setPrepFocus('crew');
+    } catch (e) {
+      setCollabError(String(e.message ?? e));
+      setJoinReq(null);
+    } finally {
+      setCollabBusy(false);
+    }
+  };
+  useEffect(() => {
+    if (!pendingJoinRef.current) return;
+    saveCollab(state.lib.activeId, pendingJoinRef.current);
+    setCollabInfo(pendingJoinRef.current);
+    pendingJoinRef.current = null;
+  }, [state.lib.activeId]);
+
+  const collab = { info: collabInfo, crew, busy: collabBusy, error: collabError, refresh: () => refreshCrewRef.current(), start: startShare, act: collabAct };
+
+  const openTrip = (id) => {
+    if (id !== state.lib.activeId) dispatch({ type: 'switch_trip', id });
+    setScreen('trip');
+    setMode('plan');
+    setPrepFocus(null);
+    setPanelOpen(true);
+  };
+
+  // On the phone's map the header and ribbon float over it, so the map has to
+  // know how tall they are — its own overlays sit below them. Measured rather
+  // than guessed: the masthead grows a line when a trip title wraps.
   const appRef = useRef(null);
   const chromeRef = useRef(null);
   useEffect(() => {
@@ -217,108 +304,211 @@ export default function App() {
     });
     ro.observe(chrome);
     return () => ro.disconnect();
-  }, []);
+  }, [screen]);
 
-  // The map is always underneath now, so the chrome floats on it whenever the
-  // panel is not covering it.
-  const mapFull = isMobile && !panelOpen;
+  const mapFull = isMobile && !panelOpen && mode === 'plan';
 
-  // ONE navigation surface, rendered where each layout puts it: a fixed bottom
-  // bar on the phone, a row under the masthead on desktop. Same list, same
-  // handlers, so a destination can never exist on one and not the other.
-  const ViewBar = () => (
-    <nav className={`tabnav${isMobile ? '' : ' deskbar'}`} aria-label="Views">
-      {SEATS.map(([key, label], i) => (
-        <button
-          key={key}
-          style={{ '--i': i }}
-          ref={seatActive === key ? activeSeatRef : null}
-          className={seatActive === key ? 'active' : ''}
-          aria-current={seatActive === key}
-          onClick={() => {
-            // tapping the page you are on closes the panel back to bare map
-            if (isMobile && seatActive === key) setPanelOpen(false);
-            else openTarget(key);
-          }}
-        >{t(label)}</button>
-      ))}
+  // ONE mode bar, rendered where each layout puts it: fixed bottom on the
+  // phone, a row under the masthead on desktop. PLAN and PREP are places;
+  // RIDE is the trip's action and keeps its color.
+  const ModeBar = () => (
+    <nav className={`tabnav modebar${isMobile ? '' : ' deskbar'}`} aria-label="Modes">
+      <button
+        className={mode === 'plan' ? 'active' : ''}
+        aria-current={mode === 'plan'}
+        onClick={() => {
+          // tapping PLAN while planning toggles the panel back to bare map
+          if (mode === 'plan' && isMobile) setPanelOpen(!panelOpen);
+          else { setMode('plan'); setPanelOpen(true); }
+        }}
+      >{t('Plan')}</button>
+      <button
+        className={mode === 'prep' ? 'active' : ''}
+        aria-current={mode === 'prep'}
+        onClick={() => {
+          if (mode === 'prep') setPrepFocus(null);
+          setMode('prep');
+          dispatch({ type: 'select_day', dayId: null });
+        }}
+      >{t('Prep')}</button>
+      <button className="ride-seat" onClick={() => setRideOpen(true)}>
+        <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
+        {t('Ride')}
+      </button>
     </nav>
   );
 
+  const sheets = (
+    <>
+      {sheet?.type === 'settings' && (
+        <div className="modal-backdrop" onClick={() => setSheet(null)}>
+          <div className="modal settings" onClick={(e) => e.stopPropagation()}>
+            <button className="btn sheet-x" onClick={() => setSheet(null)}>✕</button>
+            <SettingsModal />
+          </div>
+        </div>
+      )}
+      {sheet?.type === 'save-scenario' && (
+        <InputSheet
+          title={t('Save scenario')}
+          label={t('Name this trip permutation')}
+          placeholder={t('e.g. Relaxed — lower miles')}
+          submitLabel={t('Save')}
+          onSubmit={(name) => dispatch({ type: 'save_scenario', name })}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet?.type === 'reset' && (
+        <ConfirmSheet
+          danger
+          title={t('Reset this trip?')}
+          body={t('Back to the bundled Sturgis template. Every edit to this trip is discarded.')}
+          confirmLabel={t('Reset')}
+          onConfirm={() => dispatch({ type: 'reset' })}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet?.type === 'delete-trip' && (
+        <ConfirmSheet
+          danger
+          title={t('Delete this trip?')}
+          body={`“${sheet.rec.name}” — ${t('its days, scenarios, and chat go with it. There is no undo for this.')}`}
+          confirmLabel={t('Delete')}
+          onConfirm={() => { clearCollab(sheet.rec.id); dispatch({ type: 'delete_trip', id: sheet.rec.id }); }}
+          onClose={() => setSheet(null)}
+        />
+      )}
+    </>
+  );
+
+  const ctx = { state, dispatch, routes, routedLegsByDay, summary, feas, ui, collab };
+
+  // The join sheet rides over either screen — a link can arrive cold.
+  const joinSheet = joinReq && (
+    <InputSheet
+      title={t('Join this ride?')}
+      label={t('Your name — shown to the crew')}
+      placeholder={t('e.g. Marco')}
+      submitLabel={collabBusy ? t('Joining…') : t('Join the crew')}
+      onSubmit={(name) => joinShare(name)}
+      onClose={() => { setJoinReq(null); window.history.replaceState(null, '', location.pathname); }}
+    />
+  );
+
+  // ---- HOME ----
+  if (screen === 'home') {
+    return (
+      <TripContext.Provider value={ctx}>
+        <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
+        <Home
+          onOpenTrip={openTrip}
+          onNewTrip={(init) => setNewTrip(init)}
+          onImport={() => fileRef.current?.click()}
+          onDeleteTrip={(rec) => setSheet({ type: 'delete-trip', rec })}
+          onSettings={() => setSheet({ type: 'settings' })}
+        />
+        {newTrip && (
+          <NewTripModal
+            initial={newTrip}
+            onClose={() => setNewTrip(null)}
+            onCreated={() => { setNewTrip(null); setScreen('trip'); setMode('plan'); setPanelOpen(true); }}
+          />
+        )}
+        {joinSheet}
+        {sheets}
+      </TripContext.Provider>
+    );
+  }
+
+  // ---- TRIP ----
   return (
-    <TripContext.Provider value={{ state, dispatch, routes, routedLegsByDay, summary, ui }}>
-      <div ref={appRef} className={`app${isMobile ? ' mobile' : ''}${mapFull ? ' map-full' : ''}`}>
+    <TripContext.Provider value={ctx}>
+      <div ref={appRef} className={`app${isMobile ? ' mobile' : ''}${mapFull ? ' map-full' : ''}${mode === 'prep' ? ' prep-mode' : ''}`}>
         <div className="topchrome" ref={chromeRef}>
           <header className="masthead">
             <div className="mast-id">
               <h1 className="brand">
-                <button
-                  onClick={() => { setView('dash'); dispatch({ type: 'select_day', dayId: null }); showPanel(); }}
-                  title={t('Dashboard')}
-                >ROAD<span className="yr">BOOK</span></button>
+                <button onClick={() => setScreen('home')} title={t('Your trips')}>ROAD<span className="yr">BOOK</span></button>
               </h1>
               <span className="sub">
-                {/* title and stats are separate spans so a narrow screen breaks
-                    between them rather than mid-phrase ("7 / RIDERS") */}
                 <span className="mast-trip">{state.trip.meta.title}</span>
                 <span className="mast-stats">
                   {u.mi(summary.totalMiles)} · {state.trip.meta.riders} {t('riders')} · {state.trip.days.length} {t('days')}
                 </span>
-                <span className="mast-flags">
-                  {CREW_FLAGS.map((f) => <img key={f.alt} className="flag crew" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
-                  {/* state flags only make sense on the Sturgis route */}
-                  {/STURGIS/i.test(state.trip.meta.title) && (
-                    <span className="state-flags">
-                      {STATE_FLAGS.map((f) => <img key={f.alt} className="flag" src={f.src} alt={f.alt} title={f.title} loading="lazy" />)}
-                    </span>
-                  )}
-                </span>
                 <TranslationStatus />
               </span>
             </div>
-            {/* Navigation lives on the dashboard, not here. Five view tabs up top
-                duplicated five dashboard cards; the brand is the way home and the
-                hub is the switcher. What is left is contextual: Undo appears only
-                when there is something to undo, and Ride is the app's one action. */}
             <div className="actions">
               <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={importJson} />
               {state.history.length > 0 && (
                 <button className="btn" onClick={() => dispatch({ type: 'undo' })}>{t('Undo')}</button>
               )}
-              <button className="btn primary ride-btn" onClick={() => setRideOpen(true)}>
-                <svg viewBox="0 0 16 16" className="play-tri" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor" /></svg>
-                {t('Ride')}
-              </button>
+              <button className="btn icon" title={t('Settings')} aria-label={t('Settings')} onClick={() => setSheet({ type: 'settings' })}>⚙</button>
             </div>
           </header>
-          {/* Desktop has no bottom bar, so the same seats render here. Without
-              this, removing the dashboard's launcher cards left Feasibility,
-              Budget, Optimizer, Packing and Settings unreachable on a laptop. */}
-          {!isMobile && <ViewBar />}
+          {!isMobile && <ModeBar />}
           <Ribbon />
+          {crew?.status === 'published' && (
+            <div className="pub-strip">
+              ⚑ {t('Published plan')} — {collabInfo?.role === 'captain'
+                ? t('reopen planning from the Crew board to edit')
+                : t('your edits arrive as proposals to the captain')}
+            </div>
+          )}
         </div>
+
+        {/* PLAN stays mounted under PREP so the map keeps its state; the
+            ResizeObserver in MapView resizes it when it comes back. */}
         <div className="main" data-panel={isMobile && panelOpen ? 'open' : 'closed'}>
           <MapView />
           <aside className="side">
             <div className="side-inner">
-              {/* The hub has to be reachable from anywhere it sent you. On a
-                  phone the bottom tab renames itself to the current view, so
-                  without this there is no way back to the dashboard at all. */}
-              {selectedDay ? <DayPanel day={selectedDay} />
-                : view === 'dash' ? <Dashboard onOpen={openTarget} />
-                : view === 'feas' ? <FeasibilityPanel />
-                : view === 'budget' ? <BudgetPanel />
-                : view === 'packing' ? <PackingList />
-                : view === 'settings' ? <SettingsModal />
-                : view === 'optimizer' ? <ChatPanel />
-                : <OverviewPanel routes={routes} />}
+              {selectedDay ? <DayPanel day={selectedDay} /> : <OverviewPanel />}
             </div>
           </aside>
         </div>
-        {isMobile && <ViewBar />}
+        {mode === 'prep' && (
+          <div className="prep-main">
+            <div className="prep-inner">
+              <PrepBoard
+                focus={prepFocus}
+                setFocus={setPrepFocus}
+                onAskAI={askAI}
+                onSaveScenario={() => setSheet({ type: 'save-scenario' })}
+                onExportJson={exportJson}
+                onImportJson={() => fileRef.current?.click()}
+                onReset={() => setSheet({ type: 'reset' })}
+              />
+            </div>
+          </div>
+        )}
+
+        {isMobile && <ModeBar />}
+
+        {/* The AI's one door. The dot means a proposal is waiting. */}
+        {!dockOpen && !rideOpen && (
+          <button
+            className={`dock-fab${state.pendingProposal ? ' has-proposal' : ''}`}
+            onClick={() => setDockOpen(true)}
+          >✦ {t('Copilot')}</button>
+        )}
+        {dockOpen && (
+          <div className="ai-dock">
+            <ChatPanel onClose={() => setDockOpen(false)} />
+          </div>
+        )}
+
         <DetailModal />
-        {newTripOpen && <NewTripModal onClose={() => setNewTripOpen(false)} />}
+        {newTrip && (
+          <NewTripModal
+            initial={newTrip}
+            onClose={() => setNewTrip(null)}
+            onCreated={() => { setNewTrip(null); setMode('plan'); setPanelOpen(true); }}
+          />
+        )}
         {rideOpen && <RideMode onClose={() => setRideOpen(false)} />}
+        {joinSheet}
+        {sheets}
       </div>
     </TripContext.Provider>
   );

@@ -53,8 +53,21 @@ export default function DayPanel({ day }) {
         <div className="eyebrow">{day.dow} · {fmtLongDate(day.date)} · {t('Day')} {state.trip.days.indexOf(day) + 1} {t('of')} {state.trip.days.length}</div>
         <h2>{tt(day.title)}</h2>
         <div className="datebar">
-          <span className="chip phase" style={{ background: phase?.color }}>{t(phase?.label)}</span>
-          {day.anchor && <span className="chip anchor">{t('★ Anchor day — trim elsewhere first')}</span>}
+          {/* the phase and the anchor flag are inputs, not just paint */}
+          <label className="chip phase" style={{ background: phase?.color }}>
+            <select
+              className="phase-select"
+              value={day.phase}
+              onChange={(e) => dispatch({ type: 'apply_ops', ops: [{ op: 'set_day_field', dayId: day.id, field: 'phase', value: e.target.value }] })}
+            >
+              {Object.entries(PHASES).map(([k, p]) => <option key={k} value={k}>{t(p.label)}</option>)}
+            </select>
+          </label>
+          <button
+            className={`chip anchor-toggle${day.anchor ? ' anchor' : ''}`}
+            title={t('Anchor days are protected — the AI trims elsewhere first')}
+            onClick={() => dispatch({ type: 'apply_ops', ops: [{ op: 'set_day_field', dayId: day.id, field: 'anchor', value: !day.anchor }] })}
+          >{day.anchor ? `★ ${t('Anchor')}` : `☆ ${t('Anchor')}`}</button>
           <label className="chip depart-edit">{t('Depart')}
             <input
               defaultValue={day.depart}
@@ -69,10 +82,20 @@ export default function DayPanel({ day }) {
             title="Download this day as a GPX route for Garmin / phone nav"
             onClick={() => downloadFile(`trip-${day.date}-${day.dow.toLowerCase()}.gpx`, tripToGpx(state.trip, routes, routedLegsByDay, day.id), 'application/gpx+xml')}
           >↓ GPX</button>
+          {/* the AI's one door, reachable from the day it would be asked about */}
+          <button
+            className="chip ask-ai"
+            onClick={() => dispatch({
+              type: 'ask_optimizer',
+              text: `${t('Review this day in detail — where is it tight, what breaks, and what would you change?')} (${day.dow} ${day.date} — ${day.title})`,
+            })}
+          >✦ {t('Ask Copilot')}</button>
         </div>
         {(day.phase === 'rally' || parks.length > 0) && (
           <div className="day-badges">
-            {day.phase === 'rally' && (
+            {/* the rally patch belongs to the Sturgis trip, not to every trip
+                that happens to use the 'rally' phase color */}
+            {day.phase === 'rally' && /STURGIS/i.test(state.trip.meta.title) && (
               <img className="badge-thumb rally" src="/pics/sturgis-86.png" alt="Sturgis Rally 2026" title="Sturgis Motorcycle Rally 2026 · 86th" loading="lazy" />
             )}
             {parks.map((pk) => <ParkBadge key={pk.id} park={pk} label={t('National park')} />)}
@@ -105,12 +128,14 @@ export default function DayPanel({ day }) {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={day.waypoints.map((w) => w.id)} strategy={verticalListSortingStrategy}>
             {day.waypoints.map((w, i) => (
-              <SortableWaypoint key={w.id} w={w} dayId={day.id} dispatch={dispatch} sched={timeline.stops[i]} cum={cumMiles[i]} first={i === 0} tt={tt} u={u} t={t} shields={showShields ? shieldsByStop[i] : null} />
+              <SortableWaypoint key={w.id} w={w} dayId={day.id} legIndex={i - 1} dispatch={dispatch} sched={timeline.stops[i]} cum={cumMiles[i]} first={i === 0} tt={tt} u={u} t={t} shields={showShields ? shieldsByStop[i] : null} />
             ))}
           </SortableContext>
         </DndContext>
         <PlaceSearch day={day} />
       </div>
+
+      <GatesSection day={day} dispatch={dispatch} timeline={timeline} t={t} tt={tt} />
 
       <ConditionsCard day={day} />
 
@@ -145,17 +170,87 @@ export default function DayPanel({ day }) {
       )}
 
       <div className="section" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-        <button
-          className="btn danger-ghost"
-          onClick={() => {
-            if (state.trip.days.length <= 1) return alert('A trip needs at least one day.');
-            if (confirm(`Remove ${day.dow} — “${day.title}” and all its stops? Later days shift earlier.`)) {
-              dispatch({ type: 'select_day', dayId: null });
-              dispatch({ type: 'apply_ops', ops: [{ op: 'remove_day', dayId: day.id }] });
-            }
-          }}
-        >{t('Remove this day')}</button>
+        <RemoveDayButton day={day} state={state} dispatch={dispatch} t={t} />
       </div>
+    </div>
+  );
+}
+
+// Two-tap remove — arms for 3 seconds, no window.confirm.
+function RemoveDayButton({ day, state, dispatch, t }) {
+  const [armed, setArmed] = useState(false);
+  if (state.trip.days.length <= 1) return null;
+  return (
+    <button
+      className="btn danger-ghost"
+      onClick={() => {
+        if (!armed) {
+          setArmed(true);
+          setTimeout(() => setArmed(false), 3000);
+          return;
+        }
+        dispatch({ type: 'select_day', dayId: null });
+        dispatch({ type: 'apply_ops', ops: [{ op: 'remove_day', dayId: day.id }] });
+      }}
+    >{armed ? t('Sure? Later days shift earlier') : t('Remove this day')}</button>
+  );
+}
+
+// The gates a day is graded against, editable in place. A gate is a promise —
+// "be at the West Entrance booth by 7:00 AM" — so it names a stop and a time,
+// and the row shows the live ETA against it so an edit answers itself.
+function GatesSection({ day, dispatch, timeline, t, tt }) {
+  const gates = day.gates ?? [];
+  const stopName = (id) => day.waypoints.find((w) => w.id === id)?.name ?? '';
+  const etaFor = (id) => {
+    const i = day.waypoints.findIndex((w) => w.id === id);
+    const s = timeline.stops[i];
+    return s ? fmtTime(s.arrive) : null;
+  };
+  const patch = (index, p) => dispatch({ type: 'apply_ops', ops: [{ op: 'update_gate', dayId: day.id, index, patch: p }] });
+  return (
+    <div className="section">
+      <h3>{t('Hard gates')} <span className="cnt">{t('be there by — feasibility grades against these')}</span></h3>
+      {gates.map((g, i) => (
+        <div key={i} className="gate-row">
+          <input
+            className="g-label"
+            defaultValue={tt(g.label)}
+            placeholder={t('What has to happen')}
+            onBlur={(e) => { if (e.target.value !== g.label) patch(i, { label: e.target.value }); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+          />
+          <input
+            className="g-by"
+            defaultValue={g.by}
+            placeholder="7:00 AM"
+            onBlur={(e) => { if (e.target.value !== g.by) patch(i, { by: e.target.value }); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+          />
+          <select
+            className="g-stop"
+            value={g.waypointId ?? ''}
+            onChange={(e) => patch(i, { waypointId: e.target.value || null })}
+          >
+            <option value="">{t('at which stop…')}</option>
+            {day.waypoints.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+          <span className="g-eta">{g.waypointId && etaFor(g.waypointId) ? `ETA ${etaFor(g.waypointId)}` : '—'}</span>
+          <button
+            className="mini-edit"
+            title={t('Remove this gate')}
+            onClick={() => dispatch({ type: 'apply_ops', ops: [{ op: 'remove_gate', dayId: day.id, index: i }] })}
+          >✕</button>
+        </div>
+      ))}
+      <button
+        className="btn"
+        style={{ fontSize: 11, padding: '3px 9px', marginTop: gates.length ? 6 : 0 }}
+        onClick={() => dispatch({
+          type: 'apply_ops',
+          ops: [{ op: 'add_gate', dayId: day.id, gate: { label: t('New gate'), by: '9:00 AM', waypointId: day.waypoints[0]?.id ?? null } }],
+        })}
+      >＋ {t('Add gate')}</button>
     </div>
   );
 }
@@ -410,11 +505,19 @@ function LodgingSection({ day, dispatch }) {
   );
 }
 
-function SortableWaypoint({ w, dayId, dispatch, sched, cum, first, tt, u, t, shields }) {
+function SortableWaypoint({ w, dayId, legIndex, dispatch, sched, cum, first, tt, u, t, shields }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: w.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   return (
-    <div ref={setNodeRef} style={style} className={`wp-row${isDragging ? ' dragging' : ''}`}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`wp-row${isDragging ? ' dragging' : ''}`}
+      // hovering a stop lights its arriving leg on the map — the row's +mi/+time
+      // figures ARE that leg, so the map shows what the numbers describe
+      onMouseEnter={() => { if (!first && legIndex >= 0) dispatch({ type: 'focus_leg', leg: { dayId, index: legIndex } }); }}
+      onMouseLeave={() => { if (!first && legIndex >= 0) dispatch({ type: 'focus_leg', leg: null }); }}
+    >
       <span className="grip" {...attributes} {...listeners}>⠿</span>
       <span className="eta">
         {sched ? fmtTime(first ? sched.depart : sched.arrive) : '·'}

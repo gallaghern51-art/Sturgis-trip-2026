@@ -27,22 +27,24 @@ export function tripToGpx(trip, routes, routedLegsByDay = null, onlyDayId = null
   const days = onlyDayId ? trip.days.filter((d) => d.id === onlyDayId) : trip.days;
   const parts = days.map((d) => gpxSegment(d, routes?.[d.id], routedLegsByDay?.[d.id]));
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Sturgis 2026 Trip Planner" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="Roadbook" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>${xml(onlyDayId ? days[0]?.title : trip.meta.title)}</name></metadata>
 ${parts.map((p) => p.wpts).join('\n')}
 ${parts.map((p) => p.track).join('\n')}
 </gpx>`;
 }
 
-// MDT is UTC-6 for the entire trip window (August).
-function icsStamp(dateStr, minutes) {
+// Local time → UTC using the trip's own offset (meta.utcOffset, hours east of
+// UTC; -6 = Mountain DST, the original trip's zone and still the default).
+function icsStamp(dateStr, minutes, utcOffset) {
   const [y, mo, d] = dateStr.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, mo - 1, d, 0, Math.round(minutes) + 6 * 60));
+  const dt = new Date(Date.UTC(y, mo - 1, d, 0, Math.round(minutes) - utcOffset * 60));
   const p = (n) => String(n).padStart(2, '0');
   return `${dt.getUTCFullYear()}${p(dt.getUTCMonth() + 1)}${p(dt.getUTCDate())}T${p(dt.getUTCHours())}${p(dt.getUTCMinutes())}00Z`;
 }
 
 export function tripToIcs(trip, routedLegsByDay) {
+  const utcOffset = Number.isFinite(trip.meta?.utcOffset) ? trip.meta.utcOffset : -6;
   const events = trip.days.map((d) => {
     const tl = dayTimeline(d, routedLegsByDay?.[d.id]);
     const first = d.waypoints[0]?.name ?? '';
@@ -57,17 +59,17 @@ export function tripToIcs(trip, routedLegsByDay) {
     ].filter(Boolean).join('\\n\\n').replace(/\r?\n/g, '\\n');
     return [
       'BEGIN:VEVENT',
-      `UID:sturgis2026-${d.id}@sturgis-2026-trip.netlify.app`,
-      `DTSTAMP:${icsStamp(d.date, 0)}`,
-      `DTSTART:${icsStamp(d.date, tl.departMin)}`,
-      `DTEND:${icsStamp(d.date, Math.max(tl.endMin, tl.departMin + 60))}`,
+      `UID:roadbook-${d.id}@roadbook.app`,
+      `DTSTAMP:${icsStamp(d.date, 0, utcOffset)}`,
+      `DTSTART:${icsStamp(d.date, tl.departMin, utcOffset)}`,
+      `DTEND:${icsStamp(d.date, Math.max(tl.endMin, tl.departMin + 60), utcOffset)}`,
       `SUMMARY:${d.title.replace(/,/g, '\\,')}`,
       `LOCATION:${`${first} → ${last}`.replace(/,/g, '\\,')}`,
       `DESCRIPTION:${desc.replace(/,/g, '\\,')}`,
       'END:VEVENT',
     ].join('\r\n');
   });
-  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Sturgis 2026 Trip Planner//EN', 'CALSCALE:GREGORIAN', ...events, 'END:VCALENDAR'].join('\r\n');
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Roadbook//EN', 'CALSCALE:GREGORIAN', ...events, 'END:VCALENDAR'].join('\r\n');
 }
 
 export function downloadFile(name, content, mime) {

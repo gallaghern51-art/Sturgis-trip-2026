@@ -7,6 +7,18 @@ import { useT, useTT, useUnits } from '../engine/settings.jsx';
 const KEY = 'moto.budget.v1';
 const DEFAULTS = { gas: 3.6, mpg: 45, riders: 7, lodging: 95, food: 75, tickets: 150, misc: 200 };
 
+// The per-rider estimate for surfaces that show the number without the sheet
+// (the Prep board card). Same assumptions store, same math as the panel.
+export function budgetEstimate(trip, routedLegsByDay) {
+  const base = { ...DEFAULTS, riders: trip.meta.riders ?? DEFAULTS.riders, mpg: trip.meta.range?.mpg ?? DEFAULTS.mpg };
+  let b;
+  try { b = { ...base, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { b = base; }
+  const summary = tripSummary(trip, routedLegsByDay);
+  const nights = Math.max(0, trip.days.length - 1);
+  const fuel = (summary.totalMiles / Math.max(1, b.mpg)) * b.gas;
+  return Math.round(fuel + nights * b.lodging + trip.days.length * b.food + Number(b.tickets) + Number(b.misc));
+}
+
 export default function BudgetPanel() {
   const { state, routedLegsByDay } = useTrip();
   const { trip } = state;
@@ -92,7 +104,7 @@ export default function BudgetPanel() {
             <tr><td>{t('Fuel')} ({u.mi(summary.totalMiles)})</td><td>{$(fuelRider)}</td></tr>
             <tr><td>{t('Lodging (row)') === 'Lodging (row)' ? 'Lodging' : t('Lodging (row)')} ({nights} {t('nights')} × ${b.lodging})</td><td>{$(lodgingRider)}</td></tr>
             <tr><td>{t('Food')} ({days} {t('days')} × ${b.food})</td><td>{$(foodRider)}</td></tr>
-            <tr><td>{t('Tickets (Buffalo Chip, museums, passes)')}</td><td>{$(b.tickets)}</td></tr>
+            <tr><td>{t('Tickets, entries & passes')}</td><td>{$(b.tickets)}</td></tr>
             <tr><td>{t('Misc / buffer')}</td><td>{$(b.misc)}</td></tr>
             <tr className="current"><td><b>{t('Total per rider')}</b></td><td><b>{$(perRider)}</b></td></tr>
           </tbody>

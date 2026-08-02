@@ -100,7 +100,8 @@ function applyOp(t, op) {
     }
     case 'set_meta': {
       // roster: [{ id, name, bike }] — who's riding what, shown under Field notes
-      const allowed = ['title', 'subtitle', 'summary', 'riders', 'startDate', 'fuelRule', 'range', 'roster'];
+      // dusk: "8:30 PM" — after-dark warnings; utcOffset: hours for .ics export
+      const allowed = ['title', 'subtitle', 'summary', 'riders', 'startDate', 'fuelRule', 'range', 'roster', 'dusk', 'utcOffset'];
       for (const k of Object.keys(op.patch ?? {})) {
         if (!allowed.includes(k)) throw new Error(`meta field ${k} not editable`);
       }
@@ -213,6 +214,47 @@ function applyOp(t, op) {
       stripModuleWaypoints(d, m);
       return t;
     }
+    // Gates are the feasibility engine's hardest inputs — a plan is graded
+    // against them, so they must be as editable as the stops they time.
+    // Addressed by index: gates are short per-day lists with no ids.
+    case 'add_gate': {
+      const d = findDay(t, op.dayId);
+      const g = { label: '', by: '9:00 AM', waypointId: null, ...op.gate };
+      if (!g.label) throw new Error('gate needs a label');
+      if (g.waypointId && !d.waypoints.some((w) => w.id === g.waypointId)) throw new Error(`unknown waypoint ${g.waypointId}`);
+      d.gates = d.gates ?? [];
+      d.gates.push(g);
+      return t;
+    }
+    case 'update_gate': {
+      const d = findDay(t, op.dayId);
+      const g = (d.gates ?? [])[op.index];
+      if (!g) throw new Error(`no gate at index ${op.index}`);
+      if (op.patch?.waypointId && !d.waypoints.some((w) => w.id === op.patch.waypointId)) throw new Error(`unknown waypoint ${op.patch.waypointId}`);
+      Object.assign(g, op.patch);
+      return t;
+    }
+    case 'remove_gate': {
+      const d = findDay(t, op.dayId);
+      if (!(d.gates ?? [])[op.index]) throw new Error(`no gate at index ${op.index}`);
+      d.gates.splice(op.index, 1);
+      return t;
+    }
+    // The booking checklist grew from seed data; a real trip adds and drops
+    // bookings as plans firm up.
+    case 'add_reservation': {
+      const r = { id: uid('res'), name: '', when: '', where: '', note: '', done: false, ...op.reservation };
+      if (!r.name) throw new Error('reservation needs a name');
+      t.reserveNow = t.reserveNow ?? [];
+      t.reserveNow.push(r);
+      return t;
+    }
+    case 'remove_reservation': {
+      const idx = (t.reserveNow ?? []).findIndex((x) => x.id === op.reservationId);
+      if (idx < 0) throw new Error(`unknown reservation ${op.reservationId}`);
+      t.reserveNow.splice(idx, 1);
+      return t;
+    }
     case 'set_reservation_done': {
       const r = (t.reserveNow ?? []).find((x) => x.id === op.reservationId);
       if (!r) throw new Error(`unknown reservation ${op.reservationId}`);
@@ -268,6 +310,11 @@ export function describeOps(trip, ops) {
       case 'add_module': return `Add the option “${op.module?.name}” to ${dayName(op.dayId)}`;
       case 'remove_module': return `Remove ${modName(op.dayId, op.moduleId)} from ${dayName(op.dayId)}`;
       case 'set_reservation_done': return 'Update the booking checklist';
+      case 'add_gate': return `Add gate “${op.gate?.label}” on ${dayName(op.dayId)}`;
+      case 'update_gate': return `Change a gate on ${dayName(op.dayId)}`;
+      case 'remove_gate': return `Remove a gate from ${dayName(op.dayId)}`;
+      case 'add_reservation': return `Add “${op.reservation?.name}” to the booking checklist`;
+      case 'remove_reservation': return 'Remove a booking from the checklist';
       case 'update_meal': return `Change ${op.meal} on ${dayName(op.dayId)}`;
       case 'remove_meal': return `Remove ${op.meal} on ${dayName(op.dayId)}`;
       case 'add_day': return `Add a day${op.day?.title ? ` — “${op.day.title}”` : ''}`;
