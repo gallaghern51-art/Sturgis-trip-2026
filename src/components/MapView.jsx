@@ -66,6 +66,7 @@ export default function MapView() {
   const basemapRef = useRef(basemap);
   basemapRef.current = basemap;
   const [terrain3d, setTerrain3d] = React.useState(false);
+  const [switchOpen, setSwitchOpen] = React.useState(false); // basemap row collapsed to a layers pill
   const terrainRef = useRef(false);
   terrainRef.current = terrain3d;
   const t = useT();
@@ -539,19 +540,38 @@ export default function MapView() {
           {t('Routing')} {Math.min(Object.keys(routes).length + 1, trip.days.length)}/{trip.days.length}…
         </div>
       )}
-      <div className="basemap-switch">
-        {Object.entries(maps).map(([key, b]) => (
-          <button
-            key={key}
-            className={basemap === key ? 'active' : ''}
-            onClick={() => setBasemap(key)}
-          >{b.label}</button>
-        ))}
+      {/* Collapsed by default: one layers pill naming the current basemap.
+          Picking a style closes it again — the row only exists while choosing. */}
+      <div className={`basemap-switch${switchOpen ? '' : ' closed'}`}>
         <button
-          className={terrain3d ? 'active' : ''}
-          title="3D terrain"
-          onClick={() => setTerrain3d((v) => !v)}
-        >3D</button>
+          className="bs-toggle"
+          aria-expanded={switchOpen}
+          title={t('Basemap')}
+          onClick={() => setSwitchOpen((v) => !v)}
+        >
+          <svg viewBox="0 0 20 20" className="bs-ic" aria-hidden="true">
+            <path d="M10 2.5 L17.5 7 L10 11.5 L2.5 7 Z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            <path d="M3.6 10.4 L10 14.2 L16.4 10.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.65" />
+            <path d="M3.6 13.6 L10 17.4 L16.4 13.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.35" />
+          </svg>
+          {!switchOpen && <span className="bs-cur">{maps[basemap]?.label ?? '…'}{terrain3d ? ' · 3D' : ''}</span>}
+        </button>
+        {switchOpen && (
+          <>
+            {Object.entries(maps).map(([key, b]) => (
+              <button
+                key={key}
+                className={basemap === key ? 'active' : ''}
+                onClick={() => { setBasemap(key); setSwitchOpen(false); }}
+              >{b.label}</button>
+            ))}
+            <button
+              className={terrain3d ? 'active' : ''}
+              title="3D terrain"
+              onClick={() => setTerrain3d((v) => !v)}
+            >3D</button>
+          </>
+        )}
       </div>
       <div className="map-legend">
         {Object.entries(PHASES).map(([k, p]) => (
