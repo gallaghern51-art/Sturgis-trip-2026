@@ -4,3 +4,7 @@ dist
 .env
 .env.local
 .env*.local
+
+# Supabase local dev
+supabase/.branches
+supabase/.temp

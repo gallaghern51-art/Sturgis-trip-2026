@@ -16,6 +16,7 @@ import RideMode from './components/RideMode.jsx';
 import PrepBoard from './components/PrepBoard.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import { ConfirmSheet, InputSheet } from './components/Sheets.jsx';
+import { useTripSync } from './engine/useTripSync.js';
 import { useAutoTranslate } from './engine/autoTranslate.js';
 import { collabFor, saveCollab, clearCollab, collabApi, parseJoinParam, tripIdForShare } from './engine/collab.js';
 import { useT, useUnits } from './engine/settings.jsx';
@@ -48,6 +49,9 @@ function TranslationStatus() {
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  // Sync rides alongside the reducer: it drains the outbox and replays other
+  // riders' ops through the same apply_ops path. No-ops when not configured.
+  const sync = useTripSync(state, dispatch);
   const [routes, setRoutes] = useState({}); // dayId -> {legs, geometry}
   const [screen, setScreen] = useState(() => {
     try { return localStorage.getItem(SCREEN_KEY) || 'home'; } catch { return 'home'; }
@@ -354,7 +358,7 @@ export default function App() {
         <div className="modal-backdrop" onClick={() => setSheet(null)}>
           <div className="modal settings" onClick={(e) => e.stopPropagation()}>
             <button className="btn sheet-x" onClick={() => setSheet(null)}>✕</button>
-            <SettingsModal />
+            <SettingsModal sync={sync} />
           </div>
         </div>
       )}
