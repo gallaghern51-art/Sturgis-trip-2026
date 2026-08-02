@@ -62,6 +62,7 @@ export default function App() {
   const [sheet, setSheet] = useState(null); // { type: settings|save-scenario|reset|delete-trip, ... }
   const [newTrip, setNewTrip] = useState(null); // { tab, prompt } while the modal is open
   const [rideOpen, setRideOpen] = useState(false);
+  const [panelCollapsed, setPanelCollapsed] = useState(false); // desktop: fold the side panel away, map takes the room
   const t = useT();
   const u = useUnits();
   const isMobile = useIsMobile();
@@ -473,9 +474,26 @@ export default function App() {
 
         {/* PLAN stays mounted under PREP so the map keeps its state; the
             ResizeObserver in MapView resizes it when it comes back. */}
-        <div className="main" data-panel={isMobile && panelOpen ? 'open' : 'closed'}>
+        <div
+          className="main"
+          data-panel={isMobile && panelOpen ? 'open' : 'closed'}
+          data-collapsed={!isMobile && panelCollapsed ? 'yes' : 'no'}
+        >
           <MapView />
+          {/* the visible strip of map beside the open panel dismisses it —
+              tapping what you want to get back to is the gesture */}
+          {isMobile && panelOpen && (
+            <button className="panel-scrim" aria-label={t('Back to the map')} onClick={() => setPanelOpen(false)} />
+          )}
           <aside className="side">
+            {/* the panel's own hide handle — the seat-toggle gesture was
+                invisible; a control you can see is one you can find */}
+            <button
+              className="panel-tab"
+              aria-label={isMobile || !panelCollapsed ? t('Hide the panel') : t('Show the panel')}
+              title={isMobile || !panelCollapsed ? t('Hide the panel') : t('Show the panel')}
+              onClick={() => (isMobile ? setPanelOpen(false) : setPanelCollapsed((v) => !v))}
+            >{!isMobile && panelCollapsed ? '‹' : '›'}</button>
             <div className="side-inner">
               {selectedDay ? <DayPanel day={selectedDay} /> : <OverviewPanel />}
             </div>

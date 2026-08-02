@@ -2267,3 +2267,84 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   padding: 10px 12px; margin: 8px 0 4px; text-align: center; user-select: all;
 }
 .set-signout { margin-top: 12px; font-size: 12px; }
+
+/* ---------- mobile pass: panel hide handles, desktop collapse ---------- */
+
+/* the panel's visible hide handle, riding its left edge */
+.side { position: relative; }
+.panel-tab {
+  position: absolute; left: -15px; top: 50%; transform: translateY(-50%);
+  width: 26px; height: 64px; z-index: 12;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--asphalt-2); color: var(--ink-dim);
+  border: 1px solid var(--line); border-radius: 8px 0 0 8px; border-right: none;
+  font-family: var(--display); font-size: 17px; font-weight: 700;
+  box-shadow: -6px 0 16px rgba(0, 0, 0, 0.35);
+}
+.panel-tab:hover { color: var(--rally); border-color: var(--rally); }
+/* a bigger invisible touch target than the visible handle */
+.panel-tab::before { content: ''; position: absolute; inset: -10px 0 -10px -12px; }
+
+/* desktop: fold the panel away and the map takes the room */
+.main[data-collapsed="yes"] { grid-template-columns: minmax(0, 1fr) 0; }
+.main[data-collapsed="yes"] .side { border-left: none; overflow: visible; }
+.main[data-collapsed="yes"] .side-inner { display: none; }
+.main[data-collapsed="yes"] .panel-tab { border-radius: 8px 0 0 8px; }
+
+@media (max-width: 820px), (max-width: 1100px) and (max-height: 520px) {
+  /* the visible strip of map beside the open panel dismisses it */
+  .panel-scrim {
+    position: absolute; top: 0; bottom: 0; left: 0;
+    width: calc(100% - min(94vw, 460px));
+    z-index: 9; background: none; border: none; padding: 0;
+  }
+  .panel-tab { height: 58px; }
+
+  /* iOS zooms the page on focusing any input under 16px — the jump is worse
+     than the density cost of bigger type in fields */
+  input, textarea, select { font-size: 16px; }
+  .fld input, .fld textarea, .fld select { font-size: 16px; }
+  .gate-row input, .gate-row select, .booking-add input { font-size: 16px; }
+  .chip.depart-edit input { font-size: 14px; } /* short field, zoom is tolerable over a broken chip */
+}
+
+/* ---------- Apple HIG touch targets (44pt) on touch layouts ---------- */
+@media (max-width: 820px), (max-width: 1100px) and (max-height: 520px) {
+  /* Standing buttons meet 44pt outright. */
+  .btn { min-height: 44px; padding-top: 8px; padding-bottom: 8px; }
+  .btn.icon { min-height: 44px; min-width: 44px; justify-content: center; }
+  .basemap-switch button { min-height: 40px; }
+  .chat-suggest button { min-height: 40px; }
+  .dock-fab { min-height: 46px; }
+
+  /* Day chips: full-height 44pt targets. Eleven 44pt-WIDE targets cannot fit
+     a 375pt row, so chips keep compact visuals, grow to fill the row on
+     shorter trips, and their hit areas swallow the gaps between them — every
+     pixel of the strip is tappable, and a miss lands on the adjacent day. */
+  .ribbon .rchip { flex: 1 0 auto; min-height: 44px; justify-content: center; }
+  .ribbon .rchip::after { content: ''; position: absolute; inset: -6px -2px; }
+  .ribbon .rchip.trip-seat { flex: 0 0 auto; min-height: 44px; }
+
+  /* Compact glyph buttons keep their visuals; the hit area extends invisibly. */
+  .mini-edit, .tc-del, .wp-row button, .gate-row .mini-edit, .reserve-item .r-del, .panel-tab {
+    position: relative;
+  }
+  .mini-edit::after, .tc-del::after, .wp-row button::after, .reserve-item .r-del::after {
+    content: ''; position: absolute; inset: -10px -8px;
+  }
+
+  /* Action chips in the day header: taller visuals plus extended hit. Chips
+     that WRAP inputs (depart, phase select) are excluded — an overlay there
+     would swallow the field's own taps. */
+  .chip.anchor-toggle, .chip.ask-ai, .chip.gpx-btn, .chip.link {
+    min-height: 36px; display: inline-flex; align-items: center; position: relative;
+  }
+  .chip.anchor-toggle::after, .chip.ask-ai::after, .chip.gpx-btn::after, .chip.link::after {
+    content: ''; position: absolute; inset: -5px -2px;
+  }
+}
+
+/* the primary mode bar rides at thumb height — give it full comfort */
+@media (max-width: 820px), (max-width: 1100px) and (max-height: 520px) {
+  .tabnav.modebar button { min-height: 48px; }
+}
