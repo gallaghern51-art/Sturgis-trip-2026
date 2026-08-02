@@ -1679,10 +1679,12 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
    They get their own rows, and the switch spends the full width instead of
    pretending it fits beside something. */
 @media (max-width: 720px) {
-  .basemap-switch {
+  /* full-width only while choosing — collapsed it's just the layers pill */
+  .basemap-switch:not(.closed) {
     left: 12px; right: 12px; top: 12px;
     display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
   }
+  .basemap-switch.closed { left: auto; }
   /* Sized so the widest label ("SATELLITE") fits a sixth of a 375px screen.
      A 1fr column cannot shrink below its min-content, so type that is a hair
      too wide does not squeeze the row — it pushes the last basemap off the
@@ -2385,4 +2387,18 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .panel-tab { top: 62%; height: 64px; }
   .wp-row .eta.leg-tap { padding: 2px 4px; margin: -2px -4px; }
   .wp-row .eta.leg-tap .leg-mi { text-decoration: underline dotted; text-underline-offset: 2px; }
+}
+
+/* basemap switcher collapses to a layers pill — the row exists only while choosing */
+.basemap-switch .bs-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 10px; min-height: 36px;
+  color: var(--ink); font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.basemap-switch .bs-ic { width: 17px; height: 17px; flex: none; }
+.basemap-switch .bs-cur { color: var(--ink-dim); }
+.basemap-switch.closed { border-radius: 999px; }
+@media (max-width: 820px), (max-width: 1100px) and (max-height: 520px) {
+  .basemap-switch .bs-toggle { min-height: 42px; }
 }
