@@ -270,10 +270,13 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .side {
   border-left: 1px solid var(--line);
   background: var(--asphalt-1);
-  overflow-y: auto;
   min-height: 0;
+  /* the panel does NOT scroll — its inner does. Scrolling here clipped the
+     hide handle that hangs outside the panel's edge. */
+  overflow: visible;
+  display: flex; flex-direction: column;
 }
-.side-inner { padding: 16px 18px 40px; }
+.side-inner { padding: 16px 18px 40px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
 .eyebrow {
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
@@ -751,7 +754,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
        and was punching through the panel's header. */
     position: relative; z-index: 10;
     justify-self: end;
-    width: min(94vw, 460px);
+    /* 88vw leaves a real strip of map beside the panel — enough to see where
+       you are, enough to tap to dismiss */
+    width: min(88vw, 460px);
     border-left: 1px solid var(--line);
     box-shadow: -18px 0 40px rgba(0, 0, 0, 0.55);
     transform: translateX(100%);
@@ -888,7 +893,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .map-legend .key { white-space: nowrap; }
 
   .side, .chat-panel { border-left: none; }
-  .side { overscroll-behavior: contain; }
+  .side .side-inner { overscroll-behavior: contain; }
   .side-inner {
     padding: 14px 14px 32px;
     padding-left: max(14px, env(safe-area-inset-left));
@@ -2270,20 +2275,21 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 /* ---------- mobile pass: panel hide handles, desktop collapse ---------- */
 
-/* the panel's visible hide handle, riding its left edge */
+/* the panel's visible hide handle, riding its left edge — it hangs OUTSIDE
+   the panel, which is why .side must not scroll (its inner does) */
 .side { position: relative; }
 .panel-tab {
-  position: absolute; left: -15px; top: 50%; transform: translateY(-50%);
-  width: 26px; height: 64px; z-index: 12;
+  position: absolute; left: -26px; top: 50%; transform: translateY(-50%);
+  width: 27px; height: 76px; z-index: 12;
   display: flex; align-items: center; justify-content: center;
-  background: var(--asphalt-2); color: var(--ink-dim);
-  border: 1px solid var(--line); border-radius: 8px 0 0 8px; border-right: none;
-  font-family: var(--display); font-size: 17px; font-weight: 700;
-  box-shadow: -6px 0 16px rgba(0, 0, 0, 0.35);
+  background: var(--asphalt-3); color: var(--ink);
+  border: 1px solid var(--ink-faint); border-radius: 9px 0 0 9px; border-right: none;
+  font-family: var(--display); font-size: 19px; font-weight: 700;
+  box-shadow: -8px 0 18px rgba(0, 0, 0, 0.5);
 }
 .panel-tab:hover { color: var(--rally); border-color: var(--rally); }
 /* a bigger invisible touch target than the visible handle */
-.panel-tab::before { content: ''; position: absolute; inset: -10px 0 -10px -12px; }
+.panel-tab::before { content: ''; position: absolute; inset: -10px 0 -10px -14px; }
 
 /* desktop: fold the panel away and the map takes the room */
 .main[data-collapsed="yes"] { grid-template-columns: minmax(0, 1fr) 0; }
@@ -2295,7 +2301,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   /* the visible strip of map beside the open panel dismisses it */
   .panel-scrim {
     position: absolute; top: 0; bottom: 0; left: 0;
-    width: calc(100% - min(94vw, 460px));
+    width: calc(100% - min(88vw, 460px));
     z-index: 9; background: none; border: none; padding: 0;
   }
   .panel-tab { height: 58px; }
@@ -2326,7 +2332,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .ribbon .rchip.trip-seat { flex: 0 0 auto; min-height: 44px; }
 
   /* Compact glyph buttons keep their visuals; the hit area extends invisibly. */
-  .mini-edit, .tc-del, .wp-row button, .gate-row .mini-edit, .reserve-item .r-del, .panel-tab {
+  /* NOT .panel-tab here — it is position:absolute with its own hit area, and
+     relative would drop it into .side's flex flow where it shrinks */
+  .mini-edit, .tc-del, .wp-row button, .gate-row .mini-edit, .reserve-item .r-del {
     position: relative;
   }
   .mini-edit::after, .tc-del::after, .wp-row button::after, .reserve-item .r-del::after {
@@ -2367,4 +2375,14 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 @media (prefers-reduced-motion: reduce) {
   .ride-recenter:active { transform: none; }
   .ride-fab.compass g { transition: none !important; }
+}
+
+/* leg figures are tappable — the numbers ARE the leg */
+.wp-row .eta.leg-tap { cursor: pointer; border-radius: 5px; }
+.wp-row .eta.leg-tap:hover { background: rgba(245, 63, 31, 0.08); }
+@media (max-width: 820px), (max-width: 1100px) and (max-height: 520px) {
+  /* thumb zone, not dead center */
+  .panel-tab { top: 62%; height: 64px; }
+  .wp-row .eta.leg-tap { padding: 2px 4px; margin: -2px -4px; }
+  .wp-row .eta.leg-tap .leg-mi { text-decoration: underline dotted; text-underline-offset: 2px; }
 }

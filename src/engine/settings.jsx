@@ -524,6 +524,7 @@ const ES = {
   'Recommendations': 'Recomendaciones',
   'Nothing yet — routes, roadhouses, must-sees.': 'Nada aún — rutas, paradores, imperdibles.',
   'Recommend a road, a stop, a change…': 'Recomienda una ruta, una parada, un cambio…',
+  'Show this leg on the map': 'Ver este tramo en el mapa',
   'Hide the panel': 'Ocultar el panel',
   'Show the panel': 'Mostrar el panel',
   'Back to the map': 'Volver al mapa',

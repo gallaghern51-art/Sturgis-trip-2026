@@ -521,7 +521,17 @@ function SortableWaypoint({ w, dayId, legIndex, dispatch, sched, cum, first, tt,
       onMouseLeave={() => { if (!first && legIndex >= 0 && window.matchMedia?.('(hover: hover)').matches) dispatch({ type: 'focus_leg', leg: null }); }}
     >
       <span className="grip" {...attributes} {...listeners}>⠿</span>
-      <span className="eta">
+      <span
+        className={`eta${!first && legIndex >= 0 ? ' leg-tap' : ''}`}
+        title={!first && legIndex >= 0 ? t('Show this leg on the map') : undefined}
+        role={!first && legIndex >= 0 ? 'button' : undefined}
+        // TAP is the leg highlight on a phone (hover doesn't exist there, and
+        // the panel covers the map anyway): the map zooms to the leg and the
+        // panel steps aside — App closes it when a zoom-tagged focus arrives
+        onClick={() => {
+          if (!first && legIndex >= 0) dispatch({ type: 'focus_leg', leg: { dayId, index: legIndex, zoom: Date.now() } });
+        }}
+      >
         {sched ? fmtTime(first ? sched.depart : sched.arrive) : '·'}
         {!first && sched && sched.legMin > 0 && <span className="leg-t">+{fmtDur(sched.legMin)}</span>}
         {/* interval distance since the last stop, then the day's running odometer */}
