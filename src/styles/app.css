@@ -1696,19 +1696,18 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
     top: 52px; left: 12px; right: 12px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  /* clear the switch's row so the zoom buttons stop landing on top of it */
-  .maplibregl-ctrl-top-right { margin-top: 44px; }
+  /* One furniture row under the chrome: hint on the left, layers pill on the
+     right — then the zoom stack BELOW the pill, never on top of it. */
+  .map-hint { top: 12px; }
+  .maplibregl-ctrl-top-right { margin-top: 52px; }
   /* the legend runs the full width down there — put the scale and the credit
      above it rather than through it */
   .maplibregl-ctrl-bottom-right { margin-bottom: 62px; }
   .map-legend { right: 12px; }
 
-  /* Same stack, pushed below the floating chrome. Below 720px the switch is a
-     full-width row, so the hint cannot share its line the way it does on a
-     wider phone — it keeps the row underneath. */
   .app.map-full .basemap-switch { top: calc(var(--chrome-h, 0px) + 8px); }
-  .app.map-full .map-hint { top: calc(var(--chrome-h, 0px) + 48px); }
-  .app.map-full .maplibregl-ctrl-top-right { margin-top: calc(var(--chrome-h, 0px) + 40px); }
+  .app.map-full .map-hint { top: calc(var(--chrome-h, 0px) + 14px); }
+  .app.map-full .maplibregl-ctrl-top-right { margin-top: calc(var(--chrome-h, 0px) + 58px); }
 }
 
 /* Attribution is a legal credit, not a caption: it belongs behind its own (i)
