@@ -115,6 +115,13 @@ export default function App() {
   const showPanel = () => setPanelOpen(true);
   const ui = { isMobile, panelOpen, setPanelOpen, showPanel };
 
+  // A new day is a new page: without this the panel keeps the previous day's
+  // scroll depth and opens somewhere in the middle of the next one.
+  const sideInnerRef = useRef(null);
+  useEffect(() => {
+    sideInnerRef.current?.scrollTo({ top: 0 });
+  }, [state.selectedDayId]);
+
   // Selecting a day from anywhere — ribbon, feasibility rows, map, modals — is
   // a planning act: land in PLAN with the panel on screen.
   useEffect(() => {
@@ -504,7 +511,7 @@ export default function App() {
               title={isMobile || !panelCollapsed ? t('Hide the panel') : t('Show the panel')}
               onClick={() => (isMobile ? setPanelOpen(false) : setPanelCollapsed((v) => !v))}
             >{!isMobile && panelCollapsed ? '‹' : '›'}</button>
-            <div className="side-inner">
+            <div className="side-inner" ref={sideInnerRef}>
               {selectedDay ? <DayPanel day={selectedDay} /> : <OverviewPanel />}
             </div>
           </aside>

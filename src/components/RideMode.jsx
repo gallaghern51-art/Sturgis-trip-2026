@@ -895,7 +895,9 @@ export default function RideMode({ onClose }) {
           </div>
         )}
 
-        {nav && !offRoute && !arrived && (
+        {/* the sheet is a menu — while it is up, the turn card and the map
+            fabs stand down so it isn't buried under HUD on short screens */}
+        {nav && !offRoute && !arrived && !sheetOpen && (
           <div className="turn-card">
             <LaneStrip lanes={nav.next.lanes} />
             <div className="turn-head">
@@ -919,10 +921,11 @@ export default function RideMode({ onClose }) {
             )}
           </div>
         )}
-        {steps === null && fix && <div className="turn-card loading"><div className="t-instr">loading turn-by-turn…</div></div>}
+        {steps === null && fix && !sheetOpen && <div className="turn-card loading"><div className="t-instr">loading turn-by-turn…</div></div>}
       </div>
 
       {/* ---- right edge: one-tap controls, glove-sized ---- */}
+      {!sheetOpen && (
       <div className="ride-fabs">
         {/* the compass rose: needle shows true north, tap toggles the camera
             grammar — tilted track-up chase or flat north-up overhead */}
@@ -957,6 +960,7 @@ export default function RideMode({ onClose }) {
           <svg viewBox="0 0 22 22" aria-hidden="true"><path d="M4 15 L9 5 L13 12 L18 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="4" cy="15" r="2" fill="currentColor" /><circle cx="18" cy="6" r="2" fill="currentColor" /></svg>
         </button>
       </div>
+      )}
 
       {/* ---- bottom: chips Google can\'t show, then ONE bar ---- */}
       <div className="ride-overlay ride-overlay-bottom">
@@ -967,7 +971,7 @@ export default function RideMode({ onClose }) {
             {t('Re-center')}
           </button>
         )}
-        {!arrived && fix && (nextFuel || nextGate) && (
+        {!arrived && fix && (nextFuel || nextGate) && !sheetOpen && (
           <div className="ride-chips">
             {nextFuel && (
               <span className={`m-chip fuel${nextFuel.miles > range.comfort ? ' danger' : ''}`}>

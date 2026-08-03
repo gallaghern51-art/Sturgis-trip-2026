@@ -900,7 +900,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .side, .chat-panel { border-left: none; }
   .side .side-inner { overscroll-behavior: contain; }
   .side-inner {
-    padding: 14px 14px 32px;
+    /* 96px bottom: the Copilot fab floats over the panel's tail, so the last
+       control (the add-a-stop search, the roster add) must scroll clear of it */
+    padding: 14px 14px 96px;
     padding-left: max(14px, env(safe-area-inset-left));
     padding-right: max(14px, env(safe-area-inset-right));
   }
@@ -918,7 +920,9 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
      squeezing the title into two words per row */
   .section > h3 { flex-wrap: wrap; gap: 0 8px; }
   .section > h3 .cnt { flex: 1 0 100%; }
-  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 10px 12px; }
+  /* 62px keeps all four day stats on one row in the phone panel's 291px of
+     content width — at 70px the fuel-gap figure wrapped to a lonely second row */
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 10px 12px; }
   .wp-row { grid-template-columns: 18px 60px minmax(0, 1fr) auto; gap: 6px; padding: 9px 4px; }
   .ov-day { grid-template-columns: 12px 50px minmax(0, 1fr) auto; gap: 8px; }
   .ov-day .t { font-size: 15px; }
@@ -955,21 +959,26 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
     flex-wrap: wrap; padding: 12px 14px;
     padding-bottom: calc(14px + env(safe-area-inset-bottom));
   }
+  /* Settings has no .modal-body of its own at the sheet's top level, so the
+     pinned-header pattern's overflow:hidden was cutting SHARE/CREDITS off on
+     landscape phones with no way to reach them. The whole sheet scrolls. */
+  .modal.settings { overflow-y: auto; overscroll-behavior: contain; }
   .foot-note { flex: 1 0 100%; margin-bottom: 4px; }
 
   .chat-panel { position: static; height: auto; z-index: auto; }
   .chat-msgs { padding: 12px; overscroll-behavior: contain; }
   .msg { max-width: 88%; font-size: 14px; }
-  .chat-input { padding: 10px 12px 12px; }
+  /* the dock is fullscreen here, so the composer sits on the home indicator */
+  .chat-input { padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
   .chat-input textarea { height: 48px; }
   .proposal { margin: 0 12px 10px; }
 }
 
-/* landscape phones have almost no vertical room — trim the chrome */
+/* landscape phones have almost no vertical room — trim the chrome
+   (the block at the end of the sheet flattens the masthead to one line) */
 @media (max-width: 1100px) and (max-height: 520px) {
   .masthead { padding-top: calc(5px + env(safe-area-inset-top, 0px)); padding-bottom: 5px; }
   .masthead h1 { font-size: 18px; }
-  .masthead .sub { display: none; }
   .ribbon { padding-top: 5px; padding-bottom: 5px; }
   .ribbon .seg .mi { display: none; }
   .tabnav button { min-height: 40px; padding: 9px 6px; }
@@ -1705,10 +1714,11 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
      right — then the zoom stack BELOW the pill, never on top of it. */
   .map-hint { top: 12px; }
   .maplibregl-ctrl-top-right { margin-top: 52px; }
-  /* the legend runs the full width down there — put the scale and the credit
-     above it rather than through it */
+  /* the scale and the credit sit above the legend band rather than through it */
   .maplibregl-ctrl-bottom-right { margin-bottom: 62px; }
-  .map-legend { right: 12px; }
+  /* No full-width override here: the 128px right inset from the mobile block
+     stays, because the Copilot fab lives in that corner and was sitting on
+     top of the legend's second row. The keys wrap taller instead of wider. */
 
   .app.map-full .basemap-switch { top: calc(var(--chrome-h, 0px) + 8px); }
   .app.map-full .map-hint { top: calc(var(--chrome-h, 0px) + 14px); }
@@ -1935,7 +1945,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   .prep-hero { flex-direction: row; gap: 14px; }
   .prep-hero .ph-grade { font-size: 34px; padding: 6px 14px; }
   /* clear the bottom mode bar */
-  .dock-fab { bottom: calc(56px + env(safe-area-inset-bottom, 0px)); right: 12px; }
+  .dock-fab { bottom: calc(56px + env(safe-area-inset-bottom, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); }
   .ai-dock { width: 100%; border-left: none; }
 }
 
@@ -1954,6 +1964,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .home-hero h2 { font-size: 52px; letter-spacing: 0.01em; }
 .home-hero .eyebrow { letter-spacing: 0.22em; }
 .intake-hint { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: 0.04em; }
+/* keyboard-shortcut copy has no meaning on a touch screen */
+@media (pointer: coarse) { .kbd-only { display: none; } }
 .start-card .tc-open { color: var(--ink-dim); }
 .start-card:hover .tc-open { color: var(--rally); }
 
@@ -2051,7 +2063,8 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 
 /* right-edge one-tap controls, glove-sized */
 .ride-fabs {
-  position: absolute; right: 10px; top: 46%; transform: translateY(-50%);
+  /* the notch side in landscape: the safe-area inset keeps the fabs tappable */
+  position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); top: 46%; transform: translateY(-50%);
   display: flex; flex-direction: column; gap: 10px; z-index: 6;
 }
 .ride-fab {
@@ -2408,4 +2421,36 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
 .basemap-switch.closed { border-radius: 999px; }
 @media (max-width: 820px), (max-width: 1100px) and (max-height: 520px) {
   .basemap-switch .bs-toggle { min-height: 42px; }
+}
+
+/* ---------- landscape phones: the short dimension is the scarce one ---------- */
+/* Last in the sheet on purpose: these override the touch-target and mobile
+   blocks above for viewports that are wide but very short. */
+@media (max-width: 1100px) and (max-height: 520px) {
+  /* the masthead becomes one line: brand, then the trip title beside it */
+  .mast-id { flex-direction: row; align-items: baseline; gap: 10px; }
+  .masthead .sub { display: flex; flex-direction: row; align-items: baseline; min-width: 0; }
+  .mast-stats { display: none; }
+
+  /* ribbon chips drop visual height; the ::after hit-area still gives 44pt */
+  .ribbon .rchip, .ribbon .rchip.trip-seat { min-height: 36px; }
+
+  /* Ride HUD hugs a left column so the map keeps the right of the screen —
+     full-width cards left the map a letterbox band between them. 150px keeps
+     the card edges clear of the right-edge fab column. */
+  .ride-overlay-top .turn-card,
+  .ride-overlay-top .warning {
+    width: min(430px, calc(100vw - 150px));
+    align-self: flex-start;
+  }
+  .ride-overlay-bottom { align-items: flex-start; }
+  .ride-overlay-bottom .ride-chips { justify-content: flex-start; }
+  .ride-overlay-bottom .ride-chips,
+  .ride-overlay-bottom .ride-bar,
+  .ride-overlay-bottom .ride-sheet {
+    width: min(430px, calc(100vw - 150px));
+  }
+  /* 46vh of a 375px screen was a 172px slot; let the sheet use the height
+     that hiding the turn card (RideMode does this while it is open) freed */
+  .ride-sheet { max-height: 62vh; }
 }
