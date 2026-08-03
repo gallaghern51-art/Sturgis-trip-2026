@@ -9,10 +9,8 @@
 // The event shapes written here are exactly those the streaming transport
 // emits, so the client reads either transport the same way.
 
-import { getStore } from '@netlify/blobs';
+import { jobStore } from '../lib/job-store.mjs';
 import { makeClient, runChat, runGenerate, friendlyError, BACKGROUND_BUDGET_MS } from '../lib/planner-core.mjs';
-
-export const JOB_STORE = 'planner-jobs';
 
 // Blob writes are network round-trips; a token-by-token write would cost more
 // than the model does. Coalesce to roughly one write a second, but never lose
@@ -29,7 +27,7 @@ export default async (req) => {
   const { jobId } = body;
   if (!jobId) return new Response('jobId required', { status: 400 });
 
-  const store = getStore(JOB_STORE);
+  const store = await jobStore();
   const t0 = Date.now();
   const record = { status: 'running', text: '', chars: 0, thinking: 0, ms: 0, proposal: null, message: null };
 

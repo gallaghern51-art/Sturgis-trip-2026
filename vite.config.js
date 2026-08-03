@@ -40,6 +40,11 @@ function netlifyFunctionsInDev() {
     name: 'netlify-functions-dev',
     apply: 'serve',
     configureServer(server) {
+      // Dev has no host request timeout, so the streaming planner does not
+      // need to duck under Netlify's ~58s cap here — give local runs the
+      // background-size budget unless the shell says otherwise. (Production
+      // budgets are unaffected; this process only serves `vite dev`.)
+      process.env.PLANNER_BUDGET_MS ||= '600000';
       server.middlewares.use(async (req, res, next) => {
         const match = /^\/\.netlify\/functions\/([\w-]+)/.exec(req.url ?? '');
         if (!match) return next();
@@ -50,14 +55,33 @@ function netlifyFunctionsInDev() {
           const chunks = [];
           for await (const c of req) chunks.push(c);
           const body = chunks.length ? Buffer.concat(chunks) : undefined;
-          const out = await mod.default(new Request(url, {
+          const request = new Request(url, {
             method: req.method,
             headers: req.headers,
             body,
-          }));
+          });
+          // Background functions answer 202 immediately on Netlify and keep
+          // working; mirror that so the client starts polling planner-status
+          // right away instead of blocking on the whole job (which also made
+          // it fall back and run the job a second time on the stream path).
+          if (match[1].endsWith('-background')) {
+            mod.default(request).catch((err) => {
+              server.config.logger.error(`[functions-dev] ${match[1]}: ${err?.message ?? err}`);
+            });
+            res.statusCode = 202;
+            res.end();
+            return;
+          }
+          const out = await mod.default(request);
           res.statusCode = out.status;
           out.headers.forEach((v, k) => res.setHeader(k, v));
-          res.end(Buffer.from(await out.arrayBuffer()));
+          // Stream the body through instead of buffering it — the chat
+          // function's NDJSON heartbeats and deltas should arrive in dev the
+          // way they do in production.
+          if (out.body) {
+            for await (const chunk of out.body) res.write(chunk);
+          }
+          res.end();
         } catch (err) {
           res.statusCode = 500;
           res.end(String(err?.message ?? err));

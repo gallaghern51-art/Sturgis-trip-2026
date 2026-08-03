@@ -19,8 +19,23 @@ export default function NewTripModal({ onClose, onCreated, initial }) {
   const [prompt, setPrompt] = useState(initial?.prompt ?? '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [progress, setProgress] = useState(null); // {chars, thinking, ms} streamed so far
+  const [confirmCancel, setConfirmCancel] = useState(false); // two-tap close while a build runs
   // Home hands off here after trip creation so the app can land in the workspace.
   const created = () => (onCreated ? onCreated() : onClose());
+
+  // Closing mid-build throws the itinerary away — arm, then confirm (the
+  // app's two-tap pattern, no window.confirm). The backdrop never closes a
+  // running build; only an explicit second tap does.
+  const requestClose = () => {
+    if (!busy) { onClose(); return; }
+    if (!confirmCancel) {
+      setConfirmCancel(true);
+      setTimeout(() => setConfirmCancel(false), 3000);
+      return;
+    }
+    onClose();
+  };
 
   const baseMeta = (title) => ({
     title: title || 'New trip',
@@ -64,11 +79,22 @@ export default function NewTripModal({ onClose, onCreated, initial }) {
     if (!prompt.trim()) { setErr('Describe the trip first.'); return; }
     setBusy(true);
     setErr('');
+    setProgress(null);
     try {
       const data = await runPlanner({
         mode: 'generate',
         prompt: prompt.trim(),
         basics: { name: name.trim(), startDate, numDays: Number(numDays), riders: Number(riders) },
+      }, (obj) => {
+        // Every planner event is stamped with elapsed ms — drive a live
+        // counter off it so a minutes-long build never looks like a hang.
+        if (typeof obj.ms === 'number') {
+          setProgress((p) => ({
+            chars: obj.chars ?? p?.chars ?? 0,
+            thinking: obj.thinking ?? p?.thinking ?? 0,
+            ms: obj.ms,
+          }));
+        }
       });
       if (!data.trip?.days?.length) throw new Error('The builder returned an empty plan — try a more specific description.');
       // assign fresh ids + defaults, then pin dates
@@ -103,18 +129,28 @@ export default function NewTripModal({ onClose, onCreated, initial }) {
       setErr(String(e.message || e));
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   };
 
+  // What the foot-note says while the AI builds: thinking first (most of the
+  // wall time on a full trip), then the itinerary character count.
+  const buildNote = () => {
+    const secs = progress?.ms ? ` · ${Math.round(progress.ms / 1000)}s` : '';
+    if (progress?.chars > 0) return `Writing the itinerary — ${progress.chars.toLocaleString()} characters${secs}`;
+    if (progress?.thinking > 0) return `Designing the route…${secs}`;
+    return `Building the itinerary — routing real places…${secs}`;
+  };
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={busy ? undefined : onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
             <div className="eyebrow">Trip library</div>
             <h3>New trip</h3>
           </div>
-          <button className="btn" onClick={onClose}>✕</button>
+          <button className={`btn${confirmCancel ? ' danger-ghost' : ''}`} onClick={requestClose}>{confirmCancel ? 'Sure?' : '✕'}</button>
         </div>
         <div className="modal-body">
           <div className="tabbar">
@@ -161,9 +197,9 @@ export default function NewTripModal({ onClose, onCreated, initial }) {
         </div>
         <div className="modal-foot">
           <span className="foot-note">
-            {tab === 'ai' ? (busy ? 'Building the itinerary — routing real places…' : 'The AI drafts days, waypoints with coordinates, fuel stops, and lodging notes.') : ''}
+            {tab === 'ai' ? (busy ? buildNote() : 'The AI drafts days, waypoints with coordinates, fuel stops, and lodging notes.') : ''}
           </span>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className={`btn${confirmCancel ? ' danger-ghost' : ''}`} onClick={requestClose}>{confirmCancel ? 'Sure?' : 'Cancel'}</button>
           {tab === 'blank' && <button className="btn gold" disabled={busy} onClick={createBlank}>{busy ? 'Creating…' : 'Create trip'}</button>}
           {tab === 'template' && <button className="btn gold" onClick={createFromTemplate}>Create from template</button>}
           {tab === 'ai' && <button className="btn gold" disabled={busy} onClick={createWithAi}>{busy ? 'Building…' : 'Build with AI'}</button>}

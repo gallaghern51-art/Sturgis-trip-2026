@@ -1,9 +1,7 @@
 // Poll endpoint for background planner jobs. Cheap and boring on purpose —
 // the client hits it about once a second while a job runs.
 
-import { getStore } from '@netlify/blobs';
-
-const JOB_STORE = 'planner-jobs';
+import { jobStore } from '../lib/job-store.mjs';
 
 export default async (req) => {
   const id = new URL(req.url).searchParams.get('id');
@@ -11,7 +9,7 @@ export default async (req) => {
 
   let record = null;
   try {
-    record = await getStore(JOB_STORE).get(id, { type: 'json' });
+    record = await (await jobStore()).get(id, { type: 'json' });
   } catch (err) {
     // Blobs unavailable is a deployment problem, not a job problem — say which,
     // so the client can fall back to the streaming transport instead of

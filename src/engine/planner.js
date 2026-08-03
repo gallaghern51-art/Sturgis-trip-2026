@@ -17,7 +17,13 @@ const POLL_MS = 900;
 const POLL_TIMEOUT_MS = 12 * 60 * 1000;
 // A background job that never claims its record is a deployment without
 // background functions — fall back rather than wait out the full timeout.
-const CLAIM_TIMEOUT_MS = 12 * 1000;
+// Generous on purpose: Netlify can queue a background invocation for several
+// seconds under load, and a premature fallback reruns the whole job against
+// the streaming budget (~50s), which a full-trip generate barely fits.
+const CLAIM_TIMEOUT_MS = 20 * 1000;
+// planner-status answers 503 when the blob store errors. One can be a
+// transient hiccup; only a streak means the deployment has no working store.
+const MAX_UNAVAILABLE_POLLS = 3;
 
 const newJobId = () => (
   globalThis.crypto?.randomUUID?.() ??
@@ -62,6 +68,7 @@ async function runBackground(payload, onLine) {
 
   const startedAt = Date.now();
   let claimed = false;
+  let unavailableStreak = 0; // consecutive 503s from planner-status
   let deliveredText = 0; // how much of the answer the caller has already seen
 
   for (;;) {
@@ -72,8 +79,12 @@ async function runBackground(payload, onLine) {
     }).catch(() => null);
 
     if (!res) continue; // a dropped poll on a phone is normal; keep trying
-    if (res.status === 503 && !claimed) throw unavailable(); // blobs missing
+    if (res.status === 503 && !claimed) {
+      if (++unavailableStreak >= MAX_UNAVAILABLE_POLLS) throw unavailable(); // blobs really missing
+      continue;
+    }
     if (!res.ok) continue;
+    unavailableStreak = 0;
 
     const rec = await res.json().catch(() => null);
     if (!rec) continue;
@@ -102,7 +113,7 @@ async function runBackground(payload, onLine) {
     }
 
     if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
-      const err = new Error('The optimizer has been working for over ten minutes without finishing. Try a smaller request.');
+      const err = new Error('The optimizer has been working for over twelve minutes without finishing. Try a smaller request.');
       err.code = 'planner_timeout';
       throw err;
     }
