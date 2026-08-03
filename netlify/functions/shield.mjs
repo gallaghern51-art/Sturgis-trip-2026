@@ -17,7 +17,7 @@
 // signage), and Commons is credited in the app's map attribution already.
 
 const API = 'https://commons.wikimedia.org/w/api.php';
-const UA = 'Roadbook/1.0 (https://sturgis-2026-trip.netlify.app; highway shields)';
+const UA = 'Roadbook/1.0 (https://roadbook-app.netlify.app; highway shields)';
 const YEAR = 60 * 60 * 24 * 365;
 
 const STATE = {
