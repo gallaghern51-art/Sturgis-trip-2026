@@ -415,6 +415,11 @@ export async function runChat({ client, body, emit, budgetMs = BUDGET_MS, backgr
       model: 'claude-sonnet-5',
       max_tokens: 8000,
       output_config: { effort: 'medium' },
+      // Summarized display costs nothing extra but makes thinking stream real
+      // text — without it thinking deltas are empty, the progress readout sits
+      // silent for the whole thinking phase, and a deadline during it gets
+      // misdiagnosed as "the model never started".
+      thinking: { type: 'adaptive', display: 'summarized' },
       system: SYSTEM,
       tools: [TOOL, PLACES_TOOL],
       messages: convo,
@@ -471,6 +476,9 @@ export async function runGenerate({ client, body, emit, budgetMs = BUDGET_MS }) 
     model: 'claude-sonnet-5',
     max_tokens: 16000,
     output_config: { effort: 'medium' },
+    // See runChat — keeps the progress readout alive through the thinking
+    // phase, which on a full-trip build is most of the wall time.
+    thinking: { type: 'adaptive', display: 'summarized' },
     system: GENERATE_SYSTEM,
     tools: [GENERATE_TOOL],
     tool_choice: { type: 'tool', name: 'generate_trip' },
@@ -487,6 +495,13 @@ export async function runGenerate({ client, body, emit, budgetMs = BUDGET_MS }) 
   }
   if (response.stop_reason === 'refusal') {
     emit({ type: 'error', message: 'The builder declined that request — try rephrasing.' });
+    return;
+  }
+  if (response.stop_reason === 'max_tokens') {
+    // The SDK assembles tool input with a partial-JSON parser, so a truncated
+    // itinerary still parses — into a trip that silently lost its tail (days,
+    // waypoints, lodging). Refuse it rather than hand over a short trip.
+    emit({ type: 'error', message: 'The itinerary hit its length limit before it was complete — try fewer days, or a shorter description.' });
     return;
   }
   const block = response.content.find((b) => b.type === 'tool_use' && b.name === 'generate_trip');
