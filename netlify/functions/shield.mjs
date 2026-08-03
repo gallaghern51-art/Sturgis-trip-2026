@@ -40,13 +40,17 @@ function candidates(prefix, num) {
   if (prefix === 'US') return [`US ${num}.svg`, `US Route ${num}.svg`];
   const name = STATE[prefix];
   if (!name) return [`${prefix}-${num}.svg`, `${prefix} ${num}.svg`];
-  return [
+  const out = [
     `${prefix}-${num}.svg`,
     `${prefix} ${num}.svg`,
     `${name} ${num}.svg`,
     `${name} Highway ${num}.svg`,
     `${name} State Route ${num}.svg`,
   ];
+  // Montana files its secondary system (MT-308 and friends) under its own
+  // convention on Commons — the primary-route names above all miss.
+  if (prefix === 'MT') out.push(`MT-sec-${num}.svg`);
+  return out;
 }
 
 async function commons(params) {

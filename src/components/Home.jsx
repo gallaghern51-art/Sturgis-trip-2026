@@ -63,7 +63,11 @@ export default function Home({ onOpenTrip, onNewTrip, onImport, onDeleteTrip, on
             />
             <div className="intake-actions">
               <button className="btn gold" onClick={build}>{t('Build with AI')}</button>
-              <span className="intake-hint">{t('⌘↵ builds it · every draft is editable, gradeable, undoable')}</span>
+              <span className="intake-hint">
+                {/* the shortcut half means nothing to a thumb — CSS drops it on touch */}
+                <span className="kbd-only">{t('⌘↵ builds it · ')}</span>
+                {t('every draft is editable, gradeable, undoable')}
+              </span>
             </div>
           </div>
         </section>
@@ -78,6 +82,7 @@ export default function Home({ onOpenTrip, onNewTrip, onImport, onDeleteTrip, on
                   className={`trip-card${rec.id === lib.activeId ? ' active' : ''}`}
                   role="button"
                   tabIndex={0}
+                  aria-label={rec.name}
                   onClick={() => onOpenTrip(rec.id)}
                   onKeyDown={(e) => { if (e.key === 'Enter') onOpenTrip(rec.id); }}
                 >
