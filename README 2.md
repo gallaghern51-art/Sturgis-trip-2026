@@ -2,7 +2,7 @@
 
 Full motorcycle trip planning platform — born as the **Sturgis 2026 · La Expedición Chilena** field guide, grown into a zero-to-100 planner for any multi-day ride.
 
-**Live:** https://sturgis-2026-trip.netlify.app
+**Live:** https://roadbook-app.netlify.app
 
 ## What it does
 

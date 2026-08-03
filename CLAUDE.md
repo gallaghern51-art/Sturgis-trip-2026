@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Roadbook** — multi-trip AI motorcycle trip planning platform (React SPA + Netlify Functions). Born as the Sturgis 2026 field-guide app; the Sturgis trip now lives on as seed data / template. Live at https://sturgis-2026-trip.netlify.app.
+**Roadbook** — multi-trip AI motorcycle trip planning platform (React SPA + Netlify Functions). Born as the Sturgis 2026 field-guide app; the Sturgis trip now lives on as seed data / template. Live at https://roadbook-app.netlify.app. Repo: `gallaghern51-art/roadbook`.
 
 ## Commands
 
@@ -13,7 +13,7 @@ There is no test suite or linter configured. Verify changes by building and exer
 
 ## Deploys
 
-Pushes to `main` auto-deploy via Netlify CI (site `sturgis-2026-trip`, team GalCode). `npx netlify deploy --prod --dir dist --functions netlify/functions` still works as a manual fallback. `ANTHROPIC_API_KEY` is set in the Netlify site env — functions read it at deploy time.
+Pushes to `main` auto-deploy via Netlify CI (site `roadbook-app`, team GalCode — `roadbook` was already taken on netlify.app). `npx netlify deploy --prod --dir dist --functions netlify/functions` still works as a manual fallback. `ANTHROPIC_API_KEY` is set in the Netlify site env — functions read it at deploy time.
 
 **Others also work on this repo via GitHub PRs. Always `git pull --rebase` before pushing, and read what came in — remote work has restructured whole subsystems before.**
 
@@ -45,7 +45,7 @@ Model: `claude-sonnet-5` (deliberate cost choice — don't upgrade without askin
 
 Where things stand so a fresh session can pick up without archaeology:
 
-- **Brand:** the app is **Roadbook** (masthead, PWA manifest + icon in `public/`, dynamic `document.title`). The Sturgis 2026 trip is only seed data / the template option / the Reset target.
+- **Brand:** the app is **Roadbook** (masthead, PWA manifest + icon in `public/`, dynamic `document.title`). The Sturgis 2026 trip is only seed data / the template option / the Reset target. **Renamed Aug 2, 2026:** Netlify site is `roadbook-app` (→ https://roadbook-app.netlify.app; `roadbook` was taken, and the old sturgis-2026-trip.netlify.app URL no longer serves — Netlify doesn't redirect renamed subdomains) and the GitHub repo is `gallaghern51-art/roadbook` (GitHub redirects the old `Sturgis-trip-2026` name). The local folder is still `sturgis-trip-planner` — renaming it would orphan Claude session history, so it stays until deliberately migrated. `sturgis.*` localStorage keys and the seed trip are data, not branding — leave them.
 - **Basemaps** (`src/engine/basemaps.js`, shared by MapView and RideMode): when `VITE_GOOGLE_MAPS_KEY` is set at build time, Google Map Tiles (hybrid satellite + roadmap; 2-week sessions cached in `moto.gtiles.v1`, created client-side) headline the switcher and Ride Mode — 100k tiles/month free, so watch usage if the whole group rides on it. Without the key: Esri hybrid satellite (z19) default plus streets(liberty)/dark/light — everything falls back to these automatically on any Google failure. `ensureTerrain(map, on)`: 3D terrain + hillshade from AWS terrarium DEM (free, no key); MapView has a 3D toggle; re-asserted from `drawAll` so it survives `setStyle`.
 - **Highway shields**: downloaded, with a local override. `RoadShield.jsx` tries `public/shields/<ROUTE>.svg|png|webp` first, then `netlify/functions/shield.mjs`, which resolves the route on Wikimedia Commons and proxies it with a 1-year immutable CDN + browser cache (fetched once per route, offline thereafter). Commons already returns the real state designs — Wyoming's bucking horse, South Dakota's outline, Idaho's silhouette — and names files inconsistently per state (`I-90.svg`, `US 20.svg`, `MT-84.svg`, `SD 87.svg`, `California 1.svg`), so the function tries five conventions in one batched title lookup plus a search fallback: measured 25/25 across 20 states. **`public/shields/` is an owner-managed override folder — never delete it or its contents.** The filename is the route key; there is deliberately no route→filename map in source. No drawn fallback: when both sources miss, the number is set as plain type rather than faking a sign. `vite.config.js` serves `/.netlify/functions/*` in dev via `netlifyFunctionsInDev()`, so `npm run dev` behaves like production — do not reintroduce workarounds premised on functions being absent locally.
 - **Place search**: `geocode.js` → `google-places` function (Places New Text Search, server key, day-biased) with Nominatim fallback. The AI planner has a `search_places` tool (agentic loop in `planner-core.mjs` `runChat`, max 4 rounds, budget-aware) so proposed stops carry verified coordinates.
