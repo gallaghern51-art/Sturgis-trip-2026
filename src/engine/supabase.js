@@ -43,32 +43,29 @@ export async function currentUser() {
 }
 
 /**
- * How a rider joins: no email, no password, no inbox.
+ * Identity, created silently.
  *
- * Magic links are wrong for this. A rider on the side of a road in the Bighorns
- * should not have to reach an email client to see the trip, and two of these
- * riders are in Chile. An anonymous session is created behind the join code —
- * the code IS the credential — and the display name is theirs.
+ * There is no sign-in screen. The first time a device shares or joins a trip it
+ * gets an anonymous session, and from then on the join code is the only thing a
+ * human ever handles. A login form is pure friction for a group of riders who
+ * already trust each other and already have the code.
  *
- * The trade is that clearing Safari data loses the session; they rejoin with
- * the same code. For eleven days that is the right trade.
+ * `name` is what the others see in the roster.
  */
-export async function signInAnonymously(name) {
+export async function ensureSession(name) {
   if (!supabase) throw new Error('sync not configured');
-  const { error } = await supabase.auth.signInAnonymously({
+  const existing = await currentUser();
+  if (existing) {
+    if (name && existing.user_metadata?.name !== name) {
+      await supabase.auth.updateUser({ data: { name } });
+    }
+    return existing;
+  }
+  const { data, error } = await supabase.auth.signInAnonymously({
     options: { data: { name: name || null } },
   });
   if (error) throw error;
-}
-
-/** Owner path. A real account, so the trip is recoverable on a new phone. */
-export async function signIn(email) {
-  if (!supabase) throw new Error('sync not configured');
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.origin },
-  });
-  if (error) throw error;
+  return data.user;
 }
 
 export async function signOut() {
@@ -78,9 +75,8 @@ export async function signOut() {
 // -------------------------------------------------------------- trips ----
 
 /** Publish a local trip so the group can join it. Returns { id, joinCode }. */
-export async function publishTrip(trip, name) {
-  const user = await currentUser();
-  if (!user) throw new Error('sign in first');
+export async function publishTrip(trip, name, riderName) {
+  const user = await ensureSession(riderName);
   const { data, error } = await supabase
     .from('trips')
     .insert({ name, snapshot: trip, owner: user.id })
@@ -94,8 +90,7 @@ export async function publishTrip(trip, name) {
 
 /** Join by the code the owner texts round. Returns the trip id. */
 export async function joinTrip(code, riderName) {
-  const user = await currentUser();
-  if (!user) throw new Error('sign in first');
+  await ensureSession(riderName);
   const { data, error } = await supabase.rpc('join_trip', {
     code: code.trim(),
     rider_name: riderName ?? null,
@@ -139,7 +134,7 @@ export async function fetchTrip(tripId) {
 /** Append one batch of ops. Throws so the caller can re-queue it. */
 export async function pushOps(tripId, ops) {
   const user = await currentUser();
-  if (!user) throw new Error('sign in first');
+  if (!user) throw new Error('no session');
   const { data, error } = await supabase
     .from('trip_ops')
     .insert({ trip_id: tripId, ops, author: user.id, client_id: CLIENT_ID })
