@@ -66,7 +66,17 @@ Where things stand so a fresh session can pick up without archaeology:
 - **AI chat persists per trip** on the library record; the deployed functions run the three-transport planner (see below) with `claude-sonnet-5`.
 - **Deploys are GitHub CI** — push to `main` auto-deploys. The Netlify env has `ANTHROPIC_API_KEY`.
 - Engine truth vs seed data: routed totals ~2,730 mi for the Sturgis trip; the field guide's own mile markers under-count (Missoula→Bozeman is ~203 mi, not 110).
-- Roadmap candidates discussed with the owner, not yet built: Supabase sync + shareable trips (owner already runs Supabase for another project), offline tile cache/service worker, ride track recording with actual-vs-plan replay, live rerouting in Ride Mode, native wrapper (Capacitor) for background GPS.
+- Roadmap candidates discussed with the owner, not yet built: offline tile cache/service worker, ride track recording with actual-vs-plan replay, live rerouting in Ride Mode, native wrapper (Capacitor) for background GPS.
+
+## Trip sync (Supabase)
+
+Shared trips sync through **the op log, not the trip document** — every mutation is already an op, so riders append theirs and replay each other's through the same `applyOps`. `src/engine/supabase.js` (client, auth, publish/join), `src/engine/useTripSync.js` (persisted outbox out, realtime in), `src/components/SyncPanel.jsx` (in Settings), `supabase/schema.sql` (tables, RLS, `join_trip()`).
+
+- **Riders join with a name and a join code** over an anonymous session — no email, no inbox, which is the whole point on a road trip. Only the organiser signs in by email, so the trip is recoverable on a new phone.
+- Offline-first is preserved, not bolted around: localStorage stays the device's truth, the outbox persists and drains on reconnect. With no env vars `SYNC_ENABLED` is false and the app behaves exactly as before.
+- **Remote ops do not push onto the undo stack** — undo restores a whole-trip snapshot and would silently revert a co-rider's edit. Conflicting simultaneous edits are last-write-wins by server `seq`, not merged.
+- Verified live: two anonymous riders, publish, join by code, ops both directions, realtime in 472ms, roster, and a signed-in stranger seeing 0 trips and 0 ops.
+- Keys are `VITE_SUPABASE_URL` / `VITE_SUPABASE_KEY` (publishable — safe in the client, RLS is the lock). The Netlify project lives on Niall's account, so env vars there are his to set.
 
 ## Conventions & gotchas
 
