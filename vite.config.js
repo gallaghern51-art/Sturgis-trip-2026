@@ -99,6 +99,10 @@ export default defineConfig({
   server: {
     port: Number(process.env.PORT) || 5199,
     strictPort: Boolean(process.env.PORT),
+    // Listen on the LAN so a real iPhone on the same wifi can load the dev
+    // build. Ride Mode needs a real GPS fix and real motion — a simulator
+    // cannot give it either, so the phone IS the test rig.
+    host: true,
   },
   // Surfaced under Settings → Developer tools, so a rider reporting a problem
   // can say which build they are on.

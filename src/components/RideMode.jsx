@@ -280,6 +280,7 @@ export default function RideMode({ onClose }) {
   const [dayId, setDayId] = useState(defaultDay);
   const [fix, setFix] = useState(null); // {lat,lng,speedMph,heading,accuracy,at}
   const [geoErr, setGeoErr] = useState(null);
+  const failSince = useRef(null); // when the fix started failing, for the grace period
   const [clock, setClock] = useState(nowMin());
   const [steps, setSteps] = useState(null);
   const [reroute, setReroute] = useState(null); // { geometry, steps } from live position
@@ -435,7 +436,14 @@ export default function RideMode({ onClose }) {
 
   // ---- GPS watch ----
   useEffect(() => {
-    if (!navigator.geolocation) { setGeoErr('No GPS available in this browser.'); return; }
+    if (!navigator.geolocation) { setGeoErr(t('No GPS available in this browser.')); return; }
+    // Geolocation needs a secure context. Loading the dev server over a plain
+    // http:// LAN address on a phone fails here with a Core Location error that
+    // reads like a bug, so name the actual cause.
+    if (!window.isSecureContext) {
+      setGeoErr(t('Location needs a secure connection — open the app over https. A plain http address will not get a fix on a phone.'));
+      return;
+    }
     const id = navigator.geolocation.watchPosition(
       (p) => {
         const st = statsRef.current;
@@ -457,9 +465,23 @@ export default function RideMode({ onClose }) {
         if (mph != null && mph < 140) st.maxMph = Math.max(st.maxMph, mph);
         st.last = next;
         setFix({ ...next, speedMph: mph, heading });
+        failSince.current = null;
         setGeoErr(null);
       },
-      (e) => setGeoErr(e.code === 1 ? 'Location permission denied — allow it in your browser settings to ride with the HUD.' : e.message),
+      (e) => {
+        // Core Location emits POSITION_UNAVAILABLE ("kCLErrorDomain error 0")
+        // routinely while acquiring — cold start, indoors, a tunnel — and it
+        // recovers on its own. A red banner for that is noise, and its raw
+        // message means nothing to a rider. Permission and no-GPS are real and
+        // said plainly; everything else has to persist before it is reported,
+        // and never replaces a fix already on screen.
+        if (e.code === 1) { failSince.current = null; setGeoErr(t('Location permission denied — allow it in your browser settings to ride with the HUD.')); return; }
+        if (statsRef.current.last) return; // still navigating on the last fix
+        failSince.current ??= Date.now();
+        if (Date.now() - failSince.current > 10000) {
+          setGeoErr(t('Waiting for a GPS fix. Outdoors with a clear view of the sky is fastest.'));
+        }
+      },
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
     );
     const tick = setInterval(() => setClock(nowMin()), 5000);
