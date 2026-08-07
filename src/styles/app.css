@@ -2454,3 +2454,23 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
      that hiding the turn card (RideMode does this while it is open) freed */
   .ride-sheet { max-height: 62vh; }
 }
+
+
+/* who is on the trip, and whether the log is caught up */
+.sync-or {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--ink-faint);
+  text-align: center; margin: 12px 0 8px;
+}
+.sync-row .code-in { flex: 0 0 116px; font-family: var(--mono); letter-spacing: 0.14em; text-transform: uppercase; }
+.sync-status { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; margin-top: 6px; }
+.sync-status.live { color: var(--ok); }
+.sync-status.syncing { color: var(--outbound); }
+.sync-status.error { color: var(--danger); }
+.sync-status.offline { color: var(--ink-faint); }
+.rider-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.rider-list li {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+  background: var(--asphalt-2); border: 1px solid var(--line);
+  border-radius: 4px; padding: 3px 8px;
+}

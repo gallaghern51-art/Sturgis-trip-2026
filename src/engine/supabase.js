@@ -42,7 +42,26 @@ export async function currentUser() {
   return data?.user ?? null;
 }
 
-/** Magic link: no passwords for anyone, which matters for a group of riders. */
+/**
+ * How a rider joins: no email, no password, no inbox.
+ *
+ * Magic links are wrong for this. A rider on the side of a road in the Bighorns
+ * should not have to reach an email client to see the trip, and two of these
+ * riders are in Chile. An anonymous session is created behind the join code —
+ * the code IS the credential — and the display name is theirs.
+ *
+ * The trade is that clearing Safari data loses the session; they rejoin with
+ * the same code. For eleven days that is the right trade.
+ */
+export async function signInAnonymously(name) {
+  if (!supabase) throw new Error('sync not configured');
+  const { error } = await supabase.auth.signInAnonymously({
+    options: { data: { name: name || null } },
+  });
+  if (error) throw error;
+}
+
+/** Owner path. A real account, so the trip is recoverable on a new phone. */
 export async function signIn(email) {
   if (!supabase) throw new Error('sync not configured');
   const { error } = await supabase.auth.signInWithOtp({
@@ -83,6 +102,18 @@ export async function joinTrip(code, riderName) {
   });
   if (error) throw error;
   return data;
+}
+
+/** Who is on this trip, for the roster. */
+export async function fetchMembers(tripId) {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('trip_members')
+    .select('user_id, name, joined_at')
+    .eq('trip_id', tripId)
+    .order('joined_at', { ascending: true });
+  if (error) return [];
+  return data ?? [];
 }
 
 /** Snapshot + every op after it — the state a phone joins into. */
