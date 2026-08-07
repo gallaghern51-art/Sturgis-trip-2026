@@ -2462,7 +2462,13 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ral
   text-transform: uppercase; color: var(--ink-faint);
   text-align: center; margin: 12px 0 8px;
 }
-.sync-row .code-in { flex: 0 0 116px; font-family: var(--mono); letter-spacing: 0.14em; text-transform: uppercase; }
+.sync-row .code-in {
+  flex: 1 1 40%; min-width: 0;
+  font-family: var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
+}
+/* the placeholder is longer than the value will ever be, so let it shrink
+   rather than clip — a field labelled "JOIN CODI" reads as a bug */
+.sync-row .code-in::placeholder { font-size: 0.85em; letter-spacing: 0.06em; }
 .sync-status { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; margin-top: 6px; }
 .sync-status.live { color: var(--ok); }
 .sync-status.syncing { color: var(--outbound); }
